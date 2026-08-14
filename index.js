@@ -23,6 +23,7 @@ export default {
         if (parts[2] === 'stamp' && request.method === 'POST') return handleStamp(request, env, slug);
         if (parts[2] === 'register' && request.method === 'POST') return handleRegister(request, env, slug);
         if (parts[2] === 'clientes') return handleClientesList(request, env, slug);
+        if (parts[2] === 'historial' && parts[3]) return handleHistorial(request, env, slug, parts[3]);
         if (parts[2] === 'logout') return handleLogout(slug);
         return handleStaffPage(request, env, slug);
       }
@@ -179,7 +180,7 @@ function renderCustomerCard(b, customer, slug, origin) {
       </div>
       <div class="card-body">
         <p class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</p>
-        <p class="greeting-name">${escapeHtml(customer.name)}</p>
+        <p class="greeting-name">${escapeHtml(customer.name.split(' ')[0])}</p>
         <div class="progress-row">
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
           <span class="progress-pct">${pct}%</span>
@@ -498,6 +499,7 @@ async function handleClientesList(request, env, slug) {
       <td>${escapeHtml(c.code)}</td>
       <td>${c.stamps}/${business.total_stamps}</td>
       <td>${c.cycle}</td>
+      <td><a href="./historial/${escapeHtml(c.code)}">Ver fechas</a></td>
     </tr>`).join('');
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -509,14 +511,66 @@ async function handleClientesList(request, env, slug) {
     table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:13px;}
     th,td{padding:8px 10px;text-align:left;border-bottom:1px solid ${business.color_page_bg};}
     th{background:${business.color_brown};color:white;}
+    a{color:${business.color_brown};}
     a.back{display:inline-block;margin-bottom:14px;color:${business.color_brown};font-weight:700;text-decoration:none;}
   </style></head>
   <body>
     <a class="back" href="./${slug}">← Volver al panel</a>
     <h1>Clientes de ${escapeHtml(business.name)} (${results.length})</h1>
     <table>
-      <tr><th>Nombre</th><th>Cédula</th><th>Celular</th><th>Código</th><th>Sellos</th><th>Ciclo</th></tr>
-      ${rows || '<tr><td colspan="6">Todavía no hay clientes registrados</td></tr>'}
+      <tr><th>Nombre</th><th>Cédula</th><th>Celular</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr>
+      ${rows || '<tr><td colspan="7">Todavía no hay clientes registrados</td></tr>'}
+    </table>
+  </body></html>`;
+
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+async function handleHistorial(request, env, slug, code) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response('Negocio no encontrado', { status: 404 });
+
+  const cookieVal = getCookie(request, 'staff_session');
+  if (cookieVal !== business.staff_pin_hash) {
+    return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+
+  const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?')
+    .bind(code, business.id).first();
+  if (!customer) return new Response('Cliente no encontrado', { status: 404 });
+
+  const { results } = await env.DB.prepare(
+    'SELECT stamped_at, cycle FROM visits WHERE customer_id = ? ORDER BY stamped_at DESC'
+  ).bind(customer.id).all();
+
+  const rows = results.map(v => `<tr><td>${escapeHtml(v.stamped_at)}</td><td>Tarjeta #${v.cycle}</td></tr>`).join('');
+  const premiosGanados = customer.cycle - 1;
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historial de ${escapeHtml(customer.name)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body{margin:0;padding:20px;font-family:'Quicksand',sans-serif;background:${business.color_page_bg};}
+    h1{font-family:'Baloo 2',sans-serif;color:${business.color_brown};font-size:18px;margin-bottom:2px;}
+    p.sub{color:${business.color_brown_soft};font-size:13px;margin-top:0;}
+    table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:13px;}
+    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid ${business.color_page_bg};}
+    th{background:${business.color_brown};color:white;}
+    a.back{display:inline-block;margin-bottom:14px;color:${business.color_brown};font-weight:700;text-decoration:none;}
+    .resumen{background:${business.color_butter_mid};border:2px solid ${business.color_brown};border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:${business.color_brown};}
+  </style></head>
+  <body>
+    <a class="back" href="./../clientes">← Volver a clientes</a>
+    <h1>${escapeHtml(customer.name)}</h1>
+    <p class="sub">Código actual: ${escapeHtml(customer.code)} · Cédula: ${escapeHtml(customer.cedula || '—')} · Celular: ${escapeHtml(customer.phone || '—')}</p>
+    <div class="resumen">
+      Sellos en su tarjeta actual: <b>${customer.stamps}/${business.total_stamps}</b><br>
+      Premios ganados hasta ahora: <b>${premiosGanados}</b><br>
+      Total de compras selladas: <b>${results.length}</b>
+    </div>
+    <table>
+      <tr><th>Fecha</th><th>Tarjeta</th></tr>
+      ${rows || '<tr><td colspan="2">Todavía no tiene compras registradas</td></tr>'}
     </table>
   </body></html>`;
 
@@ -540,6 +594,10 @@ async function handleStamp(request, env, slug) {
   }
 
   const newStamps = customer.stamps + 1;
+
+  // siempre queda una fila en la bitácora, con la fecha real, sin importar si completa el ciclo o no
+  await env.DB.prepare('INSERT INTO visits (customer_id, business_id, cycle, stamped_at) VALUES (?, ?, ?, datetime(\'now\'))')
+    .bind(customer.id, business.id, customer.cycle).run();
 
   if (newStamps >= business.total_stamps) {
     // completó la tarjeta: se cierra este ciclo y se genera un código nuevo para el siguiente
