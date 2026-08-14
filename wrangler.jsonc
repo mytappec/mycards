@@ -1,0 +1,12 @@
+{
+  "name": "tarjetas-sellos",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tarjetas-db",
+      "database_id": "PON_AQUI_EL_ID_QUE_TE_DA_CLOUDFLARE"
+    }
+  ]
+}
