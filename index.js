@@ -235,7 +235,8 @@ function baseStaffStyles(b) {
   button{width:100%;padding:12px;border:2px solid ${b.color_brown};border-radius:12px;background:${b.color_pink};color:${b.color_brown};font-weight:700;font-size:15px;cursor:pointer;}
   button:active{transform:scale(.98);}
   .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;}
-  .msg.ok{color:#3F7D4F;} .msg.err{color:#B23A3A;}
+  .msg.ok{color:#215A34;background:#DFF3E4;border:2px solid #3F7D4F;border-radius:12px;padding:14px 10px;font-size:17px;font-weight:800;}
+  .msg.err{color:#B23A3A;background:#FBE4E4;border:2px solid #B23A3A;border-radius:12px;padding:14px 10px;font-size:15px;font-weight:700;}
   a.logout{display:block;text-align:center;margin-top:16px;font-size:12px;color:${b.color_brown_soft};}
   `;
 }
@@ -303,6 +304,7 @@ function renderStaffPanel(b) {
       const scanHint = document.getElementById('scanHint');
       const videoEl = document.getElementById('preview');
       let qrScanner = null;
+      let scanLocked = false;
       if (typeof QrScanner !== 'undefined') {
         QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
       }
@@ -324,7 +326,7 @@ function renderStaffPanel(b) {
         if (res.ok) {
           msg.textContent = data.redeemed
             ? '🎉 ¡Completó su tarjeta! Se generó un nuevo ciclo.'
-            : 'Sello sumado: ' + data.stamps + '/' + data.total;
+            : '✅ Sello sumado: ' + data.stamps + '/' + data.total;
           msg.className = 'msg ok';
           codeInput.value = '';
         } else {
@@ -352,9 +354,12 @@ function renderStaffPanel(b) {
           return;
         }
         if (qrScanner) { qrScanner.destroy(); qrScanner = null; }
+        scanLocked = false;
         try {
           videoEl.style.display = 'block';
           qrScanner = new QrScanner(videoEl, result => {
+            if (scanLocked) return;
+            scanLocked = true;
             const code = extractCode(result.data);
             qrScanner.stop();
             qrScanner.destroy();
