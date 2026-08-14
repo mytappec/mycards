@@ -275,23 +275,43 @@ function renderStaffPanel(b) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Staff · ${escapeHtml(b.name)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>${baseStaffStyles(b)}</style></head>
+  <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+  <style>${baseStaffStyles(b)}
+    .scan-btn{background:${b.color_blue};margin-bottom:12px;}
+    #preview{width:100%;border-radius:14px;border:2px solid ${b.color_brown};margin-bottom:12px;display:none;}
+    .scan-hint{font-size:11px;color:${b.color_brown_soft};text-align:center;margin:-4px 0 12px;}
+  </style></head>
   <body>
     <div class="box">
       <h1>${escapeHtml(b.name)}</h1>
-      <p class="sub">Escribe o escanea el código del cliente para sumarle un sello</p>
+      <p class="sub">Escanea el QR del cliente, o escribe su código a mano</p>
+
+      <button type="button" id="scanBtn" class="scan-btn">📷 Escanear con cámara</button>
+      <video id="preview" muted playsinline></video>
+      <p class="scan-hint" id="scanHint"></p>
+
       <form id="stampForm">
-        <input type="text" id="code" placeholder="Código del cliente (ej. CC-JB2317)" autofocus autocapitalize="characters">
+        <input type="text" id="code" placeholder="Código del cliente (ej. CC-JB2317)" autocapitalize="characters">
         <button type="submit">Sumar sello</button>
       </form>
       <p class="msg" id="msg"></p>
       <a class="logout" href="./staff/logout">Cerrar sesión del local</a>
     </div>
     <script>
-      document.getElementById('stampForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const code = document.getElementById('code').value.trim();
-        const msg = document.getElementById('msg');
+      const codeInput = document.getElementById('code');
+      const msg = document.getElementById('msg');
+      const scanHint = document.getElementById('scanHint');
+      const videoEl = document.getElementById('preview');
+      let qrScanner = null;
+      let scanning = false;
+
+      function extractCode(rawValue){
+        // el QR guarda el link completo de la tarjeta (.../slug/CODIGO); nos quedamos con lo último
+        const parts = rawValue.split('/').filter(Boolean);
+        return parts[parts.length - 1] || rawValue;
+      }
+
+      async function submitStamp(code){
         if (!code) return;
         msg.textContent = 'Sumando...'; msg.className = 'msg';
         const res = await fetch(location.pathname + '/stamp', {
@@ -303,10 +323,49 @@ function renderStaffPanel(b) {
             ? '🎉 ¡Completó su tarjeta! Se generó un nuevo ciclo.'
             : 'Sello sumado: ' + data.stamps + '/' + data.total;
           msg.className = 'msg ok';
-          document.getElementById('code').value = '';
+          codeInput.value = '';
         } else {
           msg.textContent = data.error || 'No se encontró ese código';
           msg.className = 'msg err';
+        }
+      }
+
+      document.getElementById('stampForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitStamp(codeInput.value.trim());
+      });
+
+      document.getElementById('scanBtn').addEventListener('click', async () => {
+        if (scanning) {
+          if (qrScanner) qrScanner.stop();
+          videoEl.style.display = 'none';
+          scanHint.textContent = '';
+          scanning = false;
+          document.getElementById('scanBtn').textContent = '📷 Escanear con cámara';
+          return;
+        }
+        if (typeof QrScanner === 'undefined') {
+          scanHint.textContent = 'No se pudo cargar la cámara, escribe el código a mano.';
+          return;
+        }
+        try {
+          videoEl.style.display = 'block';
+          qrScanner = new QrScanner(videoEl, result => {
+            const code = extractCode(result.data);
+            qrScanner.stop();
+            videoEl.style.display = 'none';
+            scanning = false;
+            document.getElementById('scanBtn').textContent = '📷 Escanear con cámara';
+            codeInput.value = code;
+            submitStamp(code);
+          }, { highlightScanRegion: true, highlightCodeOutline: true });
+          await qrScanner.start();
+          scanning = true;
+          scanHint.textContent = 'Apunta la cámara al QR del cliente';
+          document.getElementById('scanBtn').textContent = '✕ Cancelar escaneo';
+        } catch (err) {
+          scanHint.textContent = 'No se pudo abrir la cámara (revisa permisos). Escribe el código a mano.';
+          videoEl.style.display = 'none';
         }
       });
     </script>
