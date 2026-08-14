@@ -303,6 +303,9 @@ function renderStaffPanel(b) {
       const scanHint = document.getElementById('scanHint');
       const videoEl = document.getElementById('preview');
       let qrScanner = null;
+      if (typeof QrScanner !== 'undefined') {
+        QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+      }
       let scanning = false;
 
       function extractCode(rawValue){
@@ -337,7 +340,7 @@ function renderStaffPanel(b) {
 
       document.getElementById('scanBtn').addEventListener('click', async () => {
         if (scanning) {
-          if (qrScanner) qrScanner.stop();
+          if (qrScanner) { qrScanner.stop(); qrScanner.destroy(); qrScanner = null; }
           videoEl.style.display = 'none';
           scanHint.textContent = '';
           scanning = false;
@@ -348,11 +351,14 @@ function renderStaffPanel(b) {
           scanHint.textContent = 'No se pudo cargar la cámara, escribe el código a mano.';
           return;
         }
+        if (qrScanner) { qrScanner.destroy(); qrScanner = null; }
         try {
           videoEl.style.display = 'block';
           qrScanner = new QrScanner(videoEl, result => {
             const code = extractCode(result.data);
             qrScanner.stop();
+            qrScanner.destroy();
+            qrScanner = null;
             videoEl.style.display = 'none';
             scanning = false;
             document.getElementById('scanBtn').textContent = '📷 Escanear con cámara';
@@ -366,6 +372,7 @@ function renderStaffPanel(b) {
         } catch (err) {
           scanHint.textContent = 'No se pudo abrir la cámara (revisa permisos). Escribe el código a mano.';
           videoEl.style.display = 'none';
+          if (qrScanner) { qrScanner.destroy(); qrScanner = null; }
         }
       });
     </script>
