@@ -5,6 +5,8 @@
 //   GET  /staff/:slug          -> pantalla de PIN o panel de sellado
 //   POST /staff/:slug/login    -> valida el PIN, crea sesión
 //   POST /staff/:slug/stamp    -> suma un sello a un cliente
+//   POST /staff/:slug/register -> registra un cliente nuevo (nombre, cédula, celular)
+//   GET  /staff/:slug/clientes -> lista de todos los clientes registrados
 //   GET  /staff/:slug/logout   -> cierra sesión
 // ============================================================
 
@@ -19,6 +21,8 @@ export default {
         const slug = parts[1];
         if (parts[2] === 'login' && request.method === 'POST') return handleLogin(request, env, slug);
         if (parts[2] === 'stamp' && request.method === 'POST') return handleStamp(request, env, slug);
+        if (parts[2] === 'register' && request.method === 'POST') return handleRegister(request, env, slug);
+        if (parts[2] === 'clientes') return handleClientesList(request, env, slug);
         if (parts[2] === 'logout') return handleLogout(slug);
         return handleStaffPage(request, env, slug);
       }
@@ -279,6 +283,8 @@ function renderStaffPanel(b) {
   <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
   <style>${baseStaffStyles(b)}
     .scan-btn{background:${b.color_blue};margin-bottom:12px;}
+    .secondary-btn{width:100%;padding:10px;border:2px dashed ${b.color_brown};border-radius:12px;background:transparent;color:${b.color_brown};font-weight:700;font-size:13px;cursor:pointer;margin-top:14px;}
+    #registerForm{margin-top:10px;}
     #preview{width:100%;border-radius:14px;border:2px solid ${b.color_brown};margin-bottom:12px;display:none;}
     .scan-hint{font-size:11px;color:${b.color_brown_soft};text-align:center;margin:-4px 0 12px;}
   </style></head>
@@ -296,6 +302,17 @@ function renderStaffPanel(b) {
         <button type="submit">Sumar sello</button>
       </form>
       <p class="msg" id="msg"></p>
+
+      <button type="button" id="toggleRegisterBtn" class="secondary-btn">➕ Registrar cliente nuevo</button>
+      <form id="registerForm" style="display:none;">
+        <input type="text" id="regName" placeholder="Nombre completo">
+        <input type="text" id="regCedula" placeholder="Cédula">
+        <input type="tel" id="regPhone" placeholder="Celular">
+        <button type="submit">Crear tarjeta</button>
+      </form>
+      <p class="msg" id="regMsg"></p>
+
+      <a class="logout" href="./staff/clientes">Ver todos los clientes</a>
       <a class="logout" href="./staff/logout">Cerrar sesión del local</a>
     </div>
     <script>
@@ -380,6 +397,40 @@ function renderStaffPanel(b) {
           if (qrScanner) { qrScanner.destroy(); qrScanner = null; }
         }
       });
+
+      const toggleBtn = document.getElementById('toggleRegisterBtn');
+      const registerForm = document.getElementById('registerForm');
+      const regMsg = document.getElementById('regMsg');
+      toggleBtn.addEventListener('click', () => {
+        const showing = registerForm.style.display !== 'none';
+        registerForm.style.display = showing ? 'none' : 'block';
+        toggleBtn.textContent = showing ? '➕ Registrar cliente nuevo' : '✕ Cancelar registro';
+        regMsg.textContent = '';
+      });
+
+      registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('regName').value.trim();
+        const cedula = document.getElementById('regCedula').value.trim();
+        const phone = document.getElementById('regPhone').value.trim();
+        if (!name) { regMsg.textContent = 'Falta el nombre'; regMsg.className = 'msg err'; return; }
+        regMsg.textContent = 'Creando tarjeta...'; regMsg.className = 'msg';
+        const res = await fetch(location.pathname + '/register', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ name, cedula, phone })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          regMsg.innerHTML = '✅ Tarjeta creada.<br>Código: <b>' + data.code + '</b><br><a href="' + data.url + '" target="_blank">Abrir su tarjeta</a>';
+          regMsg.className = 'msg ok';
+          document.getElementById('regName').value = '';
+          document.getElementById('regCedula').value = '';
+          document.getElementById('regPhone').value = '';
+        } else {
+          regMsg.textContent = data.error || 'No se pudo registrar';
+          regMsg.className = 'msg err';
+        }
+      });
     </script>
   </body></html>`;
 }
@@ -401,6 +452,75 @@ function handleLogout(slug) {
   const headers = new Headers({ 'Location': `/staff/${slug}` });
   headers.append('Set-Cookie', `staff_session=; Path=/staff/${slug}; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
   return new Response(null, { status: 302, headers });
+}
+
+async function handleRegister(request, env, slug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  const cookieVal = getCookie(request, 'staff_session');
+  if (cookieVal !== business.staff_pin_hash) {
+    return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a ingresar el PIN' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const { name, cedula, phone } = await request.json();
+  if (!name) {
+    return new Response(JSON.stringify({ error: 'Falta el nombre del cliente' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const code = generateCode(slug);
+  await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, phone, stamps) VALUES (?, ?, ?, ?, ?, 0)')
+    .bind(business.id, code, name, cedula || null, phone || null).run();
+
+  const url = new URL(request.url);
+  const cardUrl = `${url.origin}/${slug}/${code}`;
+  return new Response(JSON.stringify({ ok: true, code, url: cardUrl }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleClientesList(request, env, slug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response('Negocio no encontrado', { status: 404 });
+
+  const cookieVal = getCookie(request, 'staff_session');
+  if (cookieVal !== business.staff_pin_hash) {
+    return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+
+  const { results } = await env.DB.prepare(
+    'SELECT name, cedula, phone, code, stamps, cycle FROM customers WHERE business_id = ? ORDER BY id DESC'
+  ).bind(business.id).all();
+
+  const rows = results.map(c => `
+    <tr>
+      <td>${escapeHtml(c.name)}</td>
+      <td>${escapeHtml(c.cedula || '—')}</td>
+      <td>${escapeHtml(c.phone || '—')}</td>
+      <td>${escapeHtml(c.code)}</td>
+      <td>${c.stamps}/${business.total_stamps}</td>
+      <td>${c.cycle}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes · ${escapeHtml(business.name)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body{margin:0;padding:20px;font-family:'Quicksand',sans-serif;background:${business.color_page_bg};}
+    h1{font-family:'Baloo 2',sans-serif;color:${business.color_brown};font-size:18px;}
+    table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:13px;}
+    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid ${business.color_page_bg};}
+    th{background:${business.color_brown};color:white;}
+    a.back{display:inline-block;margin-bottom:14px;color:${business.color_brown};font-weight:700;text-decoration:none;}
+  </style></head>
+  <body>
+    <a class="back" href="./${slug}">← Volver al panel</a>
+    <h1>Clientes de ${escapeHtml(business.name)} (${results.length})</h1>
+    <table>
+      <tr><th>Nombre</th><th>Cédula</th><th>Celular</th><th>Código</th><th>Sellos</th><th>Ciclo</th></tr>
+      ${rows || '<tr><td colspan="6">Todavía no hay clientes registrados</td></tr>'}
+    </table>
+  </body></html>`;
+
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
 
 async function handleStamp(request, env, slug) {
