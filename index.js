@@ -137,15 +137,20 @@ function previewPanelHtml(logoBase64, sello1Base64) {
 function previewScript(initialSelloBase64) {
   return `
     let prevSelloUrl = ${JSON.stringify(initialSelloBase64 ? `data:image/png;base64,${initialSelloBase64}` : '')};
-    function readColor(id) { const el = document.getElementById(id); return el ? el.value : '#DCEAF4'; }
+    function readColor(id, fallback) { const el = document.getElementById(id); return el ? el.value : fallback; }
     function updatePreview() {
-      const pageBg = readColor('color_page_bg'), cardBg = readColor('color_card_bg');
-      const brown = readColor('color_brown'), brownSoft = readColor('color_brown_soft');
-      const pink = readColor('color_pink'), butterMid = readColor('color_butter_mid');
+      const pageBg = readColor('color_page_bg', '#DCEAF4'), cardBg = readColor('color_card_bg', '#FFFCF5');
+      const brown = readColor('color_brown', '#593212'), brownSoft = readColor('color_brown_soft', '#8A5A34');
+      const pink = readColor('color_pink', '#F4D3DF'), butterMid = readColor('color_butter_mid', '#F9E6B2');
+      const stampBg = readColor('color_stamp_bg', brown), rewardText = readColor('color_reward_text', brown);
       const fontSel = document.getElementById('font_family');
       const font = fontSel ? fontSel.value : 'Baloo 2';
-      const fallback = { 'Baloo 2':"'Arial Rounded MT Bold',sans-serif", 'Poppins':'sans-serif', 'Playfair Display':'serif', 'Montserrat':'sans-serif', 'Caveat':'cursive' }[font] || 'sans-serif';
+      const fallback = { 'Baloo 2':"'Arial Rounded MT Bold',sans-serif", 'Poppins':'sans-serif', 'Playfair Display':'serif', 'Montserrat':'sans-serif', 'Caveat':'cursive', 'Amiko':'sans-serif' }[font] || 'sans-serif';
       const fontCss = "'" + font + "'," + fallback;
+      const nameBold = document.getElementById('font_bold') ? document.getElementById('font_bold').checked : true;
+      const nameItalic = document.getElementById('font_italic') ? document.getElementById('font_italic').checked : false;
+      const eyebrowBold = document.getElementById('eyebrow_bold') ? document.getElementById('eyebrow_bold').checked : true;
+      const eyebrowItalic = document.getElementById('eyebrow_italic') ? document.getElementById('eyebrow_italic').checked : false;
 
       document.getElementById('prevPage').style.background = pageBg;
       document.getElementById('prevTop').style.borderColor = brown;
@@ -154,23 +159,26 @@ function previewScript(initialSelloBase64) {
 
       const eyebrow = document.getElementById('prevEyebrow');
       eyebrow.style.color = brownSoft; eyebrow.style.fontFamily = fontCss;
+      eyebrow.style.fontWeight = eyebrowBold ? '700' : '400'; eyebrow.style.fontStyle = eyebrowItalic ? 'italic' : 'normal';
       eyebrow.textContent = document.getElementById('greeting_eyebrow') ? document.getElementById('greeting_eyebrow').value || '¡Hello!' : '¡Hello!';
 
       const name = document.getElementById('prevName');
       name.style.color = brown; name.style.fontFamily = fontCss;
+      name.style.fontWeight = nameBold ? '700' : '400'; name.style.fontStyle = nameItalic ? 'italic' : 'normal';
 
       document.getElementById('prevBarTrack').style.borderColor = brown;
       document.getElementById('prevBarFill').style.background = pink;
 
       ['prevStamp1','prevStamp2','prevStamp3'].forEach((id, i) => {
         const el = document.getElementById(id);
-        el.style.background = brown;
+        el.style.background = stampBg;
         if (i === 0 && prevSelloUrl) { el.style.backgroundImage = 'url(' + prevSelloUrl + ')'; }
       });
 
       const reward = document.getElementById('prevReward');
-      reward.style.background = butterMid; reward.style.borderColor = brown; reward.style.color = brown;
+      reward.style.background = butterMid; reward.style.borderColor = brown; reward.style.color = rewardText;
       document.getElementById('prevRewardHeading').style.fontFamily = fontCss;
+      document.getElementById('prevRewardHeading').style.fontWeight = nameBold ? '700' : '400'; document.getElementById('prevRewardHeading').style.fontStyle = nameItalic ? 'italic' : 'normal';
       const rh = document.getElementById('reward_heading'); if (rh) document.getElementById('prevRewardHeading').textContent = rh.value || 'Tu premio, cada vez más cerca';
       const rt = document.getElementById('reward_text'); if (rt) document.getElementById('prevRewardText').textContent = rt.value || '';
     }
@@ -274,7 +282,7 @@ function adminBaseStyles() {
   .pw-wrap{position:relative;}
   .pw-wrap input{padding-right:44px;}
   .pw-toggle{position:absolute;right:10px;top:11px;background:none!important;border:none!important;width:auto!important;padding:2px!important;font-size:18px;cursor:pointer;line-height:1;}
-  button{width:100%;padding:13px;border:2px solid #2B2320;border-radius:12px;background:#FFD966;color:#2B2320;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
+  button{width:100%;padding:13px;border:2px solid #2B2320;border-radius:12px;background:#000000;color:#FFFFFF;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
   button:active{transform:scale(.98);}
   .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;}
   .msg.ok{color:#215A34;} .msg.err{color:#B23A3A;}
@@ -428,7 +436,7 @@ async function renderAdminDashboard(env, admin) {
     select{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;background:white;}
     .colors{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
     .sellos{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-    button{margin-top:18px;width:100%;padding:14px;border:2px solid #2B2320;border-radius:12px;background:#FFD966;color:#2B2320;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
+    button{margin-top:18px;width:100%;padding:14px;border:2px solid #2B2320;border-radius:12px;background:#000000;color:#FFFFFF;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
     .msg{text-align:center;font-size:13px;margin-top:12px;}
     .msg.ok{color:#215A34;} .msg.err{color:#B23A3A;}
     a.logout{float:right;font-size:12px;}
@@ -510,7 +518,15 @@ async function renderAdminDashboard(env, admin) {
             <option value="Caveat" style="font-family:'Caveat',cursive;">Caveat — Manuscrita y artesanal</option>
             <option value="Amiko" style="font-family:'Amiko',sans-serif;">Amiko — Limpia y legible</option>
           </select>
-          <div style="display:flex;gap:16px;margin-top:8px;">
+
+          <label>Estilo del saludo (ej. "¡Hello!")</label>
+          <div style="display:flex;gap:16px;margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_bold" checked style="width:auto;margin:0;"> Negrita</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_italic" style="width:auto;margin:0;"> Cursiva</label>
+          </div>
+
+          <label>Estilo del nombre del cliente</label>
+          <div style="display:flex;gap:16px;margin-top:4px;">
             <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" checked style="width:auto;margin:0;"> Negrita</label>
             <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" style="width:auto;margin:0;"> Cursiva</label>
           </div>
@@ -536,8 +552,17 @@ async function renderAdminDashboard(env, admin) {
             <option value="Envía una captura de este código junto a tu comprobante de pago.">Negocio digital: junto al comprobante</option>
           </select>
 
-          <label>Color de la estrella (sellos vacíos)</label>
-          <div class="color-field"><input type="color" class="colorPicker" id="star_color" value="#FFFFFF"><input type="text" class="colorHex" id="star_color_hex" value="#FFFFFF"></div>
+          <label>Color de los círculos del sello</label>
+          <div class="color-field"><input type="color" class="colorPicker" id="color_stamp_bg" value="#593212"><input type="text" class="colorHex" id="color_stamp_bg_hex" value="#593212"></div>
+
+          <label>Color del fondo del QR</label>
+          <div class="color-field"><input type="color" class="colorPicker" id="color_qr_bg" value="#F4D3DF"><input type="text" class="colorHex" id="color_qr_bg_hex" value="#F4D3DF"></div>
+
+          <label>Color del fondo de Instagram</label>
+          <div class="color-field"><input type="color" class="colorPicker" id="color_instagram_bg" value="#DCEAF4"><input type="text" class="colorHex" id="color_instagram_bg_hex" value="#DCEAF4"></div>
+
+          <label>Color del texto dentro de "Tu premio"</label>
+          <div class="color-field"><input type="color" class="colorPicker" id="color_reward_text" value="#593212"><input type="text" class="colorHex" id="color_reward_text_hex" value="#593212"></div>
 
           <label>Instagram (usuario)</label>
           <input type="text" id="instagram_handle" placeholder="@usuario">
@@ -641,8 +666,13 @@ async function renderAdminDashboard(env, admin) {
             font_family: document.getElementById('font_family').value,
             font_bold: document.getElementById('font_bold').checked,
             font_italic: document.getElementById('font_italic').checked,
+            eyebrow_bold: document.getElementById('eyebrow_bold').checked,
+            eyebrow_italic: document.getElementById('eyebrow_italic').checked,
             instruction_text: document.getElementById('instruction_text').value,
-            star_color: document.getElementById('star_color').value,
+            color_stamp_bg: document.getElementById('color_stamp_bg').value,
+            color_qr_bg: document.getElementById('color_qr_bg').value,
+            color_instagram_bg: document.getElementById('color_instagram_bg').value,
+            color_reward_text: document.getElementById('color_reward_text').value,
             color_page_bg: document.getElementById('color_page_bg').value,
             color_card_bg: document.getElementById('color_card_bg').value,
             color_brown: document.getElementById('color_brown').value,
@@ -825,19 +855,26 @@ async function handleCreateBusiness(request, env) {
   const fontFamily = FONTS[body.font_family] ? body.font_family : 'Baloo 2';
   const fontBold = body.font_bold ? 1 : 0;
   const fontItalic = body.font_italic ? 1 : 0;
+  const eyebrowBold = body.eyebrow_bold ? 1 : 0;
+  const eyebrowItalic = body.eyebrow_italic ? 1 : 0;
   const instructionText = body.instruction_text || 'Muestra este código en caja para sumar tu sello en cada compra.';
-  const starColor = body.star_color || '#FFFFFF';
+  const colorStampBg = body.color_stamp_bg || '#593212';
+  const colorQrBg = body.color_qr_bg || '#F4D3DF';
+  const colorInstagramBg = body.color_instagram_bg || '#DCEAF4';
+  const colorRewardText = body.color_reward_text || '#593212';
 
   await env.DB.prepare(`INSERT INTO businesses
     (slug, name, logo_base64, color_page_bg, color_card_bg, color_brown, color_brown_deep, color_brown_soft, color_pink, color_butter_mid, color_butter_light,
-     sello_1_base64, sello_2_base64, sello_3_base64, sello_4_base64, font_family, font_bold, font_italic, instruction_text, star_color,
+     sello_1_base64, sello_2_base64, sello_3_base64, sello_4_base64, font_family, font_bold, font_italic, eyebrow_bold, eyebrow_italic, instruction_text,
+     color_stamp_bg, color_qr_bg, color_instagram_bg, color_reward_text,
      total_stamps, greeting_eyebrow, reward_heading, reward_text, reward_emoji,
      instagram_handle, instagram_url, staff_pin_hash)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .bind(slug, body.name, body.logo_base64,
       body.color_page_bg || '#DCEAF4', body.color_card_bg || '#FFFCF5', body.color_brown || '#593212', body.color_brown_deep || '#3E2107',
       body.color_brown_soft || '#8A5A34', body.color_pink || '#F4D3DF', body.color_butter_mid || '#F9E6B2', body.color_butter_light || '#FBEFD2',
-      sello1, sello2, sello3, sello4, fontFamily, fontBold, fontItalic, instructionText, starColor,
+      sello1, sello2, sello3, sello4, fontFamily, fontBold, fontItalic, eyebrowBold, eyebrowItalic, instructionText,
+      colorStampBg, colorQrBg, colorInstagramBg, colorRewardText,
       body.total_stamps || 10, body.greeting_eyebrow || '¡Hello!', body.reward_heading || 'Tu premio, cada vez más cerca', body.reward_text, '⭐',
       body.instagram_handle || null, body.instagram_url || null, pinHash)
     .run();
@@ -898,7 +935,7 @@ async function handleEditBusinessForm(request, env, slug) {
     .sellos{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
     .current-img{width:40px;height:40px;object-fit:contain;background:#F4F1EA;border-radius:8px;padding:4px;vertical-align:middle;margin-right:8px;}
     .hint{font-size:11px;color:#8A6F4E;margin-top:2px;}
-    button{margin-top:18px;width:100%;padding:14px;border:2px solid #2B2320;border-radius:12px;background:#FFD966;color:#2B2320;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
+    button{margin-top:18px;width:100%;padding:14px;border:2px solid #2B2320;border-radius:12px;background:#000000;color:#FFFFFF;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
     .msg{text-align:center;font-size:13px;margin-top:12px;}
     .msg.ok{color:#215A34;} .msg.err{color:#B23A3A;}
     a.back{display:inline-block;margin-bottom:14px;color:#2B2320;font-weight:700;text-decoration:none;}
@@ -932,7 +969,15 @@ async function handleEditBusinessForm(request, env, slug) {
 
           <label>Tipografía</label>
           <select id="font_family">${fontOptions}</select>
-          <div style="display:flex;gap:16px;margin-top:8px;">
+
+          <label>Estilo del saludo (ej. "¡Hello!")</label>
+          <div style="display:flex;gap:16px;margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_bold" ${b.eyebrow_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_italic" ${b.eyebrow_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+          </div>
+
+          <label>Estilo del nombre del cliente</label>
+          <div style="display:flex;gap:16px;margin-top:4px;">
             <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" ${b.font_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
             <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" ${b.font_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
           </div>
@@ -942,10 +987,14 @@ async function handleEditBusinessForm(request, env, slug) {
             ${colorField('color_page_bg', 'Fondo de página', b.color_page_bg)}
             ${colorField('color_card_bg', 'Fondo de tarjeta', b.color_card_bg)}
             ${colorField('color_brown', 'Tinta / texto', b.color_brown)}
-            ${colorField('color_brown_deep', 'Tinta fuerte (sombra)', b.color_brown_deep)}
+            ${colorField('color_brown_deep', 'Sombra de la tarjeta', b.color_brown_deep)}
             ${colorField('color_brown_soft', 'Texto secundario', b.color_brown_soft)}
-            ${colorField('color_pink', 'Acento (QR, barra)', b.color_pink)}
-            ${colorField('color_butter_mid', 'Fondo del premio', b.color_butter_mid)}
+            ${colorField('color_pink', 'Barra de progreso', b.color_pink)}
+            ${colorField('color_butter_mid', 'Fondo de "Tu premio"', b.color_butter_mid)}
+            ${colorField('color_reward_text', 'Texto de "Tu premio"', b.color_reward_text)}
+            ${colorField('color_stamp_bg', 'Círculos del sello', b.color_stamp_bg)}
+            ${colorField('color_qr_bg', 'Fondo del QR', b.color_qr_bg)}
+            ${colorField('color_instagram_bg', 'Fondo de Instagram', b.color_instagram_bg)}
             ${colorField('color_butter_light', 'Fondo claro extra', b.color_butter_light)}
           </div>
 
@@ -969,9 +1018,6 @@ async function handleEditBusinessForm(request, env, slug) {
             <option value="Pega este código en el chat al hacer tu compra."${b.instruction_text === 'Pega este código en el chat al hacer tu compra.' ? ' selected' : ''}>Negocio digital: pegar en el chat</option>
             <option value="Envía una captura de este código junto a tu comprobante de pago."${b.instruction_text === 'Envía una captura de este código junto a tu comprobante de pago.' ? ' selected' : ''}>Negocio digital: junto al comprobante</option>
           </select>
-
-          <label>Color de la estrella (sellos vacíos)</label>
-          ${colorField('star_color', '', b.star_color)}
 
           <label>Instagram (usuario)</label>
           <input type="text" id="instagram_handle" value="${escapeHtml(b.instagram_handle || '')}">
@@ -1027,8 +1073,13 @@ async function handleEditBusinessForm(request, env, slug) {
             font_family: document.getElementById('font_family').value,
             font_bold: document.getElementById('font_bold').checked,
             font_italic: document.getElementById('font_italic').checked,
+            eyebrow_bold: document.getElementById('eyebrow_bold').checked,
+            eyebrow_italic: document.getElementById('eyebrow_italic').checked,
             instruction_text: document.getElementById('instruction_text').value,
-            star_color: document.getElementById('star_color').value,
+            color_stamp_bg: document.getElementById('color_stamp_bg').value,
+            color_qr_bg: document.getElementById('color_qr_bg').value,
+            color_instagram_bg: document.getElementById('color_instagram_bg').value,
+            color_reward_text: document.getElementById('color_reward_text').value,
             color_page_bg: document.getElementById('color_page_bg').value,
             color_card_bg: document.getElementById('color_card_bg').value,
             color_brown: document.getElementById('color_brown').value,
@@ -1069,14 +1120,20 @@ async function handleUpdateBusiness(request, env, slug) {
   const fontFamily = FONTS[body.font_family] ? body.font_family : business.font_family;
   const fontBold = body.font_bold ? 1 : 0;
   const fontItalic = body.font_italic ? 1 : 0;
+  const eyebrowBold = body.eyebrow_bold ? 1 : 0;
+  const eyebrowItalic = body.eyebrow_italic ? 1 : 0;
   const instructionText = body.instruction_text || business.instruction_text;
-  const starColor = body.star_color || business.star_color;
+  const colorStampBg = body.color_stamp_bg || business.color_stamp_bg;
+  const colorQrBg = body.color_qr_bg || business.color_qr_bg;
+  const colorInstagramBg = body.color_instagram_bg || business.color_instagram_bg;
+  const colorRewardText = body.color_reward_text || business.color_reward_text;
 
   await env.DB.prepare(`UPDATE businesses SET
       name = ?, logo_base64 = COALESCE(?, logo_base64),
       sello_1_base64 = COALESCE(?, sello_1_base64), sello_2_base64 = COALESCE(?, sello_2_base64),
       sello_3_base64 = COALESCE(?, sello_3_base64), sello_4_base64 = COALESCE(?, sello_4_base64),
-      font_family = ?, font_bold = ?, font_italic = ?, instruction_text = ?, star_color = ?,
+      font_family = ?, font_bold = ?, font_italic = ?, eyebrow_bold = ?, eyebrow_italic = ?, instruction_text = ?,
+      color_stamp_bg = ?, color_qr_bg = ?, color_instagram_bg = ?, color_reward_text = ?,
       color_page_bg = ?, color_card_bg = ?, color_brown = ?, color_brown_deep = ?, color_brown_soft = ?,
       color_pink = ?, color_butter_mid = ?, color_butter_light = ?, total_stamps = ?, greeting_eyebrow = ?,
       reward_heading = ?, reward_text = ?, instagram_handle = ?, instagram_url = ?
@@ -1084,7 +1141,8 @@ async function handleUpdateBusiness(request, env, slug) {
     .bind(
       body.name, body.logo_base64 || null,
       body.sello_1_base64 || null, body.sello_2_base64 || null, body.sello_3_base64 || null, body.sello_4_base64 || null,
-      fontFamily, fontBold, fontItalic, instructionText, starColor,
+      fontFamily, fontBold, fontItalic, eyebrowBold, eyebrowItalic, instructionText,
+      colorStampBg, colorQrBg, colorInstagramBg, colorRewardText,
       body.color_page_bg, body.color_card_bg, body.color_brown, body.color_brown_deep, body.color_brown_soft,
       body.color_pink, body.color_butter_mid, body.color_butter_light, body.total_stamps, body.greeting_eyebrow,
       body.reward_heading, body.reward_text, body.instagram_handle || null, body.instagram_url || null,
@@ -1203,7 +1261,6 @@ function renderCustomerCard(b, customer, slug, origin) {
     const isFilled = i <= filled;
     stampsHtml += `<div class="stamp${isFilled ? ' filled' : ''}${isReward ? ' reward' : ''}" data-sello="${selloKey}">
       <div class="stamp-img"></div>
-      <span class="stamp-placeholder">★</span>
       ${isReward ? '<span class="reward-tag">PREMIO</span>' : ''}
     </div>`;
   }
@@ -1227,10 +1284,12 @@ function renderCustomerCard(b, customer, slug, origin) {
     --page-bg:${b.color_page_bg}; --card-bg:${b.color_card_bg};
     --brown:${b.color_brown}; --brown-deep:${b.color_brown_deep}; --brown-soft:${b.color_brown_soft};
     --pink:${b.color_pink}; --butter-mid:${b.color_butter_mid}; --butter-light:${b.color_butter_light};
+    --stamp-bg:${b.color_stamp_bg}; --qr-bg:${b.color_qr_bg}; --instagram-bg:${b.color_instagram_bg}; --reward-text:${b.color_reward_text};
     --font-display:'${b.font_family}',${font.fallback};
-    --font-weight:${b.font_bold ? '700' : '400'};
-    --font-style:${b.font_italic ? 'italic' : 'normal'};
-    --star-color:${b.star_color};
+    --font-weight-name:${b.font_bold ? '700' : '400'};
+    --font-style-name:${b.font_italic ? 'italic' : 'normal'};
+    --font-weight-eyebrow:${b.eyebrow_bold ? '700' : '400'};
+    --font-style-eyebrow:${b.eyebrow_italic ? 'italic' : 'normal'};
     --img-s1:url("data:image/png;base64,${sellos[0]}");
     --img-s2:url("data:image/png;base64,${sellos[1]}");
     --img-s3:url("data:image/png;base64,${sellos[2]}");
@@ -1243,19 +1302,17 @@ function renderCustomerCard(b, customer, slug, origin) {
   .card-top{padding:30px 24px 22px;text-align:center;border-bottom:2px solid var(--brown);}
   .brand-logo{max-width:150px;width:56%;height:auto;display:block;margin:0 auto;}
   .card-body{padding:20px 24px 22px;}
-  .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:16px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
-  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:21px;color:var(--brown);margin:1px 0 16px;line-height:1.15;}
+  .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:16px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
+  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:21px;color:var(--brown);margin:1px 0 16px;line-height:1.15;}
   .progress-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
   .progress-track{flex:1;height:20px;border-radius:99px;background:#FFFFFF;border:2px solid var(--brown);overflow:hidden;}
   .progress-fill{height:100%;border-radius:99px;background:var(--pink);}
-  .progress-pct{font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:13px;color:var(--brown);min-width:34px;text-align:right;}
+  .progress-pct{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:13px;color:var(--brown);min-width:34px;text-align:right;}
   .progress-text{font-size:12.5px;color:var(--brown-soft);margin:0 0 26px;}
   .progress-text b{color:var(--brown);}
   .stamp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:14px;}
-  .stamp{aspect-ratio:1;border-radius:50%;background:var(--brown);display:flex;align-items:center;justify-content:center;position:relative;}
+  .stamp{aspect-ratio:1;border-radius:50%;background:var(--stamp-bg);display:flex;align-items:center;justify-content:center;position:relative;}
   .stamp-img{width:84%;height:84%;background-size:contain;background-position:center;background-repeat:no-repeat;opacity:0;}
-  .stamp-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:19px;opacity:.4;color:var(--star-color);font-style:normal;}
-  .stamp.filled .stamp-placeholder{display:none;}
   .stamp[data-sello="s1"] .stamp-img{background-image:var(--img-s1);} .stamp[data-sello="s2"] .stamp-img{background-image:var(--img-s2);}
   .stamp[data-sello="s3"] .stamp-img{background-image:var(--img-s3);} .stamp[data-sello="s4"] .stamp-img{background-image:var(--img-s4);}
   .stamp::before{content:"";position:absolute;inset:3px;border-radius:50%;border:1.5px solid rgba(255,248,236,.4);}
@@ -1266,15 +1323,15 @@ function renderCustomerCard(b, customer, slug, origin) {
   .stamp.reward:not(.filled)::after{opacity:1;animation:pulse 1.8s ease-in-out infinite;}
   @keyframes pulse{0%,100%{transform:scale(1);opacity:.55;}50%{transform:scale(1.04);opacity:1;}}
   .reward-tag{position:absolute;bottom:-15px;left:0;right:0;width:max-content;margin:0 auto;background:var(--butter-mid);border:1.5px solid var(--brown);color:var(--brown);font-family:var(--font-display);font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;white-space:nowrap;text-align:center;z-index:3;}
-  .reward-note{margin-top:26px;background:var(--butter-mid);border:2px solid var(--brown);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:10px;color:var(--brown);font-size:12px;}
+  .reward-note{margin-top:26px;background:var(--butter-mid);border:2px solid var(--brown);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:10px;color:var(--reward-text);font-size:12px;}
   .reward-note .r-emoji{font-size:24px;flex-shrink:0;}
-  .reward-note strong{display:block;font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:13.5px;margin-bottom:1px;color:var(--brown);}
+  .reward-note strong{display:block;font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:13.5px;margin-bottom:1px;color:var(--reward-text);}
   .qr-section{margin-top:20px;border-top:2px dashed var(--page-bg);padding-top:18px;display:flex;align-items:center;gap:14px;}
-  .qr-box{width:86px;height:86px;background:var(--pink);border:2px solid var(--brown);border-radius:14px;padding:6px;flex-shrink:0;}
+  .qr-box{width:86px;height:86px;background:var(--qr-bg);border:2px solid var(--brown);border-radius:14px;padding:6px;flex-shrink:0;}
   .qr-box canvas{width:100%!important;height:100%!important;border-radius:6px;display:block;}
   .qr-copy{font-size:11.5px;color:var(--brown-soft);line-height:1.45;}
-  .qr-copy b{display:block;font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:13.5px;color:var(--brown);letter-spacing:.3px;margin-bottom:2px;}
-  .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:16px auto 0;padding:7px 14px;background:var(--page-bg);border-radius:99px;color:var(--brown);text-decoration:none;font-size:12px;font-weight:700;}
+  .qr-copy b{display:block;font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:13.5px;color:var(--brown);letter-spacing:.3px;margin-bottom:2px;}
+  .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:16px auto 0;padding:7px 14px;background:var(--instagram-bg);border-radius:99px;color:var(--brown);text-decoration:none;font-size:12px;font-weight:700;}
   .credit{text-align:center;font-size:13px;color:var(--brown);margin:18px 0 0;}
   .credit a{color:var(--brown);font-weight:700;text-decoration:underline;}
 </style>
