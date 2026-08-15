@@ -35,6 +35,7 @@ export default {
         if (parts[1] === 'business' && parts[2] && parts[3] === 'edit') return handleEditBusinessForm(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'update' && request.method === 'POST') return handleUpdateBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBusiness(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'unlock' && request.method === 'POST') return handleUnlockBusiness(request, env, parts[2]);
         return handleAdminPage(request, env);
       }
 
@@ -306,11 +307,40 @@ async function verifyPassword(password, stored) {
   return recomputed === stored;
 }
 
+// nunca deja que el número de sellos quede en 0, negativo, o algo absurdo
+// (evita que la tarjeta se rompa con divisiones entre cero o porcentajes imposibles)
+// nunca deja pasar un "color" que no sea un color de verdad (formato #RRGGBB),
+// para que nadie pueda meter código raro en la página a través de este campo
+function sanitizeColor(value, fallback) {
+  if (typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value)) return value;
+  return fallback;
+}
+
+function sanitizeTotalStamps(value, fallback) {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n) || n < 3) return fallback || 10;
+  if (n > 50) return 50;
+  return n;
+}
+
 function generateCode(slug) {
   const prefix = slug.slice(0, 2).toUpperCase();
   const rand = crypto.getRandomValues(new Uint8Array(4));
   const suffix = [...rand].map(b => b.toString(16)).join('').toUpperCase().slice(0, 6);
   return `${prefix}-${suffix}`;
+}
+
+// el código es único en TODA la base de datos (no solo por negocio), así que antes de
+// usarlo comprobamos que no exista ya. Con el azar disponible esto casi nunca se repite,
+// pero si algún día pasa, aquí se reintenta en vez de fallar.
+async function generateUniqueCode(env, slug) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = generateCode(slug);
+    const existing = await env.DB.prepare('SELECT id FROM customers WHERE code = ?').bind(code).first();
+    if (!existing) return code;
+  }
+  // si en 5 intentos seguidos hubo choque (prácticamente imposible), se agrega algo de tiempo para forzar diferencia
+  return generateCode(slug) + Date.now().toString(36).slice(-2).toUpperCase();
 }
 
 function getCookie(request, name) {
@@ -475,8 +505,11 @@ function renderAdminLogin() {
 }
 
 async function renderAdminDashboard(env, admin) {
-  const { results } = await env.DB.prepare('SELECT slug, name, created_at FROM businesses ORDER BY id DESC').all();
-  const rows = results.map(b => `
+  const { results } = await env.DB.prepare('SELECT slug, name, created_at, staff_login_locked_until FROM businesses ORDER BY id DESC').all();
+  const now = new Date();
+  const rows = results.map(b => {
+    const isLocked = b.staff_login_locked_until && new Date(b.staff_login_locked_until + 'Z') > now;
+    return `
     <tr>
       <td>${escapeHtml(b.name)}</td>
       <td>${escapeHtml(b.slug)}</td>
@@ -484,8 +517,10 @@ async function renderAdminDashboard(env, admin) {
       <td><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a></td>
       <td><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
       <td><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
+      <td>${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;font-weight:700;">🔒 Desbloquear PIN</a>` : '—'}</td>
       <td><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   return new Response(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel · My Tapp</title>
@@ -534,8 +569,8 @@ async function renderAdminDashboard(env, admin) {
 
       <h2>Tus negocios (${results.length})</h2>
       <table>
-        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>QR</th><th>Editar</th><th>Borrar</th></tr>
-        ${rows || '<tr><td colspan="7">Todavía no has creado ningún negocio</td></tr>'}
+        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>QR</th><th>Editar</th><th>PIN</th><th>Borrar</th></tr>
+        ${rows || '<tr><td colspan="8">Todavía no has creado ningún negocio</td></tr>'}
       </table>
       <p id="deleteMsg" class="msg"></p>
 
@@ -694,6 +729,15 @@ async function renderAdminDashboard(env, admin) {
             link2.href = canvas.toDataURL('image/png');
             link2.click();
           });
+        });
+      });
+      document.querySelectorAll('.unlock-biz').forEach(link => {
+        link.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const slug = link.dataset.slug;
+          const res = await fetch('/admin/business/' + slug + '/unlock', { method: 'POST' });
+          if (res.ok) { location.reload(); }
+          else { alert('No se pudo desbloquear, intenta de nuevo.'); }
         });
       });
       function fileToBase64(file) {
@@ -915,7 +959,7 @@ async function handleCreateBusiness(request, env) {
   if (!slug || !body.name || !body.logo_base64 || !body.pin) {
     return new Response(JSON.stringify({ error: 'Faltan campos obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  if (['admin', 'staff'].includes(slug)) {
+  if (['admin', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined'].includes(slug)) {
     return new Response(JSON.stringify({ error: 'Ese slug está reservado, usa otro' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   const existing = await env.DB.prepare('SELECT id FROM businesses WHERE slug = ?').bind(slug).first();
@@ -936,7 +980,7 @@ async function handleCreateBusiness(request, env) {
   const fixedFields = {
     slug, name: body.name, logo_base64: body.logo_base64,
     sello_1_base64: sello1, sello_2_base64: sello2, sello_3_base64: sello3, sello_4_base64: sello4,
-    font_family: fontFamily, total_stamps: body.total_stamps || 10,
+    font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, 10),
     greeting_eyebrow: body.greeting_eyebrow || '¡Hello!', reward_heading: body.reward_heading || 'Tu premio, cada vez más cerca',
     reward_text: body.reward_text, reward_emoji: '⭐',
     instagram_handle: body.instagram_handle || null, instagram_url: body.instagram_url || null, staff_pin_hash: pinHash,
@@ -956,7 +1000,7 @@ async function handleCreateBusiness(request, env) {
     color_text_qr_code: '#593212', color_text_qr_instruction: '#8A5A34', color_text_instagram: '#593212', color_text_credit: '#593212',
     color_qr_pattern_dark: '#593212', color_qr_pattern_light: '#F4D3DF',
   };
-  for (const key of Object.keys(colorDefaults)) fixedFields[key] = body[key] || colorDefaults[key];
+  for (const key of Object.keys(colorDefaults)) fixedFields[key] = sanitizeColor(body[key], colorDefaults[key]);
 
   const columns = Object.keys(fixedFields);
   const placeholders = columns.map(() => '?').join(',');
@@ -980,6 +1024,18 @@ async function handleDeleteBusiness(request, env, slug) {
   await env.DB.prepare('DELETE FROM customers WHERE business_id = ?').bind(business.id).run();
   await env.DB.prepare('DELETE FROM businesses WHERE id = ?').bind(business.id).run();
 
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleUnlockBusiness(request, env, slug) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  await env.DB.prepare('UPDATE businesses SET staff_login_fails = 0, staff_login_locked_until = NULL WHERE id = ?').bind(business.id).run();
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 }
 
@@ -1195,7 +1251,7 @@ async function handleUpdateBusiness(request, env, slug) {
     sello_2_base64: body.sello_2_base64 || null, sello_3_base64: body.sello_3_base64 || null, sello_4_base64: body.sello_4_base64 || null };
 
   const fixedFields = {
-    name: body.name, font_family: fontFamily, total_stamps: body.total_stamps,
+    name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
     greeting_eyebrow: body.greeting_eyebrow, reward_heading: body.reward_heading, reward_text: body.reward_text,
     instagram_handle: body.instagram_handle || null, instagram_url: body.instagram_url || null,
     instruction_text: body.instruction_text || business.instruction_text,
@@ -1210,7 +1266,7 @@ async function handleUpdateBusiness(request, env, slug) {
     'color_text_qr_code', 'color_text_qr_instruction', 'color_text_instagram', 'color_text_credit',
     'color_qr_pattern_dark', 'color_qr_pattern_light',
   ];
-  for (const key of colorFieldNames) fixedFields[key] = body[key] || business[key];
+  for (const key of colorFieldNames) fixedFields[key] = sanitizeColor(body[key], business[key]);
 
   const setClauses = Object.keys(imageFields).map(c => `${c} = COALESCE(?, ${c})`)
     .concat(Object.keys(fixedFields).map(c => `${c} = ?`));
@@ -1252,12 +1308,15 @@ async function handlePublicRegisterForm(env, slug) {
       <form id="regForm">
         <input type="text" id="nombre" placeholder="Nombre" required>
         <input type="text" id="apellido" placeholder="Apellido" required>
-        <input type="text" id="cedula" placeholder="Cédula" required>
+        <input type="text" id="cedula" placeholder="Cédula (10 dígitos)" required inputmode="numeric" pattern="[0-9]{10}" maxlength="10" minlength="10">
         <button type="submit">Continuar</button>
       </form>
       <p class="msg" id="msg"></p>
     </div>
     <script>
+      document.getElementById('cedula').addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+      });
       document.getElementById('regForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const nombre = document.getElementById('nombre').value.trim();
@@ -1265,6 +1324,7 @@ async function handlePublicRegisterForm(env, slug) {
         const cedula = document.getElementById('cedula').value.trim();
         const msg = document.getElementById('msg');
         if (!nombre || !apellido || !cedula) { msg.textContent = 'Completa los 3 campos'; return; }
+        if (!/^[0-9]{10}$/.test(cedula)) { msg.textContent = 'La cédula debe tener exactamente 10 números'; return; }
         msg.textContent = 'Creando tu tarjeta...';
         const res = await fetch(location.pathname, {
           method: 'POST', headers: {'Content-Type':'application/json'},
@@ -1291,6 +1351,9 @@ async function handlePublicRegisterSubmit(request, env, slug) {
   if (!nombre || !apellido || !cedula) {
     return new Response(JSON.stringify({ error: 'Faltan datos' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
+  if (!/^[0-9]{10}$/.test(String(cedula).trim())) {
+    return new Response(JSON.stringify({ error: 'La cédula debe tener exactamente 10 números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
 
   const fullName = `${nombre.trim()} ${apellido.trim()}`;
   const cedulaLimpia = cedula.trim();
@@ -1306,7 +1369,7 @@ async function handlePublicRegisterSubmit(request, env, slug) {
       { headers: { 'Content-Type': 'application/json' } });
   }
 
-  const code = generateCode(slug);
+  const code = await generateUniqueCode(env, slug);
   await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, stamps) VALUES (?, ?, ?, ?, 0)')
     .bind(business.id, code, fullName, cedulaLimpia).run();
 
@@ -1706,11 +1769,36 @@ function renderStaffPanel(b) {
 async function handleLogin(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
+
+  // si está bloqueado por demasiados intentos fallidos, ni siquiera se revisa el PIN
+  if (business.staff_login_locked_until) {
+    const lockedUntil = new Date(business.staff_login_locked_until + 'Z');
+    const now = new Date();
+    if (lockedUntil > now) {
+      const minutesLeft = Math.ceil((lockedUntil - now) / 60000);
+      return new Response(JSON.stringify({ error: `Demasiados intentos fallidos. Espera ${minutesLeft} minuto${minutesLeft === 1 ? '' : 's'}, o pide a la administradora que lo desbloquee.` }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } });
+    }
+  }
+
   const { pin } = await request.json();
   const hash = await sha256Hex(String(pin || ''));
   if (hash !== business.staff_pin_hash) {
-    return new Response(JSON.stringify({ error: 'PIN incorrecto' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    const fails = (business.staff_login_fails || 0) + 1;
+    if (fails >= 4) {
+      const lockedUntil = new Date(Date.now() + 15 * 60000).toISOString().slice(0, 19);
+      await env.DB.prepare('UPDATE businesses SET staff_login_fails = ?, staff_login_locked_until = ? WHERE id = ?')
+        .bind(fails, lockedUntil, business.id).run();
+      return new Response(JSON.stringify({ error: 'Demasiados intentos fallidos. Queda bloqueado 15 minutos, o pide a la administradora que lo desbloquee.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } });
+    }
+    await env.DB.prepare('UPDATE businesses SET staff_login_fails = ? WHERE id = ?').bind(fails, business.id).run();
+    return new Response(JSON.stringify({ error: `PIN incorrecto (${4 - fails} intento${4 - fails === 1 ? '' : 's'} antes de bloquearse)` }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
+
+  // PIN correcto: se limpian los intentos fallidos
+  await env.DB.prepare('UPDATE businesses SET staff_login_fails = 0, staff_login_locked_until = NULL WHERE id = ?').bind(business.id).run();
+
   const headers = new Headers({ 'Content-Type': 'application/json' });
   headers.append('Set-Cookie', `staff_session=${hash}; Path=/staff/${slug}; HttpOnly; Secure; SameSite=Strict; Max-Age=43200`);
   return new Response(JSON.stringify({ ok: true }), { headers });
@@ -1736,7 +1824,7 @@ async function handleRegister(request, env, slug) {
     return new Response(JSON.stringify({ error: 'Falta el nombre del cliente' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
-  const code = generateCode(slug);
+  const code = await generateUniqueCode(env, slug);
   await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, phone, stamps) VALUES (?, ?, ?, ?, ?, 0)')
     .bind(business.id, code, name, cedula || null, phone || null).run();
 
@@ -1868,7 +1956,7 @@ async function handleStamp(request, env, slug) {
 
   if (newStamps >= business.total_stamps) {
     // completó la tarjeta: se cierra este ciclo y se genera un código nuevo para el siguiente
-    const newCode = generateCode(slug);
+    const newCode = await generateUniqueCode(env, slug);
     await env.DB.prepare("UPDATE customers SET stamps = 0, cycle = cycle + 1, redeemed_at = datetime('now'), code = ? WHERE id = ?")
       .bind(newCode, customer.id).run();
     return new Response(JSON.stringify({ ok: true, redeemed: true, stamps: business.total_stamps, total: business.total_stamps, newCode }),
