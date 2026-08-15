@@ -1,11 +1,13 @@
 // ============================================================
 // Tarjetas de sellos digitales — Worker principal
 // Rutas:
+//   GET  /:slug/nuevo          -> formulario público para que el CLIENTE se registre solo
+//   POST /:slug/nuevo          -> crea al cliente y lo manda directo a su tarjeta
 //   GET  /:slug/:code          -> tarjeta del cliente
 //   GET  /staff/:slug          -> pantalla de PIN o panel de sellado
 //   POST /staff/:slug/login    -> valida el PIN, crea sesión
 //   POST /staff/:slug/stamp    -> suma un sello a un cliente
-//   POST /staff/:slug/register -> registra un cliente nuevo (nombre, cédula, celular)
+//   POST /staff/:slug/register -> registra un cliente nuevo desde el panel (respaldo manual)
 //   GET  /staff/:slug/clientes -> lista de todos los clientes registrados
 //   GET  /staff/:slug/logout   -> cierra sesión
 // ============================================================
@@ -26,6 +28,12 @@ export default {
         if (parts[2] === 'historial' && parts[3]) return handleHistorial(request, env, slug, parts[3]);
         if (parts[2] === 'logout') return handleLogout(slug);
         return handleStaffPage(request, env, slug);
+      }
+
+      // ---- auto-registro público del cliente: /:slug/nuevo ----
+      if (parts.length === 2 && parts[1] === 'nuevo') {
+        if (request.method === 'POST') return handlePublicRegisterSubmit(request, env, parts[0]);
+        return handlePublicRegisterForm(env, parts[0]);
       }
 
       // ---- tarjeta del cliente: /:slug/:code ----
@@ -70,6 +78,83 @@ async function getBusiness(env, slug) {
 // ------------------------------------------------------------
 // tarjeta del cliente
 // ------------------------------------------------------------
+
+async function handlePublicRegisterForm(env, slug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response('Negocio no encontrado', { status: 404 });
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bienvenido · ${escapeHtml(business.name)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:${business.color_page_bg};font-family:'Quicksand',sans-serif;padding:24px;}
+    .box{width:100%;max-width:360px;background:${business.color_card_bg};border:2.5px solid ${business.color_brown};border-radius:24px;padding:28px 24px;box-shadow:0 10px 0 ${business.color_brown_deep};text-align:center;}
+    .brand-logo{max-width:140px;width:60%;margin:0 auto 18px;display:block;}
+    h1{font-family:'Baloo 2',sans-serif;font-size:19px;color:${business.color_brown};margin:0 0 6px;}
+    p.sub{font-size:13px;color:${business.color_brown_soft};margin:0 0 20px;}
+    input{width:100%;padding:12px 14px;border:2px solid ${business.color_brown};border-radius:12px;font-size:15px;margin-bottom:10px;font-family:'Quicksand',sans-serif;text-align:center;}
+    button{width:100%;padding:13px;border:2px solid ${business.color_brown};border-radius:12px;background:${business.color_pink};color:${business.color_brown};font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;margin-top:6px;}
+    button:active{transform:scale(.98);}
+    .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;color:#B23A3A;}
+  </style></head>
+  <body>
+    <div class="box">
+      <img class="brand-logo" src="data:image/png;base64,${business.logo_base64}" alt="${escapeHtml(business.name)}">
+      <h1>¡Bienvenido!</h1>
+      <p class="sub">Aquí te recompensamos por tus compras. Regístrate para empezar a juntar tus sellos.</p>
+      <form id="regForm">
+        <input type="text" id="nombre" placeholder="Nombre" required>
+        <input type="text" id="apellido" placeholder="Apellido" required>
+        <input type="text" id="cedula" placeholder="Cédula" required>
+        <button type="submit">Continuar</button>
+      </form>
+      <p class="msg" id="msg"></p>
+    </div>
+    <script>
+      document.getElementById('regForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nombre = document.getElementById('nombre').value.trim();
+        const apellido = document.getElementById('apellido').value.trim();
+        const cedula = document.getElementById('cedula').value.trim();
+        const msg = document.getElementById('msg');
+        if (!nombre || !apellido || !cedula) { msg.textContent = 'Completa los 3 campos'; return; }
+        msg.textContent = 'Creando tu tarjeta...';
+        const res = await fetch(location.pathname, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ nombre, apellido, cedula })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          location.href = data.url;
+        } else {
+          msg.textContent = data.error || 'No se pudo crear tu tarjeta';
+        }
+      });
+    </script>
+  </body></html>`;
+
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+async function handlePublicRegisterSubmit(request, env, slug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  const { nombre, apellido, cedula } = await request.json();
+  if (!nombre || !apellido || !cedula) {
+    return new Response(JSON.stringify({ error: 'Faltan datos' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const fullName = `${nombre.trim()} ${apellido.trim()}`;
+  const code = generateCode(slug);
+  await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, stamps) VALUES (?, ?, ?, ?, 0)')
+    .bind(business.id, code, fullName, cedula.trim()).run();
+
+  const url = new URL(request.url);
+  const cardUrl = `${url.origin}/${slug}/${code}`;
+  return new Response(JSON.stringify({ ok: true, code, url: cardUrl }), { headers: { 'Content-Type': 'application/json' } });
+}
 
 async function handleCustomerCard(env, slug, code, origin) {
   const business = await getBusiness(env, slug);
