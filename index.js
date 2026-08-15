@@ -602,14 +602,14 @@ async function renderAdminDashboard(env, admin) {
     const isOverdue = b.next_payment_date && b.next_payment_date < today;
     return `
     <tr>
-      <td style="white-space:nowrap;"><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar tarjeta</a></td>
+      <td style="white-space:nowrap;"><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
       <td style="white-space:nowrap;">${escapeHtml(b.name)}</td>
       <td style="white-space:nowrap;">${escapeHtml(b.slug)}</td>
       <td style="white-space:nowrap;"><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
       <td style="white-space:nowrap;"><span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span></td>
       <td style="white-space:nowrap;">${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;font-weight:700;">🔒 Desbloquear</a>` : '—'}</td>
-      <td style="white-space:nowrap;"><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Panel staff</a></td>
-      <td style="white-space:nowrap;"><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a></td>
+      <td style="white-space:nowrap;"><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Link para staff</a></td>
+      <td style="white-space:nowrap;"><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link para clientes</a></td>
       <td style="white-space:nowrap;">
         <div class="payment-cell" data-slug="${escapeHtml(b.slug)}">
           <div style="margin-bottom:4px;">
@@ -676,23 +676,14 @@ async function renderAdminDashboard(env, admin) {
   </style></head>
   <body>
     <div class="wrap">
-      <a class="logout" href="/admin/logout">Cerrar sesión</a>
-      <h1 style="white-space:nowrap;">My Tapp by Anaelí Brand</h1>
-
-      <h2>Tus negocios (${results.length})</h2>
-      <div style="overflow-x:auto;">
-      <table>
-        <tr><th>Editar tarjeta</th><th>Negocio</th><th>Slug</th><th>Código QR</th><th>PIN</th><th>Ver PIN</th><th>Link para staff</th><th>Link para clientes</th><th>Suscripción</th><th>Estado de pago</th><th>Borrar</th></tr>
-        ${rows || '<tr><td colspan="11">Todavía no has creado ningún negocio</td></tr>'}
-      </table>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+        <h1 style="white-space:nowrap;margin:0;">My Tapp by Anaelí Brand</h1>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <button type="button" id="toggleSettingsBtn" style="width:auto;margin:0;padding:8px 14px;font-size:12px;background:#F4F1EA;color:#2B2320;">⚙️ Configuración</button>
+          <a class="logout" href="/admin/logout" style="float:none;">Cerrar sesión</a>
+        </div>
       </div>
-      <p id="deleteMsg" class="msg"></p>
-
-      <h2 style="display:flex;align-items:center;justify-content:space-between;">
-        <span>Tu cuenta</span>
-        <button type="button" id="toggleSettingsBtn" style="width:auto;margin:0;padding:8px 14px;font-size:12px;background:#F4F1EA;">⚙️ Configuración</button>
-      </h2>
-      <div class="card" id="settingsCard" style="display:none;">
+      <div class="card" id="settingsCard" style="display:none;margin-top:14px;">
         <form id="pwForm">
           <label>Contraseña actual</label>
           <div class="pw-wrap">
@@ -708,6 +699,15 @@ async function renderAdminDashboard(env, admin) {
         </form>
         <p class="msg" id="pwMsg"></p>
       </div>
+
+      <h2>Tus negocios (${results.length})</h2>
+      <div style="overflow-x:auto;">
+      <table>
+        <tr><th>Editar<br>tarjeta</th><th>Negocio</th><th>Slug</th><th>Código<br>QR</th><th>PIN</th><th>Ver<br>PIN</th><th>Panel<br>staff</th><th>Link<br>registro</th><th>Suscripción</th><th>Estado<br>de pago</th><th>Borrar</th></tr>
+        ${rows || '<tr><td colspan="11">Todavía no has creado ningún negocio</td></tr>'}
+      </table>
+      </div>
+      <p id="deleteMsg" class="msg"></p>
 
       <h2>Crear negocio nuevo</h2>
       <div class="create-flex">
@@ -1854,7 +1854,7 @@ function renderSuspendedPage(b) {
   </style></head>
   <body>
     <div class="box">
-      <p>Ups! ¿Olvidaste pagar tu suscripción? 😴<br><br>Por favor envíanos el comprobante a "<a href="mailto:mytapp.ec@gmail.com">mytapp.ec@gmail.com</a>" con el nombre de tu negocio y continúa disfrutando de <span style="white-space:nowrap;">My Tapp</span>.</p>
+      <p><b>Ups! ¿Olvidaste pagar tu suscripción? 😴</b><br><br>Por favor envíanos el comprobante a "<a href="mailto:mytapp.ec@gmail.com">mytapp.ec@gmail.com</a>" con el nombre de tu negocio y continúa disfrutando de <span style="white-space:nowrap;">My Tapp</span>.</p>
     </div>
   </body></html>`;
 }
