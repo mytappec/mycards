@@ -1580,6 +1580,8 @@ async function handlePublicRegisterForm(env, slug) {
     button{width:100%;padding:13px;border:2px solid ${business.color_brown};border-radius:12px;background:${business.color_pink};color:${business.color_brown};font-weight:800;font-size:15px;cursor:pointer;font-family:'${business.font_family}',${font.fallback};margin-top:6px;}
     button:active{transform:scale(.98);}
     .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;color:#B23A3A;}
+    .credit{text-align:center;font-size:12px;color:${business.color_brown};margin:18px 0 0;}
+    .credit a{color:${business.color_brown};font-weight:700;text-decoration:underline;}
   </style></head>
   <body>
     <div class="box">
@@ -1593,6 +1595,7 @@ async function handlePublicRegisterForm(env, slug) {
         <button type="submit">Continuar</button>
       </form>
       <p class="msg" id="msg"></p>
+      <p class="credit">My Tapp, una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
     </div>
     <script>
       document.getElementById('cedula').addEventListener('input', (e) => {
@@ -1874,6 +1877,8 @@ function baseStaffStyles(b) {
   .msg.ok{color:#215A34;background:#DFF3E4;border:2px solid #3F7D4F;border-radius:12px;padding:14px 10px;font-size:17px;font-weight:800;}
   .msg.err{color:#B23A3A;background:#FBE4E4;border:2px solid #B23A3A;border-radius:12px;padding:14px 10px;font-size:15px;font-weight:700;}
   a.logout{display:block;text-align:center;margin-top:16px;font-size:12px;color:${b.color_brown_soft};}
+  .mytapp-corner{position:fixed;top:10px;right:14px;font-size:10.5px;color:${b.color_brown};opacity:.75;}
+  .mytapp-corner a{color:${b.color_brown};font-weight:700;text-decoration:underline;}
   `;
 }
 
@@ -1884,6 +1889,7 @@ function renderStaffLogin(b) {
   <link href="https://fonts.googleapis.com/css2?family=${font.google}&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>${baseStaffStyles(b)}</style></head>
   <body>
+    <div class="mytapp-corner">My Tapp, una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></div>
     <div class="box">
       <h1>${escapeHtml(b.name)}</h1>
       <p class="sub">Ingresa el PIN del local para sumar sellos</p>
@@ -1923,6 +1929,7 @@ function renderStaffPanel(b) {
     .scan-hint{font-size:11px;color:${b.color_brown_soft};text-align:center;margin:-4px 0 12px;}
   </style></head>
   <body>
+    <div class="mytapp-corner">My Tapp, una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></div>
     <div class="box">
       <h1>${escapeHtml(b.name)}</h1>
       <p class="sub">Escanea el QR del cliente, o escribe su código a mano</p>
