@@ -602,15 +602,15 @@ async function renderAdminDashboard(env, admin) {
     const isOverdue = b.next_payment_date && b.next_payment_date < today;
     return `
     <tr>
-      <td>${escapeHtml(b.name)}</td>
-      <td>${escapeHtml(b.slug)}</td>
-      <td><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Panel staff</a></td>
-      <td><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a></td>
-      <td><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
-      <td><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
-      <td><span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span></td>
-      <td>${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;font-weight:700;">🔒 Desbloquear PIN</a>` : '—'}</td>
-      <td>
+      <td style="white-space:nowrap;"><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar tarjeta</a></td>
+      <td style="white-space:nowrap;">${escapeHtml(b.name)}</td>
+      <td style="white-space:nowrap;">${escapeHtml(b.slug)}</td>
+      <td style="white-space:nowrap;"><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
+      <td style="white-space:nowrap;"><span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span></td>
+      <td style="white-space:nowrap;">${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;font-weight:700;">🔒 Desbloquear</a>` : '—'}</td>
+      <td style="white-space:nowrap;"><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Panel staff</a></td>
+      <td style="white-space:nowrap;"><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a></td>
+      <td style="white-space:nowrap;">
         <div class="payment-cell" data-slug="${escapeHtml(b.slug)}">
           <div style="margin-bottom:4px;">
             <label style="font-size:10px;font-weight:400;margin:0;">Pagó:</label>
@@ -623,12 +623,12 @@ async function renderAdminDashboard(env, admin) {
           <button type="button" class="save-payment-btn" style="width:auto;margin-top:4px;padding:4px 10px;font-size:11px;">Guardar</button>
         </div>
       </td>
-      <td>
+      <td style="white-space:nowrap;">
         <a href="#" class="toggle-suspend" data-slug="${escapeHtml(b.slug)}" data-suspended="${b.is_suspended}" style="color:${b.is_suspended ? '#215A34' : '#B26A00'};font-weight:700;">
           ${b.is_suspended ? '▶️ Activar' : '⏸️ Suspender'}
         </a>
       </td>
-      <td><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
+      <td style="white-space:nowrap;"><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
     </tr>`;
   }).join('');
 
@@ -647,7 +647,8 @@ async function renderAdminDashboard(env, admin) {
     h1{font-family:'Baloo 2',sans-serif;font-size:22px;}
     h2{font-family:'Baloo 2',sans-serif;font-size:16px;margin-top:30px;}
     table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;font-size:13px;margin-bottom:10px;}
-    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #eee;}
+    th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #eee;white-space:nowrap;}
+    th{font-size:12px;}
     th{background:#2B2320;color:white;}
     .card{background:white;border:2px solid #2B2320;border-radius:16px;padding:20px;margin-top:12px;}
     label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;}
@@ -676,13 +677,15 @@ async function renderAdminDashboard(env, admin) {
   <body>
     <div class="wrap">
       <a class="logout" href="/admin/logout">Cerrar sesión</a>
-      <h1>My Tapp — ${escapeHtml(admin.email)}</h1>
+      <h1 style="white-space:nowrap;">My Tapp by Anaelí Brand</h1>
 
       <h2>Tus negocios (${results.length})</h2>
+      <div style="overflow-x:auto;">
       <table>
-        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>QR</th><th>Editar</th><th>Tu PIN</th><th>Desbloquear</th><th>Pago</th><th>Estado</th><th>Borrar</th></tr>
+        <tr><th>Editar tarjeta</th><th>Negocio</th><th>Slug</th><th>Código QR</th><th>PIN</th><th>Ver PIN</th><th>Link para staff</th><th>Link para clientes</th><th>Suscripción</th><th>Estado de pago</th><th>Borrar</th></tr>
         ${rows || '<tr><td colspan="11">Todavía no has creado ningún negocio</td></tr>'}
       </table>
+      </div>
       <p id="deleteMsg" class="msg"></p>
 
       <h2 style="display:flex;align-items:center;justify-content:space-between;">
@@ -1851,7 +1854,7 @@ function renderSuspendedPage(b) {
   </style></head>
   <body>
     <div class="box">
-      <p>Ups! ¿Olvidaste pagar tu suscripción? 😴<br><br>Por favor envíanos el comprobante a "<a href="mailto:mytapp.ec@gmail.com">mytapp.ec@gmail.com</a>" con el nombre de tu negocio y continúa disfrutando de My Tapp.</p>
+      <p>Ups! ¿Olvidaste pagar tu suscripción? 😴<br><br>Por favor envíanos el comprobante a "<a href="mailto:mytapp.ec@gmail.com">mytapp.ec@gmail.com</a>" con el nombre de tu negocio y continúa disfrutando de <span style="white-space:nowrap;">My Tapp</span>.</p>
     </div>
   </body></html>`;
 }
