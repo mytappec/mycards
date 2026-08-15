@@ -36,6 +36,7 @@ export default {
         if (parts[1] === 'business' && parts[2] && parts[3] === 'update' && request.method === 'POST') return handleUpdateBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'unlock' && request.method === 'POST') return handleUnlockBusiness(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'reveal-pin' && request.method === 'POST') return handleRevealPin(request, env, parts[2]);
         return handleAdminPage(request, env);
       }
 
@@ -530,6 +531,7 @@ async function renderAdminDashboard(env, admin) {
       <td><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a></td>
       <td><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
       <td><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
+      <td><span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span></td>
       <td>${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;font-weight:700;">🔒 Desbloquear PIN</a>` : '—'}</td>
       <td><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
     </tr>`;
@@ -582,8 +584,8 @@ async function renderAdminDashboard(env, admin) {
 
       <h2>Tus negocios (${results.length})</h2>
       <table>
-        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>QR</th><th>Editar</th><th>PIN</th><th>Borrar</th></tr>
-        ${rows || '<tr><td colspan="8">Todavía no has creado ningún negocio</td></tr>'}
+        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>QR</th><th>Editar</th><th>Tu PIN</th><th>Desbloquear</th><th>Borrar</th></tr>
+        ${rows || '<tr><td colspan="9">Todavía no has creado ningún negocio</td></tr>'}
       </table>
       <p id="deleteMsg" class="msg"></p>
 
@@ -691,6 +693,9 @@ async function renderAdminDashboard(env, admin) {
           <label>PIN para el staff de este negocio (4-6 dígitos)</label>
           <input type="text" id="pin" required placeholder="Ej. 1234">
 
+          <label>Tu recordatorio de este PIN (solo tú lo ves, con tu contraseña)</label>
+          <input type="text" id="pin_note" placeholder="Ej. mismo que arriba, o alguna nota para ti">
+
           <button type="submit">Crear negocio</button>
         </form>
         <p class="msg" id="msg"></p>
@@ -718,17 +723,29 @@ async function renderAdminDashboard(env, admin) {
           e.preventDefault();
           const slug = link.dataset.slug;
           const name = link.dataset.name;
-          const typed = prompt('Esto borra "' + name + '" y a TODOS sus clientes registrados, para siempre.\\n\\nPara confirmar, escribe exactamente el código del negocio:\\n\\n' + slug);
-          if (typed === null) return;
-          if (typed.trim() !== slug) {
-            alert('El código no coincide, no se borró nada.');
-            return;
-          }
+          const password = prompt('Esto borra "' + name + '" y a TODOS sus clientes registrados, para siempre.\\n\\nPara confirmar, escribe tu contraseña de administradora:');
+          if (password === null) return;
           const deleteMsg = document.getElementById('deleteMsg');
           deleteMsg.textContent = 'Borrando...'; deleteMsg.className = 'msg';
-          const res = await fetch('/admin/business/' + slug + '/delete', { method: 'POST' });
+          const res = await fetch('/admin/business/' + slug + '/delete', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
           if (res.ok) { location.reload(); }
           else { const d = await res.json(); deleteMsg.textContent = d.error || 'No se pudo borrar'; deleteMsg.className = 'msg err'; }
+        });
+      });
+      document.querySelectorAll('.reveal-pin').forEach(link => {
+        link.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const cell = link.closest('.pin-cell');
+          const slug = cell.dataset.slug;
+          const password = prompt('Escribe tu contraseña de administradora para ver el PIN de este negocio:');
+          if (password === null) return;
+          const res = await fetch('/admin/business/' + slug + '/reveal-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
+          const data = await res.json();
+          if (res.ok) {
+            cell.textContent = '🔓 ' + data.pin;
+          } else {
+            alert(data.error || 'No se pudo ver el PIN');
+          }
         });
       });
       document.querySelectorAll('.download-qr').forEach(link => {
@@ -825,7 +842,8 @@ async function renderAdminDashboard(env, admin) {
             reward_text: document.getElementById('reward_text').value,
             instagram_handle: document.getElementById('instagram_handle').value,
             instagram_url: document.getElementById('instagram_url').value,
-            pin: document.getElementById('pin').value
+            pin: document.getElementById('pin').value,
+            pin_note: document.getElementById('pin_note').value
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
           const res = await fetch('/admin/businesses', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -1001,6 +1019,7 @@ async function handleCreateBusiness(request, env) {
     greeting_eyebrow: body.greeting_eyebrow || '¡Hello!', reward_heading: body.reward_heading || 'Tu premio, cada vez más cerca',
     reward_text: body.reward_text, reward_emoji: '⭐',
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url), staff_pin_hash: pinHash,
+    staff_pin_note: body.pin_note || null,
     instruction_text: body.instruction_text || 'Muestra este código en caja para sumar tu sello en cada compra.',
   };
   // casillas de negrita/cursiva, por bloque
@@ -1033,6 +1052,11 @@ async function handleDeleteBusiness(request, env, slug) {
   const admin = await getAdminFromSession(env, cookieVal);
   if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
 
+  const { password } = await request.json().catch(() => ({}));
+  if (!(await verifyPassword(password || '', admin.password_hash))) {
+    return new Response(JSON.stringify({ error: 'Contraseña incorrecta, no se borró nada' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
 
@@ -1042,6 +1066,22 @@ async function handleDeleteBusiness(request, env, slug) {
   await env.DB.prepare('DELETE FROM businesses WHERE id = ?').bind(business.id).run();
 
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleRevealPin(request, env, slug) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const { password } = await request.json().catch(() => ({}));
+  if (!(await verifyPassword(password || '', admin.password_hash))) {
+    return new Response(JSON.stringify({ error: 'Contraseña incorrecta' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  return new Response(JSON.stringify({ ok: true, pin: business.staff_pin_note || '(no lo has anotado todavía)' }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleUnlockBusiness(request, env, slug) {
@@ -1178,6 +1218,9 @@ async function handleEditBusinessForm(request, env, slug) {
           <label>Instagram (link completo)</label>
           <input type="text" id="instagram_url" value="${escapeHtml(b.instagram_url || '')}">
 
+          <label>Tu recordatorio del PIN (solo tú lo ves, con tu contraseña)</label>
+          <input type="text" id="pin_note" value="${escapeHtml(b.staff_pin_note || '')}" placeholder="Ej. 1234, o alguna nota para ti">
+
           <button type="submit">Guardar cambios</button>
         </form>
         <p class="msg" id="msg"></p>
@@ -1236,7 +1279,8 @@ async function handleEditBusinessForm(request, env, slug) {
             reward_heading: document.getElementById('reward_heading').value,
             reward_text: document.getElementById('reward_text').value,
             instagram_handle: document.getElementById('instagram_handle').value,
-            instagram_url: document.getElementById('instagram_url').value
+            instagram_url: document.getElementById('instagram_url').value,
+            pin_note: document.getElementById('pin_note').value
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
           const res = await fetch('/admin/business/${slug}/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -1271,6 +1315,7 @@ async function handleUpdateBusiness(request, env, slug) {
     name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
     greeting_eyebrow: body.greeting_eyebrow, reward_heading: body.reward_heading, reward_text: body.reward_text,
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url),
+    staff_pin_note: body.pin_note || null,
     instruction_text: body.instruction_text || business.instruction_text,
   };
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
