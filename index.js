@@ -184,7 +184,7 @@ function colorGroupsHtml(b) {
       ${colorField('color_text_qr_code', 'Código de cliente (ej. #ABC123)', v('color_text_qr_code', '#593212'))}
       ${colorField('color_text_qr_instruction', 'Descripción debajo del código de cliente', v('color_text_qr_instruction', '#8A5A34'))}
       ${colorField('color_text_instagram', 'Usuario de Instagram (@usuario)', v('color_text_instagram', '#593212'))}
-      ${colorField('color_text_credit', 'Texto final: "My Tapp by Anaelí Brand"', v('color_text_credit', '#593212'))}
+      ${colorField('color_text_credit', 'Texto final: "My Tapp, una marca de Anaelí Brand"', v('color_text_credit', '#593212'))}
     </div>
 
     <label style="margin-top:18px;">🎨 Fondos</label>
@@ -1717,7 +1717,7 @@ function renderCustomerCard(b, customer, slug, origin) {
         </a>` : ''}
       </div>
     </div>
-    <p class="credit">My Tapp by <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
+    <p class="credit">My Tapp, una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
   </div>
   <script>
     if (typeof QRCode !== 'undefined') {
