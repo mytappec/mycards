@@ -46,6 +46,7 @@ export default {
         if (parts[2] === 'stamp' && request.method === 'POST') return handleStamp(request, env, slug);
         if (parts[2] === 'register' && request.method === 'POST') return handleRegister(request, env, slug);
         if (parts[2] === 'clientes') return handleClientesList(request, env, slug);
+        if (parts[2] === 'cliente' && parts[3] && parts[4] === 'delete' && request.method === 'POST') return handleDeleteCustomer(request, env, slug, parts[3]);
         if (parts[2] === 'historial' && parts[3]) return handleHistorial(request, env, slug, parts[3]);
         if (parts[2] === 'logout') return handleLogout(slug);
         return handleStaffPage(request, env, slug);
@@ -1866,6 +1867,7 @@ async function handleClientesList(request, env, slug) {
       <td>${c.stamps}/${business.total_stamps}</td>
       <td>${c.cycle}</td>
       <td><a href="/staff/${slug}/historial/${escapeHtml(c.code)}">Ver fechas</a></td>
+      <td><a href="#" class="delete-customer" data-code="${escapeHtml(c.code)}" data-name="${escapeHtml(c.name)}" style="color:#B23A3A;">Borrar</a></td>
     </tr>`).join('');
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1879,17 +1881,55 @@ async function handleClientesList(request, env, slug) {
     th{background:${business.color_brown};color:white;}
     a{color:${business.color_brown};}
     a.back{display:inline-block;margin-bottom:14px;color:${business.color_brown};font-weight:700;text-decoration:none;}
+    .msg{font-size:13px;margin:10px 0;}
+    .msg.err{color:#B23A3A;}
   </style></head>
   <body>
     <a class="back" href="/staff/${slug}">← Volver al panel</a>
     <h1>Clientes de ${escapeHtml(business.name)} (${results.length})</h1>
+    <p class="msg" id="deleteMsg"></p>
     <table>
-      <tr><th>Nombre</th><th>Cédula</th><th>Celular</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr>
-      ${rows || '<tr><td colspan="7">Todavía no hay clientes registrados</td></tr>'}
+      <tr><th>Nombre</th><th>Cédula</th><th>Celular</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th><th>Borrar</th></tr>
+      ${rows || '<tr><td colspan="8">Todavía no hay clientes registrados</td></tr>'}
     </table>
+    <script>
+      document.querySelectorAll('.delete-customer').forEach(link => {
+        link.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const code = link.dataset.code;
+          const name = link.dataset.name;
+          const sure = confirm('¿Seguro que quieres borrar a "' + name + '" (' + code + ')? Esto borra también su historial de compras y no se puede deshacer.');
+          if (!sure) return;
+          const msg = document.getElementById('deleteMsg');
+          msg.textContent = 'Borrando...'; msg.className = 'msg';
+          const res = await fetch('/staff/${slug}/cliente/' + code + '/delete', { method: 'POST' });
+          if (res.ok) { location.reload(); }
+          else { const d = await res.json(); msg.textContent = d.error || 'No se pudo borrar'; msg.className = 'msg err'; }
+        });
+      });
+    </script>
   </body></html>`;
 
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+async function handleDeleteCustomer(request, env, slug, code) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  const cookieVal = getCookie(request, 'staff_session');
+  if (cookieVal !== business.staff_pin_hash) {
+    return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const customer = await env.DB.prepare('SELECT id FROM customers WHERE code = ? AND business_id = ?')
+    .bind(code, business.id).first();
+  if (!customer) return new Response(JSON.stringify({ error: 'Cliente no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  await env.DB.prepare('DELETE FROM visits WHERE customer_id = ?').bind(customer.id).run();
+  await env.DB.prepare('DELETE FROM customers WHERE id = ?').bind(customer.id).run();
+
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleHistorial(request, env, slug, code) {
