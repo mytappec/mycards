@@ -75,11 +75,12 @@ export default {
 // Catálogo de tipografías, para que cada marca elija la que le queda,
 // en vez de tener siempre la misma redondita para todas.
 const FONTS = {
-  'Baloo 2':          { label: 'Redondeada y divertida',  google: 'Baloo+2:wght@600;700;800',        fallback: "'Arial Rounded MT Bold', sans-serif" },
-  'Poppins':           { label: 'Moderna y minimalista',   google: 'Poppins:wght@600;700;800',        fallback: "sans-serif" },
-  'Playfair Display':  { label: 'Elegante y clásica',      google: 'Playfair+Display:wght@600;700;800', fallback: "serif" },
-  'Montserrat':        { label: 'Seria y corporativa',     google: 'Montserrat:wght@600;700;800',     fallback: "sans-serif" },
-  'Caveat':            { label: 'Manuscrita y artesanal',  google: 'Caveat:wght@600;700',             fallback: "cursive" },
+  'Baloo 2':          { label: 'Redondeada y divertida',  google: 'Baloo+2:wght@400;600;700;800',        fallback: "'Arial Rounded MT Bold', sans-serif" },
+  'Poppins':           { label: 'Moderna y minimalista',   google: 'Poppins:wght@400;600;700;800',        fallback: "sans-serif" },
+  'Playfair Display':  { label: 'Elegante y clásica',      google: 'Playfair+Display:wght@400;600;700;800', fallback: "serif" },
+  'Montserrat':        { label: 'Seria y corporativa',     google: 'Montserrat:wght@400;600;700;800',     fallback: "sans-serif" },
+  'Caveat':            { label: 'Manuscrita y artesanal',  google: 'Caveat:wght@400;600;700',             fallback: "cursive" },
+  'Amiko':             { label: 'Limpia y legible',        google: 'Amiko:wght@400;600;700',          fallback: "sans-serif" },
 };
 function getFontConfig(fontFamily) {
   return FONTS[fontFamily] || FONTS['Baloo 2'];
@@ -507,7 +508,12 @@ async function renderAdminDashboard(env, admin) {
             <option value="Playfair Display" style="font-family:'Playfair Display',serif;">Playfair Display — Elegante y clásica</option>
             <option value="Montserrat" style="font-family:'Montserrat',sans-serif;">Montserrat — Seria y corporativa</option>
             <option value="Caveat" style="font-family:'Caveat',cursive;">Caveat — Manuscrita y artesanal</option>
+            <option value="Amiko" style="font-family:'Amiko',sans-serif;">Amiko — Limpia y legible</option>
           </select>
+          <div style="display:flex;gap:16px;margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" checked style="width:auto;margin:0;"> Negrita</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" style="width:auto;margin:0;"> Cursiva</label>
+          </div>
 
           <label>Cuántos sellos para el premio</label>
           <input type="number" id="total_stamps" value="10" min="3" max="30" required>
@@ -520,6 +526,18 @@ async function renderAdminDashboard(env, admin) {
 
           <label>Texto del premio</label>
           <input type="text" id="reward_text" required placeholder="Ej. Al llegar a tu sello #10, recibes tu producto gratis.">
+
+          <label>Instrucción para sumar sellos</label>
+          <select id="instruction_text">
+            <option value="Muestra este código en caja para sumar tu sello en cada compra.">Negocio físico: mostrar en caja</option>
+            <option value="Muestra este código al momento de pagar para sumar tu sello.">Negocio físico: mostrar al pagar</option>
+            <option value="Envía este código al confirmar tu pedido para sumar tu sello.">Negocio digital: al confirmar pedido</option>
+            <option value="Pega este código en el chat al hacer tu compra.">Negocio digital: pegar en el chat</option>
+            <option value="Envía una captura de este código junto a tu comprobante de pago.">Negocio digital: junto al comprobante</option>
+          </select>
+
+          <label>Color de la estrella (sellos vacíos)</label>
+          <div class="color-field"><input type="color" class="colorPicker" id="star_color" value="#FFFFFF"><input type="text" class="colorHex" id="star_color_hex" value="#FFFFFF"></div>
 
           <label>Instagram (usuario)</label>
           <input type="text" id="instagram_handle" placeholder="@usuario">
@@ -621,6 +639,10 @@ async function renderAdminDashboard(env, admin) {
             sello_3_base64: s3 ? await fileToBase64(s3) : null,
             sello_4_base64: s4 ? await fileToBase64(s4) : null,
             font_family: document.getElementById('font_family').value,
+            font_bold: document.getElementById('font_bold').checked,
+            font_italic: document.getElementById('font_italic').checked,
+            instruction_text: document.getElementById('instruction_text').value,
+            star_color: document.getElementById('star_color').value,
             color_page_bg: document.getElementById('color_page_bg').value,
             color_card_bg: document.getElementById('color_card_bg').value,
             color_brown: document.getElementById('color_brown').value,
@@ -801,16 +823,21 @@ async function handleCreateBusiness(request, env) {
   const sello3 = body.sello_3_base64 || sello2;
   const sello4 = body.sello_4_base64 || sello3;
   const fontFamily = FONTS[body.font_family] ? body.font_family : 'Baloo 2';
+  const fontBold = body.font_bold ? 1 : 0;
+  const fontItalic = body.font_italic ? 1 : 0;
+  const instructionText = body.instruction_text || 'Muestra este código en caja para sumar tu sello en cada compra.';
+  const starColor = body.star_color || '#FFFFFF';
 
   await env.DB.prepare(`INSERT INTO businesses
     (slug, name, logo_base64, color_page_bg, color_card_bg, color_brown, color_brown_deep, color_brown_soft, color_pink, color_butter_mid, color_butter_light,
-     sello_1_base64, sello_2_base64, sello_3_base64, sello_4_base64, font_family, total_stamps, greeting_eyebrow, reward_heading, reward_text, reward_emoji,
+     sello_1_base64, sello_2_base64, sello_3_base64, sello_4_base64, font_family, font_bold, font_italic, instruction_text, star_color,
+     total_stamps, greeting_eyebrow, reward_heading, reward_text, reward_emoji,
      instagram_handle, instagram_url, staff_pin_hash)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .bind(slug, body.name, body.logo_base64,
       body.color_page_bg || '#DCEAF4', body.color_card_bg || '#FFFCF5', body.color_brown || '#593212', body.color_brown_deep || '#3E2107',
       body.color_brown_soft || '#8A5A34', body.color_pink || '#F4D3DF', body.color_butter_mid || '#F9E6B2', body.color_butter_light || '#FBEFD2',
-      sello1, sello2, sello3, sello4, fontFamily,
+      sello1, sello2, sello3, sello4, fontFamily, fontBold, fontItalic, instructionText, starColor,
       body.total_stamps || 10, body.greeting_eyebrow || '¡Hello!', body.reward_heading || 'Tu premio, cada vez más cerca', body.reward_text, '⭐',
       body.instagram_handle || null, body.instagram_url || null, pinHash)
     .run();
@@ -905,6 +932,10 @@ async function handleEditBusinessForm(request, env, slug) {
 
           <label>Tipografía</label>
           <select id="font_family">${fontOptions}</select>
+          <div style="display:flex;gap:16px;margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" ${b.font_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" ${b.font_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+          </div>
 
           <label>Colores de marca</label>
           <div class="colors">
@@ -929,6 +960,18 @@ async function handleEditBusinessForm(request, env, slug) {
 
           <label>Texto del premio</label>
           <input type="text" id="reward_text" value="${escapeHtml(b.reward_text)}" required>
+
+          <label>Instrucción para sumar sellos</label>
+          <select id="instruction_text">
+            <option value="Muestra este código en caja para sumar tu sello en cada compra."${b.instruction_text === 'Muestra este código en caja para sumar tu sello en cada compra.' ? ' selected' : ''}>Negocio físico: mostrar en caja</option>
+            <option value="Muestra este código al momento de pagar para sumar tu sello."${b.instruction_text === 'Muestra este código al momento de pagar para sumar tu sello.' ? ' selected' : ''}>Negocio físico: mostrar al pagar</option>
+            <option value="Envía este código al confirmar tu pedido para sumar tu sello."${b.instruction_text === 'Envía este código al confirmar tu pedido para sumar tu sello.' ? ' selected' : ''}>Negocio digital: al confirmar pedido</option>
+            <option value="Pega este código en el chat al hacer tu compra."${b.instruction_text === 'Pega este código en el chat al hacer tu compra.' ? ' selected' : ''}>Negocio digital: pegar en el chat</option>
+            <option value="Envía una captura de este código junto a tu comprobante de pago."${b.instruction_text === 'Envía una captura de este código junto a tu comprobante de pago.' ? ' selected' : ''}>Negocio digital: junto al comprobante</option>
+          </select>
+
+          <label>Color de la estrella (sellos vacíos)</label>
+          ${colorField('star_color', '', b.star_color)}
 
           <label>Instagram (usuario)</label>
           <input type="text" id="instagram_handle" value="${escapeHtml(b.instagram_handle || '')}">
@@ -982,6 +1025,10 @@ async function handleEditBusinessForm(request, env, slug) {
             sello_3_base64: s3 ? await fileToBase64(s3) : null,
             sello_4_base64: s4 ? await fileToBase64(s4) : null,
             font_family: document.getElementById('font_family').value,
+            font_bold: document.getElementById('font_bold').checked,
+            font_italic: document.getElementById('font_italic').checked,
+            instruction_text: document.getElementById('instruction_text').value,
+            star_color: document.getElementById('star_color').value,
             color_page_bg: document.getElementById('color_page_bg').value,
             color_card_bg: document.getElementById('color_card_bg').value,
             color_brown: document.getElementById('color_brown').value,
@@ -1020,19 +1067,25 @@ async function handleUpdateBusiness(request, env, slug) {
 
   const body = await request.json();
   const fontFamily = FONTS[body.font_family] ? body.font_family : business.font_family;
+  const fontBold = body.font_bold ? 1 : 0;
+  const fontItalic = body.font_italic ? 1 : 0;
+  const instructionText = body.instruction_text || business.instruction_text;
+  const starColor = body.star_color || business.star_color;
 
   await env.DB.prepare(`UPDATE businesses SET
       name = ?, logo_base64 = COALESCE(?, logo_base64),
       sello_1_base64 = COALESCE(?, sello_1_base64), sello_2_base64 = COALESCE(?, sello_2_base64),
       sello_3_base64 = COALESCE(?, sello_3_base64), sello_4_base64 = COALESCE(?, sello_4_base64),
-      font_family = ?, color_page_bg = ?, color_card_bg = ?, color_brown = ?, color_brown_deep = ?, color_brown_soft = ?,
+      font_family = ?, font_bold = ?, font_italic = ?, instruction_text = ?, star_color = ?,
+      color_page_bg = ?, color_card_bg = ?, color_brown = ?, color_brown_deep = ?, color_brown_soft = ?,
       color_pink = ?, color_butter_mid = ?, color_butter_light = ?, total_stamps = ?, greeting_eyebrow = ?,
       reward_heading = ?, reward_text = ?, instagram_handle = ?, instagram_url = ?
     WHERE id = ?`)
     .bind(
       body.name, body.logo_base64 || null,
       body.sello_1_base64 || null, body.sello_2_base64 || null, body.sello_3_base64 || null, body.sello_4_base64 || null,
-      fontFamily, body.color_page_bg, body.color_card_bg, body.color_brown, body.color_brown_deep, body.color_brown_soft,
+      fontFamily, fontBold, fontItalic, instructionText, starColor,
+      body.color_page_bg, body.color_card_bg, body.color_brown, body.color_brown_deep, body.color_brown_soft,
       body.color_pink, body.color_butter_mid, body.color_butter_light, body.total_stamps, body.greeting_eyebrow,
       body.reward_heading, body.reward_text, body.instagram_handle || null, body.instagram_url || null,
       business.id
@@ -1150,7 +1203,7 @@ function renderCustomerCard(b, customer, slug, origin) {
     const isFilled = i <= filled;
     stampsHtml += `<div class="stamp${isFilled ? ' filled' : ''}${isReward ? ' reward' : ''}" data-sello="${selloKey}">
       <div class="stamp-img"></div>
-      <span class="stamp-placeholder">${b.reward_emoji}</span>
+      <span class="stamp-placeholder">★</span>
       ${isReward ? '<span class="reward-tag">PREMIO</span>' : ''}
     </div>`;
   }
@@ -1175,6 +1228,9 @@ function renderCustomerCard(b, customer, slug, origin) {
     --brown:${b.color_brown}; --brown-deep:${b.color_brown_deep}; --brown-soft:${b.color_brown_soft};
     --pink:${b.color_pink}; --butter-mid:${b.color_butter_mid}; --butter-light:${b.color_butter_light};
     --font-display:'${b.font_family}',${font.fallback};
+    --font-weight:${b.font_bold ? '700' : '400'};
+    --font-style:${b.font_italic ? 'italic' : 'normal'};
+    --star-color:${b.star_color};
     --img-s1:url("data:image/png;base64,${sellos[0]}");
     --img-s2:url("data:image/png;base64,${sellos[1]}");
     --img-s3:url("data:image/png;base64,${sellos[2]}");
@@ -1187,18 +1243,18 @@ function renderCustomerCard(b, customer, slug, origin) {
   .card-top{padding:30px 24px 22px;text-align:center;border-bottom:2px solid var(--brown);}
   .brand-logo{max-width:150px;width:56%;height:auto;display:block;margin:0 auto;}
   .card-body{padding:20px 24px 22px;}
-  .greeting-eyebrow{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
-  .greeting-name{font-family:var(--font-display);font-weight:800;font-size:21px;color:var(--brown);margin:1px 0 16px;line-height:1.15;}
+  .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:16px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
+  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:21px;color:var(--brown);margin:1px 0 16px;line-height:1.15;}
   .progress-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
   .progress-track{flex:1;height:20px;border-radius:99px;background:#FFFFFF;border:2px solid var(--brown);overflow:hidden;}
   .progress-fill{height:100%;border-radius:99px;background:var(--pink);}
-  .progress-pct{font-family:var(--font-display);font-weight:700;font-size:13px;color:var(--brown);min-width:34px;text-align:right;}
+  .progress-pct{font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:13px;color:var(--brown);min-width:34px;text-align:right;}
   .progress-text{font-size:12.5px;color:var(--brown-soft);margin:0 0 26px;}
   .progress-text b{color:var(--brown);}
   .stamp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:14px;}
   .stamp{aspect-ratio:1;border-radius:50%;background:var(--brown);display:flex;align-items:center;justify-content:center;position:relative;}
   .stamp-img{width:84%;height:84%;background-size:contain;background-position:center;background-repeat:no-repeat;opacity:0;}
-  .stamp-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:19px;opacity:.22;}
+  .stamp-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:19px;opacity:.4;color:var(--star-color);font-style:normal;}
   .stamp.filled .stamp-placeholder{display:none;}
   .stamp[data-sello="s1"] .stamp-img{background-image:var(--img-s1);} .stamp[data-sello="s2"] .stamp-img{background-image:var(--img-s2);}
   .stamp[data-sello="s3"] .stamp-img{background-image:var(--img-s3);} .stamp[data-sello="s4"] .stamp-img{background-image:var(--img-s4);}
@@ -1212,12 +1268,12 @@ function renderCustomerCard(b, customer, slug, origin) {
   .reward-tag{position:absolute;bottom:-15px;left:0;right:0;width:max-content;margin:0 auto;background:var(--butter-mid);border:1.5px solid var(--brown);color:var(--brown);font-family:var(--font-display);font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;white-space:nowrap;text-align:center;z-index:3;}
   .reward-note{margin-top:26px;background:var(--butter-mid);border:2px solid var(--brown);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:10px;color:var(--brown);font-size:12px;}
   .reward-note .r-emoji{font-size:24px;flex-shrink:0;}
-  .reward-note strong{display:block;font-family:var(--font-display);font-weight:700;font-size:13.5px;margin-bottom:1px;color:var(--brown);}
+  .reward-note strong{display:block;font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:13.5px;margin-bottom:1px;color:var(--brown);}
   .qr-section{margin-top:20px;border-top:2px dashed var(--page-bg);padding-top:18px;display:flex;align-items:center;gap:14px;}
   .qr-box{width:86px;height:86px;background:var(--pink);border:2px solid var(--brown);border-radius:14px;padding:6px;flex-shrink:0;}
   .qr-box canvas{width:100%!important;height:100%!important;border-radius:6px;display:block;}
   .qr-copy{font-size:11.5px;color:var(--brown-soft);line-height:1.45;}
-  .qr-copy b{display:block;font-family:var(--font-display);font-weight:700;font-size:13.5px;color:var(--brown);letter-spacing:.3px;margin-bottom:2px;}
+  .qr-copy b{display:block;font-family:var(--font-display);font-weight:var(--font-weight);font-style:var(--font-style);font-size:13.5px;color:var(--brown);letter-spacing:.3px;margin-bottom:2px;}
   .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:16px auto 0;padding:7px 14px;background:var(--page-bg);border-radius:99px;color:var(--brown);text-decoration:none;font-size:12px;font-weight:700;}
   .credit{text-align:center;font-size:13px;color:var(--brown);margin:18px 0 0;}
   .credit a{color:var(--brown);font-weight:700;text-decoration:underline;}
@@ -1247,7 +1303,7 @@ function renderCustomerCard(b, customer, slug, origin) {
           <div class="qr-box"><canvas id="qrCanvas"></canvas></div>
           <div class="qr-copy">
             <b>#${escapeHtml(customer.code)}</b>
-            Muestra este código en caja para sumar tu sello en cada compra.
+            ${escapeHtml(b.instruction_text)}
           </div>
         </div>
         ${b.instagram_url ? `<a class="social-link" href="${b.instagram_url}" target="_blank" rel="noopener">
