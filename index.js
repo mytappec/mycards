@@ -89,7 +89,7 @@ function hexToBytes(hex) {
 async function hashPassword(password, existingSaltHex) {
   const salt = existingSaltHex ? hexToBytes(existingSaltHex) : crypto.getRandomValues(new Uint8Array(16));
   const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 5000, hash: 'SHA-256' }, keyMaterial, 256);
   return `${bytesToHex(salt)}:${bytesToHex(new Uint8Array(bits))}`;
 }
 async function verifyPassword(password, stored) {
@@ -150,6 +150,9 @@ function adminBaseStyles() {
   h1{font-family:'Baloo 2',sans-serif;font-size:20px;color:#2B2320;margin:0 0 4px;text-align:center;}
   p.sub{font-size:13px;color:#6B6259;text-align:center;margin:0 0 20px;}
   input{width:100%;padding:12px 14px;border:2px solid #2B2320;border-radius:12px;font-size:15px;margin-bottom:10px;font-family:'Quicksand',sans-serif;}
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:44px;}
+  .pw-toggle{position:absolute;right:10px;top:11px;background:none!important;border:none!important;width:auto!important;padding:2px!important;font-size:18px;cursor:pointer;line-height:1;}
   button{width:100%;padding:13px;border:2px solid #2B2320;border-radius:12px;background:#FFD966;color:#2B2320;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
   button:active{transform:scale(.98);}
   .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;}
@@ -173,7 +176,10 @@ function renderAdminSignup() {
       <p class="sub">Primera vez aquí. Crea tu cuenta de administradora con tu propio correo y contraseña.</p>
       <form id="f">
         <input type="email" id="email" placeholder="Tu correo" required>
-        <input type="password" id="password" placeholder="Contraseña (mínimo 6 caracteres)" required minlength="6">
+        <div class="pw-wrap">
+          <input type="password" id="password" placeholder="Contraseña (mínimo 6 caracteres)" required minlength="6">
+          <button type="button" class="pw-toggle" data-target="password">👁</button>
+        </div>
         <button type="submit">Crear mi cuenta</button>
       </form>
       <p class="msg" id="msg"></p>
@@ -187,20 +193,31 @@ function renderAdminSignup() {
       </div>
     </div>
     <script>
+      document.querySelectorAll('.pw-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const input = document.getElementById(btn.dataset.target);
+          if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+          else { input.type = 'password'; btn.textContent = '👁'; }
+        });
+      });
       document.getElementById('f').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
         const msg = document.getElementById('msg');
         msg.textContent = 'Creando...'; msg.className = 'msg';
-        const res = await fetch('/admin/signup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
-        if (res.ok) {
-          const data = await res.json();
-          document.getElementById('recoveryCode').textContent = data.recoveryCode;
-          document.getElementById('f').style.display = 'none';
-          document.getElementById('recoveryBox').style.display = 'block';
-          msg.textContent = '';
-        } else { const d = await res.json(); msg.textContent = d.error || 'No se pudo crear la cuenta'; msg.className = 'msg err'; }
+        try {
+          const res = await fetch('/admin/signup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
+          if (res.ok) {
+            const data = await res.json();
+            document.getElementById('recoveryCode').textContent = data.recoveryCode;
+            document.getElementById('f').style.display = 'none';
+            document.getElementById('recoveryBox').style.display = 'block';
+            msg.textContent = '';
+          } else { const d = await res.json(); msg.textContent = d.error || 'No se pudo crear la cuenta'; msg.className = 'msg err'; }
+        } catch (err) {
+          msg.textContent = 'Algo falló (' + err.message + '). Intenta de nuevo.'; msg.className = 'msg err';
+        }
       });
       document.getElementById('continueBtn').addEventListener('click', () => { location.href = '/admin'; });
     </script>
@@ -218,13 +235,23 @@ function renderAdminLogin() {
       <p class="sub">Entra con tu correo y contraseña.</p>
       <form id="f">
         <input type="email" id="email" placeholder="Tu correo" required>
-        <input type="password" id="password" placeholder="Contraseña" required>
+        <div class="pw-wrap">
+          <input type="password" id="password" placeholder="Contraseña" required>
+          <button type="button" class="pw-toggle" data-target="password">👁</button>
+        </div>
         <button type="submit">Entrar</button>
       </form>
       <p class="msg" id="msg"></p>
       <p class="sub"><a href="/admin/recuperar">¿Olvidaste tu contraseña?</a></p>
     </div>
     <script>
+      document.querySelectorAll('.pw-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const input = document.getElementById(btn.dataset.target);
+          if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+          else { input.type = 'password'; btn.textContent = '👁'; }
+        });
+      });
       document.getElementById('f').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('email').value.trim();
@@ -264,6 +291,10 @@ async function renderAdminDashboard(env, admin) {
     .card{background:white;border:2px solid #2B2320;border-radius:16px;padding:20px;margin-top:12px;}
     label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;}
     input[type=text], input[type=number], input[type=email]{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;}
+    input[type=password]{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;}
+    .pw-wrap{position:relative;}
+    .pw-wrap input{padding-right:44px;}
+    .pw-toggle{position:absolute;right:8px;top:8px;background:none!important;border:none!important;width:auto!important;padding:2px!important;font-size:17px;cursor:pointer;line-height:1;}
     input[type=color]{width:46px;height:42px;border:2px solid #2B2320;border-radius:10px;padding:2px;flex-shrink:0;}
     .color-field{display:flex;gap:6px;}
     .color-field input.colorHex{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:13px;font-family:monospace;text-transform:uppercase;}
@@ -291,9 +322,15 @@ async function renderAdminDashboard(env, admin) {
       <div class="card">
         <form id="pwForm">
           <label>Contraseña actual</label>
-          <input type="password" id="currentPassword" required>
+          <div class="pw-wrap">
+            <input type="password" id="currentPassword" required>
+            <button type="button" class="pw-toggle" data-target="currentPassword">👁</button>
+          </div>
           <label>Nueva contraseña</label>
-          <input type="password" id="newPassword" required minlength="6">
+          <div class="pw-wrap">
+            <input type="password" id="newPassword" required minlength="6">
+            <button type="button" class="pw-toggle" data-target="newPassword">👁</button>
+          </div>
           <button type="submit">Cambiar contraseña</button>
         </form>
         <p class="msg" id="pwMsg"></p>
@@ -358,6 +395,13 @@ async function renderAdminDashboard(env, admin) {
       </div>
     </div>
     <script>
+      document.querySelectorAll('.pw-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const input = document.getElementById(btn.dataset.target);
+          if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+          else { input.type = 'password'; btn.textContent = '👁'; }
+        });
+      });
       function fileToBase64(file) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -498,13 +542,23 @@ function renderAdminRecoverForm() {
       <form id="f">
         <input type="email" id="email" placeholder="Tu correo" required>
         <input type="text" id="code" placeholder="Código de recuperación" required>
-        <input type="password" id="password" placeholder="Nueva contraseña (mínimo 6 caracteres)" required minlength="6">
+        <div class="pw-wrap">
+          <input type="password" id="password" placeholder="Nueva contraseña (mínimo 6 caracteres)" required minlength="6">
+          <button type="button" class="pw-toggle" data-target="password">👁</button>
+        </div>
         <button type="submit">Restablecer contraseña</button>
       </form>
       <p class="msg" id="msg"></p>
       <p class="sub"><a href="/admin">← Volver a entrar</a></p>
     </div>
     <script>
+      document.querySelectorAll('.pw-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const input = document.getElementById(btn.dataset.target);
+          if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+          else { input.type = 'password'; btn.textContent = '👁'; }
+        });
+      });
       document.getElementById('f').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('email').value.trim();
