@@ -98,41 +98,41 @@ function colorGroupsHtml(b) {
   return `
     <label style="margin-top:18px;">🔤 Textos</label>
     <div class="colors">
-      ${colorField('color_brown_soft', 'Texto del saludo', v('color_brown_soft', '#8A5A34'))}
-      ${colorField('color_brown', 'Texto del nombre', v('color_brown', '#593212'))}
-      ${colorField('color_text_progress_pct', 'Texto del porcentaje (%)', v('color_text_progress_pct', '#593212'))}
-      ${colorField('color_text_progress_label', 'Texto "X de 10 sellos..."', v('color_text_progress_label', '#8A5A34'))}
-      ${colorField('color_text_progress_number', 'Números en negrita de esa frase', v('color_text_progress_number', '#593212'))}
-      ${colorField('color_reward_heading', 'Título de "Tu premio"', v('color_reward_heading', '#593212'))}
-      ${colorField('color_reward_text', 'Texto de "Tu premio"', v('color_reward_text', '#593212'))}
-      ${colorField('color_text_qr_code', 'Código bajo el QR (#ABC123)', v('color_text_qr_code', '#593212'))}
-      ${colorField('color_qr_pattern_dark', 'Trazo oscuro del código QR', v('color_qr_pattern_dark', '#593212'))}
-      ${colorField('color_text_qr_instruction', 'Instrucción bajo el código', v('color_text_qr_instruction', '#8A5A34'))}
-      ${colorField('color_text_instagram', 'Texto de Instagram', v('color_text_instagram', '#593212'))}
-      ${colorField('color_text_credit', '"Design by Anaelí Brand"', v('color_text_credit', '#593212'))}
+      ${colorField('color_brown_soft', 'Título bienvenida: "¡Hello!"', v('color_brown_soft', '#8A5A34'))}
+      ${colorField('color_brown', 'Nombre del cliente', v('color_brown', '#593212'))}
+      ${colorField('color_text_progress_pct', 'Porcentaje al lado de la barra (ej. 40%)', v('color_text_progress_pct', '#593212'))}
+      ${colorField('color_text_progress_label', 'Texto debajo de la barra: "X de 10 sellos..."', v('color_text_progress_label', '#8A5A34'))}
+      ${colorField('color_text_progress_number', 'Números en negrita de ese mismo texto', v('color_text_progress_number', '#593212'))}
+      ${colorField('color_reward_heading', 'Título: "Tu premio, cada vez más cerca"', v('color_reward_heading', '#593212'))}
+      ${colorField('color_reward_text', 'Descripción debajo de ese título', v('color_reward_text', '#593212'))}
+      ${colorField('color_text_qr_code', 'Código de cliente (ej. #ABC123)', v('color_text_qr_code', '#593212'))}
+      ${colorField('color_text_qr_instruction', 'Descripción debajo del código de cliente', v('color_text_qr_instruction', '#8A5A34'))}
+      ${colorField('color_text_instagram', 'Usuario de Instagram (@usuario)', v('color_text_instagram', '#593212'))}
+      ${colorField('color_text_credit', 'Texto final: "Design by Anaelí Brand"', v('color_text_credit', '#593212'))}
     </div>
 
     <label style="margin-top:18px;">🎨 Fondos</label>
     <div class="colors">
-      ${colorField('color_page_bg', 'Fondo de página', v('color_page_bg', '#DCEAF4'))}
-      ${colorField('color_card_bg', 'Fondo de tarjeta', v('color_card_bg', '#FFFCF5'))}
-      ${colorField('color_stamp_bg', 'Círculos del sello', v('color_stamp_bg', '#593212'))}
-      ${colorField('color_pink', 'Barra de progreso (relleno)', v('color_pink', '#F4D3DF'))}
-      ${colorField('color_butter_mid', 'Fondo de "Tu premio"', v('color_butter_mid', '#F9E6B2'))}
-      ${colorField('color_qr_bg', 'Fondo del QR', v('color_qr_bg', '#F4D3DF'))}
-      ${colorField('color_qr_pattern_light', 'Trazo claro del código QR', v('color_qr_pattern_light', '#F4D3DF'))}
-      ${colorField('color_instagram_bg', 'Fondo de Instagram', v('color_instagram_bg', '#DCEAF4'))}
-      ${colorField('color_butter_light', 'Fondo claro extra', v('color_butter_light', '#FBEFD2'))}
+      ${colorField('color_page_bg', 'Fondo de toda la pantalla', v('color_page_bg', '#DCEAF4'))}
+      ${colorField('color_card_bg', 'Fondo de la tarjeta', v('color_card_bg', '#FFFCF5'))}
+      ${colorField('color_stamp_bg', 'Fondo de los círculos de sello', v('color_stamp_bg', '#593212'))}
+      ${colorField('color_pink', 'Relleno de la barra de progreso', v('color_pink', '#F4D3DF'))}
+      ${colorField('color_butter_mid', 'Fondo del bloque "Tu premio"', v('color_butter_mid', '#F9E6B2'))}
+      ${colorField('color_qr_bg', 'Fondo del recuadro del código QR', v('color_qr_bg', '#F4D3DF'))}
+      ${colorField('color_qr_pattern_light', 'Color del QR: espacio entre cuadritos', v('color_qr_pattern_light', '#F4D3DF'))}
+      ${colorField('color_instagram_bg', 'Fondo de la burbuja de Instagram', v('color_instagram_bg', '#DCEAF4'))}
+      ${colorField('color_butter_light', 'Fondo claro adicional (uso interno)', v('color_butter_light', '#FBEFD2'))}
     </div>
 
     <label style="margin-top:18px;">🖊️ Bordes y sombra</label>
     <div class="colors">
-      ${colorField('color_border_card', 'Marco de la tarjeta', v('color_border_card', '#593212'))}
-      ${colorField('color_brown_deep', 'Sombra de la tarjeta', v('color_brown_deep', '#3E2107'))}
-      ${colorField('color_border_progress', 'Contorno de la barra', v('color_border_progress', '#593212'))}
-      ${colorField('color_border_stamp_ring', 'Anillo interno del sello vacío', v('color_border_stamp_ring', '#FFF8EC'))}
-      ${colorField('color_border_reward', 'Contorno de "Tu premio"', v('color_border_reward', '#593212'))}
-      ${colorField('color_border_qr', 'Contorno del QR', v('color_border_qr', '#593212'))}
+      ${colorField('color_border_card', 'Marco que rodea toda la tarjeta', v('color_border_card', '#593212'))}
+      ${colorField('color_brown_deep', 'Sombra debajo de la tarjeta', v('color_brown_deep', '#3E2107'))}
+      ${colorField('color_border_progress', 'Contorno de la barra de progreso', v('color_border_progress', '#593212'))}
+      ${colorField('color_border_stamp_ring', 'Anillo interno de los sellos vacíos', v('color_border_stamp_ring', '#FFF8EC'))}
+      ${colorField('color_border_reward', 'Contorno del bloque "Tu premio"', v('color_border_reward', '#593212'))}
+      ${colorField('color_border_qr', 'Contorno del recuadro del código QR', v('color_border_qr', '#593212'))}
+      ${colorField('color_qr_pattern_dark', 'Color del QR: cuadritos del código', v('color_qr_pattern_dark', '#593212'))}
     </div>
   `;
 }
@@ -311,6 +311,17 @@ async function verifyPassword(password, stored) {
 // (evita que la tarjeta se rompa con divisiones entre cero o porcentajes imposibles)
 // nunca deja pasar un "color" que no sea un color de verdad (formato #RRGGBB),
 // para que nadie pueda meter código raro en la página a través de este campo
+// si alguien escribe el link de Instagram sin "https://" al inicio (ej. "www.instagram.com/x"),
+// el navegador lo trataría como un link roto dentro del propio sitio, no como un link externo real.
+// Aquí se corrige solo, sin importar cómo lo hayan escrito.
+function normalizeExternalUrl(url) {
+  if (!url) return null;
+  const trimmed = String(url).trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 function sanitizeColor(value, fallback) {
   if (typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value)) return value;
   return fallback;
@@ -983,7 +994,7 @@ async function handleCreateBusiness(request, env) {
     font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, 10),
     greeting_eyebrow: body.greeting_eyebrow || '¡Hello!', reward_heading: body.reward_heading || 'Tu premio, cada vez más cerca',
     reward_text: body.reward_text, reward_emoji: '⭐',
-    instagram_handle: body.instagram_handle || null, instagram_url: body.instagram_url || null, staff_pin_hash: pinHash,
+    instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url), staff_pin_hash: pinHash,
     instruction_text: body.instruction_text || 'Muestra este código en caja para sumar tu sello en cada compra.',
   };
   // casillas de negrita/cursiva, por bloque
@@ -1253,7 +1264,7 @@ async function handleUpdateBusiness(request, env, slug) {
   const fixedFields = {
     name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
     greeting_eyebrow: body.greeting_eyebrow, reward_heading: body.reward_heading, reward_text: body.reward_text,
-    instagram_handle: body.instagram_handle || null, instagram_url: body.instagram_url || null,
+    instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url),
     instruction_text: body.instruction_text || business.instruction_text,
   };
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
@@ -1517,7 +1528,7 @@ function renderCustomerCard(b, customer, slug, origin) {
             ${escapeHtml(b.instruction_text)}
           </div>
         </div>
-        ${b.instagram_url ? `<a class="social-link" href="${b.instagram_url}" target="_blank" rel="noopener">
+        ${b.instagram_url ? `<a class="social-link" href="${escapeHtml(b.instagram_url)}" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
           <span>${escapeHtml(b.instagram_handle || '')}</span>
         </a>` : ''}
