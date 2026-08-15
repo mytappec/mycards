@@ -37,6 +37,7 @@ export default {
         if (parts[1] === 'business' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'unlock' && request.method === 'POST') return handleUnlockBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'reveal-pin' && request.method === 'POST') return handleRevealPin(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'update-pin-note' && request.method === 'POST') return handleUpdatePinNote(request, env, parts[2]);
         return handleAdminPage(request, env);
       }
 
@@ -94,6 +95,78 @@ function colorField(id, label, value) {
   return `<div class="color-row"><span class="color-row-label">${label}</span><input type="color" class="colorPicker" id="${id}" value="${value}"><input type="text" class="colorHex" id="${id}_hex" value="${value}"></div>`;
 }
 
+// cuadro modal para pedir la contraseña de administradora, con asteriscos reales
+// y un ojito para revelar lo que se escribió (reemplaza los prompt() feos del navegador).
+// se usa en varios lugares: ver el PIN, borrar un negocio, cambiar el recordatorio.
+function passwordModalHtml() {
+  return `
+  <div id="pwModalOverlay" class="pw-modal-overlay">
+    <div class="pw-modal">
+      <p id="pwModalLabel" style="white-space:pre-line;font-size:13px;"></p>
+      <div class="pw-wrap">
+        <input type="password" id="pwModalInput" autocomplete="off">
+        <button type="button" class="pw-toggle" data-target="pwModalInput">👁</button>
+      </div>
+      <p class="msg err" id="pwModalError" style="display:none;margin-top:6px;"></p>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <button type="button" id="pwModalCancel" style="background:#EEE9DF;color:#2B2320;">Cancelar</button>
+        <button type="button" id="pwModalConfirm">Confirmar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function passwordModalStyles() {
+  return `
+  .pw-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;}
+  .pw-modal-overlay.show{display:flex;}
+  .pw-modal{background:white;border-radius:16px;padding:22px;max-width:320px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.3);}
+  .pw-modal button{margin-top:0;}
+  `;
+}
+
+function passwordModalScript() {
+  return `
+    document.querySelectorAll('.pw-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+        else { input.type = 'password'; btn.textContent = '👁'; }
+      });
+    });
+    function askPassword(label) {
+      return new Promise((resolve) => {
+        const overlay = document.getElementById('pwModalOverlay');
+        const input = document.getElementById('pwModalInput');
+        const labelEl = document.getElementById('pwModalLabel');
+        const errorEl = document.getElementById('pwModalError');
+        const confirmBtn = document.getElementById('pwModalConfirm');
+        const cancelBtn = document.getElementById('pwModalCancel');
+        labelEl.textContent = label;
+        input.value = ''; input.type = 'password';
+        const toggleBtn = document.querySelector('.pw-toggle[data-target="pwModalInput"]');
+        if (toggleBtn) toggleBtn.textContent = '👁';
+        errorEl.style.display = 'none';
+        overlay.classList.add('show');
+        setTimeout(() => input.focus(), 50);
+        function cleanup(value) {
+          overlay.classList.remove('show');
+          confirmBtn.removeEventListener('click', onConfirm);
+          cancelBtn.removeEventListener('click', onCancel);
+          input.removeEventListener('keydown', onKeydown);
+          resolve(value);
+        }
+        function onConfirm() { cleanup(input.value); }
+        function onCancel() { cleanup(null); }
+        function onKeydown(e) { if (e.key === 'Enter') onConfirm(); if (e.key === 'Escape') onCancel(); }
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelBtn.addEventListener('click', onCancel);
+        input.addEventListener('keydown', onKeydown);
+      });
+    }
+  `;
+}
+
 // Todos los colores de la tarjeta, organizados en 3 grupos: Textos, Fondos, Bordes.
 // Se usa tanto en "Crear negocio" como en "Editar", así quedan siempre iguales.
 function colorGroupsHtml(b) {
@@ -111,7 +184,7 @@ function colorGroupsHtml(b) {
       ${colorField('color_text_qr_code', 'Código de cliente (ej. #ABC123)', v('color_text_qr_code', '#593212'))}
       ${colorField('color_text_qr_instruction', 'Descripción debajo del código de cliente', v('color_text_qr_instruction', '#8A5A34'))}
       ${colorField('color_text_instagram', 'Usuario de Instagram (@usuario)', v('color_text_instagram', '#593212'))}
-      ${colorField('color_text_credit', 'Texto final: "Design by Anaelí Brand"', v('color_text_credit', '#593212'))}
+      ${colorField('color_text_credit', 'Texto final: "My Tapp by Anaelí Brand"', v('color_text_credit', '#593212'))}
     </div>
 
     <label style="margin-top:18px;">🎨 Fondos</label>
@@ -548,6 +621,7 @@ async function renderAdminDashboard(env, admin) {
     .create-flex{display:flex;gap:24px;align-items:flex-start;}
     .form-col{flex:1;min-width:0;}
     ${previewStyles()}
+    ${passwordModalStyles()}
     h1{font-family:'Baloo 2',sans-serif;font-size:22px;}
     h2{font-family:'Baloo 2',sans-serif;font-size:16px;margin-top:30px;}
     table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;font-size:13px;margin-bottom:10px;}
@@ -559,7 +633,7 @@ async function renderAdminDashboard(env, admin) {
     input[type=password]{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;}
     .pw-wrap{position:relative;}
     .pw-wrap input{padding-right:44px;}
-    .pw-toggle{position:absolute;right:8px;top:8px;background:none!important;border:none!important;width:auto!important;padding:2px!important;font-size:17px;cursor:pointer;line-height:1;}
+    .pw-toggle{position:absolute;right:8px;top:8px;background:none!important;border:none!important;width:auto!important;padding:2px!important;font-size:17px;cursor:pointer;line-height:1;color:#2B2320!important;}
     input[type=color]{width:46px;height:42px;border:2px solid #2B2320;border-radius:10px;padding:2px;flex-shrink:0;}
     .color-field{display:flex;gap:6px;}
     .color-field input.colorHex{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:13px;font-family:monospace;text-transform:uppercase;}
@@ -705,14 +779,8 @@ async function renderAdminDashboard(env, admin) {
       ${previewPanelHtml(null, null)}
       </div>
     </div>
+    ${passwordModalHtml()}
     <script>
-      document.querySelectorAll('.pw-toggle').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const input = document.getElementById(btn.dataset.target);
-          if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
-          else { input.type = 'password'; btn.textContent = '👁'; }
-        });
-      });
       document.getElementById('toggleSettingsBtn').addEventListener('click', () => {
         const card = document.getElementById('settingsCard');
         const showing = card.style.display !== 'none';
@@ -723,7 +791,7 @@ async function renderAdminDashboard(env, admin) {
           e.preventDefault();
           const slug = link.dataset.slug;
           const name = link.dataset.name;
-          const password = prompt('Esto borra "' + name + '" y a TODOS sus clientes registrados, para siempre.\\n\\nPara confirmar, escribe tu contraseña de administradora:');
+          const password = await askPassword('Esto borra "' + name + '" y a TODOS sus clientes registrados, para siempre.\\n\\nPara confirmar, escribe tu contraseña de administradora:');
           if (password === null) return;
           const deleteMsg = document.getElementById('deleteMsg');
           deleteMsg.textContent = 'Borrando...'; deleteMsg.className = 'msg';
@@ -737,7 +805,7 @@ async function renderAdminDashboard(env, admin) {
           e.preventDefault();
           const cell = link.closest('.pin-cell');
           const slug = cell.dataset.slug;
-          const password = prompt('Escribe tu contraseña de administradora para ver el PIN de este negocio:');
+          const password = await askPassword('Escribe tu contraseña de administradora para ver el PIN de este negocio:');
           if (password === null) return;
           const res = await fetch('/admin/business/' + slug + '/reveal-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
           const data = await res.json();
@@ -860,6 +928,7 @@ async function renderAdminDashboard(env, admin) {
         }
       });
       ${previewScript(null)}
+      ${passwordModalScript()}
     </script>
   </body></html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
@@ -1084,6 +1153,23 @@ async function handleRevealPin(request, env, slug) {
   return new Response(JSON.stringify({ ok: true, pin: business.staff_pin_note || '(no lo has anotado todavía)' }), { headers: { 'Content-Type': 'application/json' } });
 }
 
+async function handleUpdatePinNote(request, env, slug) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const { password, note } = await request.json().catch(() => ({}));
+  if (!(await verifyPassword(password || '', admin.password_hash))) {
+    return new Response(JSON.stringify({ error: 'Contraseña incorrecta' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  await env.DB.prepare('UPDATE businesses SET staff_pin_note = ? WHERE id = ?').bind(note || null, business.id).run();
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
 async function handleUnlockBusiness(request, env, slug) {
   const cookieVal = getCookie(request, 'admin_session');
   const admin = await getAdminFromSession(env, cookieVal);
@@ -1139,7 +1225,11 @@ async function handleEditBusinessForm(request, env, slug) {
     .msg{text-align:center;font-size:13px;margin-top:12px;}
     .msg.ok{color:#215A34;} .msg.err{color:#B23A3A;}
     a.back{display:inline-block;margin-bottom:14px;color:#2B2320;font-weight:700;text-decoration:none;}
+    .pw-wrap{position:relative;}
+    .pw-wrap input{padding-right:44px;}
+    .pw-toggle{position:absolute;right:8px;top:8px;background:none!important;border:none!important;width:auto!important;padding:2px!important;font-size:17px;cursor:pointer;line-height:1;color:#2B2320!important;}
     ${previewStyles()}
+    ${passwordModalStyles()}
   </style></head>
   <body>
     <div class="wrap">
@@ -1218,17 +1308,30 @@ async function handleEditBusinessForm(request, env, slug) {
           <label>Instagram (link completo)</label>
           <input type="text" id="instagram_url" value="${escapeHtml(b.instagram_url || '')}">
 
-          <label>Tu recordatorio del PIN (solo tú lo ves, con tu contraseña)</label>
-          <input type="text" id="pin_note" value="${escapeHtml(b.staff_pin_note || '')}" placeholder="Ej. 1234, o alguna nota para ti">
-
           <button type="submit">Guardar cambios</button>
         </form>
+
+        <div class="card" style="margin-top:20px;">
+          <label>Tu recordatorio del PIN</label>
+          <p class="hint" style="margin-top:0;">Protegido con tu contraseña, igual que en el panel principal.</p>
+          <div id="pinNoteBox">
+            <span id="pinNoteDisplay">🔒 ••••</span>
+            <button type="button" id="pinNoteViewBtn" style="width:auto;margin:0 0 0 10px;padding:6px 12px;font-size:12px;">Ver</button>
+            <button type="button" id="pinNoteEditBtn" style="width:auto;margin:0 0 0 6px;padding:6px 12px;font-size:12px;">Cambiar</button>
+          </div>
+          <div id="pinNoteEditForm" style="display:none;margin-top:10px;">
+            <input type="text" id="pinNoteNewValue" placeholder="Nuevo recordatorio del PIN">
+            <button type="button" id="pinNoteSaveBtn" style="margin-top:8px;">Guardar recordatorio</button>
+          </div>
+        </div>
+
         <p class="msg" id="msg"></p>
       </div>
       </div>
 
       ${previewPanelHtml(b.logo_base64, b.sello_1_base64)}
     </div>
+    ${passwordModalHtml()}
     <script>
       document.querySelectorAll('.colorPicker').forEach(picker => {
         const hexInput = document.getElementById(picker.id + '_hex');
@@ -1279,8 +1382,7 @@ async function handleEditBusinessForm(request, env, slug) {
             reward_heading: document.getElementById('reward_heading').value,
             reward_text: document.getElementById('reward_text').value,
             instagram_handle: document.getElementById('instagram_handle').value,
-            instagram_url: document.getElementById('instagram_url').value,
-            pin_note: document.getElementById('pin_note').value
+            instagram_url: document.getElementById('instagram_url').value
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
           const res = await fetch('/admin/business/${slug}/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -1292,6 +1394,37 @@ async function handleEditBusinessForm(request, env, slug) {
         }
       });
       ${previewScript(b.sello_1_base64)}
+      ${passwordModalScript()}
+      document.getElementById('pinNoteViewBtn').addEventListener('click', async () => {
+        const password = await askPassword('Escribe tu contraseña de administradora para ver el recordatorio del PIN:');
+        if (password === null) return;
+        const res = await fetch('/admin/business/${slug}/reveal-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('pinNoteDisplay').textContent = '🔓 ' + data.pin;
+        } else {
+          alert(data.error || 'No se pudo ver el recordatorio');
+        }
+      });
+      document.getElementById('pinNoteEditBtn').addEventListener('click', () => {
+        document.getElementById('pinNoteEditForm').style.display = 'block';
+        document.getElementById('pinNoteNewValue').focus();
+      });
+      document.getElementById('pinNoteSaveBtn').addEventListener('click', async () => {
+        const note = document.getElementById('pinNoteNewValue').value;
+        const password = await askPassword('Escribe tu contraseña de administradora para guardar este recordatorio:');
+        if (password === null) return;
+        const res = await fetch('/admin/business/${slug}/update-pin-note', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password, note }) });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('pinNoteDisplay').textContent = '🔒 ••••';
+          document.getElementById('pinNoteEditForm').style.display = 'none';
+          document.getElementById('pinNoteNewValue').value = '';
+          alert('Recordatorio guardado.');
+        } else {
+          alert(data.error || 'No se pudo guardar');
+        }
+      });
     </script>
   </body></html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
@@ -1315,7 +1448,6 @@ async function handleUpdateBusiness(request, env, slug) {
     name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
     greeting_eyebrow: body.greeting_eyebrow, reward_heading: body.reward_heading, reward_text: body.reward_text,
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url),
-    staff_pin_note: body.pin_note || null,
     instruction_text: body.instruction_text || business.instruction_text,
   };
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
@@ -1585,7 +1717,7 @@ function renderCustomerCard(b, customer, slug, origin) {
         </a>` : ''}
       </div>
     </div>
-    <p class="credit">Design by <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
+    <p class="credit">My Tapp by <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
   </div>
   <script>
     if (typeof QRCode !== 'undefined') {
