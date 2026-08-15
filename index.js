@@ -1293,11 +1293,23 @@ async function handlePublicRegisterSubmit(request, env, slug) {
   }
 
   const fullName = `${nombre.trim()} ${apellido.trim()}`;
-  const code = generateCode(slug);
-  await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, stamps) VALUES (?, ?, ?, ?, 0)')
-    .bind(business.id, code, fullName, cedula.trim()).run();
+  const cedulaLimpia = cedula.trim();
+
+  // si ya existe un cliente con esta cédula en este negocio, no se crea uno nuevo:
+  // se le manda derechito a SU tarjeta real, para no perder los sellos que ya tenía
+  const existing = await env.DB.prepare('SELECT code FROM customers WHERE business_id = ? AND cedula = ?')
+    .bind(business.id, cedulaLimpia).first();
 
   const url = new URL(request.url);
+  if (existing) {
+    return new Response(JSON.stringify({ ok: true, code: existing.code, url: `${url.origin}/${slug}/${existing.code}`, existing: true }),
+      { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const code = generateCode(slug);
+  await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, stamps) VALUES (?, ?, ?, ?, 0)')
+    .bind(business.id, code, fullName, cedulaLimpia).run();
+
   const cardUrl = `${url.origin}/${slug}/${code}`;
   return new Response(JSON.stringify({ ok: true, code, url: cardUrl }), { headers: { 'Content-Type': 'application/json' } });
 }
