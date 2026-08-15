@@ -398,8 +398,8 @@ function renderStaffPanel(b) {
       </form>
       <p class="msg" id="regMsg"></p>
 
-      <a class="logout" href="./staff/clientes">Ver todos los clientes</a>
-      <a class="logout" href="./staff/logout">Cerrar sesión del local</a>
+      <a class="logout" href="/staff/${b.slug}/clientes">Ver todos los clientes</a>
+      <a class="logout" href="/staff/${b.slug}/logout">Cerrar sesión del local</a>
     </div>
     <script>
       const codeInput = document.getElementById('code');
@@ -584,7 +584,7 @@ async function handleClientesList(request, env, slug) {
       <td>${escapeHtml(c.code)}</td>
       <td>${c.stamps}/${business.total_stamps}</td>
       <td>${c.cycle}</td>
-      <td><a href="./historial/${escapeHtml(c.code)}">Ver fechas</a></td>
+      <td><a href="/staff/${slug}/historial/${escapeHtml(c.code)}">Ver fechas</a></td>
     </tr>`).join('');
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -600,7 +600,7 @@ async function handleClientesList(request, env, slug) {
     a.back{display:inline-block;margin-bottom:14px;color:${business.color_brown};font-weight:700;text-decoration:none;}
   </style></head>
   <body>
-    <a class="back" href="./${slug}">← Volver al panel</a>
+    <a class="back" href="/staff/${slug}">← Volver al panel</a>
     <h1>Clientes de ${escapeHtml(business.name)} (${results.length})</h1>
     <table>
       <tr><th>Nombre</th><th>Cédula</th><th>Celular</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr>
@@ -645,7 +645,7 @@ async function handleHistorial(request, env, slug, code) {
     .resumen{background:${business.color_butter_mid};border:2px solid ${business.color_brown};border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:${business.color_brown};}
   </style></head>
   <body>
-    <a class="back" href="./../clientes">← Volver a clientes</a>
+    <a class="back" href="/staff/${slug}/clientes">← Volver a clientes</a>
     <h1>${escapeHtml(customer.name)}</h1>
     <p class="sub">Código actual: ${escapeHtml(customer.code)} · Cédula: ${escapeHtml(customer.cedula || '—')} · Celular: ${escapeHtml(customer.phone || '—')}</p>
     <div class="resumen">
