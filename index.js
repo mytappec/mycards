@@ -85,6 +85,110 @@ function getFontConfig(fontFamily) {
   return FONTS[fontFamily] || FONTS['Baloo 2'];
 }
 
+// ---- vista previa en vivo, reutilizada en "crear negocio" y "editar negocio" ----
+function previewStyles() {
+  return `
+    .preview-col{width:300px;flex-shrink:0;position:sticky;top:24px;}
+    .preview-label{font-size:12px;font-weight:700;color:#8A6F4E;margin:0 0 8px;text-align:center;}
+    .preview-card{border-radius:24px;border:2.5px solid #593212;overflow:hidden;box-shadow:0 8px 0 rgba(0,0,0,.15);}
+    .preview-page{padding:20px;border-radius:24px;}
+    .preview-top{padding:20px 16px 14px;text-align:center;border-bottom:2px solid;}
+    .preview-logo{max-width:100px;max-height:60px;object-fit:contain;margin:0 auto;display:block;}
+    .preview-body{padding:16px;}
+    .preview-eyebrow{font-size:12px;font-weight:700;text-transform:uppercase;margin:0;}
+    .preview-name{font-size:16px;font-weight:800;margin:2px 0 12px;}
+    .preview-bar-track{height:10px;border-radius:99px;background:white;border:2px solid;overflow:hidden;margin-bottom:10px;}
+    .preview-bar-fill{height:100%;width:45%;border-radius:99px;}
+    .preview-stamps{display:flex;gap:6px;margin-bottom:12px;}
+    .preview-stamp{width:32px;height:32px;border-radius:50%;flex-shrink:0;background-size:65% 65%;background-position:center;background-repeat:no-repeat;}
+    .preview-reward{border-radius:10px;border:2px solid;padding:8px 10px;font-size:10.5px;}
+    .preview-reward b{display:block;font-size:11.5px;}
+  `;
+}
+
+function previewPanelHtml(logoBase64, sello1Base64) {
+  return `<div class="preview-col">
+    <p class="preview-label">Vista previa (aproximada)</p>
+    <div class="preview-card">
+      <div class="preview-page" id="prevPage">
+        <div class="preview-top" id="prevTop">
+          <img class="preview-logo" id="prevLogo" src="data:image/png;base64,${logoBase64 || ''}">
+        </div>
+        <div class="preview-body" id="prevBody">
+          <p class="preview-eyebrow" id="prevEyebrow">¡Hello!</p>
+          <p class="preview-name" id="prevName">Nombre Cliente</p>
+          <div class="preview-bar-track" id="prevBarTrack"><div class="preview-bar-fill" id="prevBarFill"></div></div>
+          <div class="preview-stamps">
+            <div class="preview-stamp" id="prevStamp1"></div>
+            <div class="preview-stamp" id="prevStamp2"></div>
+            <div class="preview-stamp" id="prevStamp3"></div>
+          </div>
+          <div class="preview-reward" id="prevReward">
+            <b id="prevRewardHeading">Tu premio, cada vez más cerca</b>
+            <span id="prevRewardText">Al llegar a tu sello #10, recibe algo gratis.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function previewScript(initialSelloBase64) {
+  return `
+    let prevSelloUrl = ${JSON.stringify(initialSelloBase64 ? `data:image/png;base64,${initialSelloBase64}` : '')};
+    function readColor(id) { const el = document.getElementById(id); return el ? el.value : '#DCEAF4'; }
+    function updatePreview() {
+      const pageBg = readColor('color_page_bg'), cardBg = readColor('color_card_bg');
+      const brown = readColor('color_brown'), brownSoft = readColor('color_brown_soft');
+      const pink = readColor('color_pink'), butterMid = readColor('color_butter_mid');
+      const fontSel = document.getElementById('font_family');
+      const font = fontSel ? fontSel.value : 'Baloo 2';
+      const fallback = { 'Baloo 2':"'Arial Rounded MT Bold',sans-serif", 'Poppins':'sans-serif', 'Playfair Display':'serif', 'Montserrat':'sans-serif', 'Caveat':'cursive' }[font] || 'sans-serif';
+      const fontCss = "'" + font + "'," + fallback;
+
+      document.getElementById('prevPage').style.background = pageBg;
+      document.getElementById('prevTop').style.borderColor = brown;
+      document.getElementById('prevBody').style.background = cardBg;
+      document.querySelector('.preview-card').style.borderColor = brown;
+
+      const eyebrow = document.getElementById('prevEyebrow');
+      eyebrow.style.color = brownSoft; eyebrow.style.fontFamily = fontCss;
+      eyebrow.textContent = document.getElementById('greeting_eyebrow') ? document.getElementById('greeting_eyebrow').value || '¡Hello!' : '¡Hello!';
+
+      const name = document.getElementById('prevName');
+      name.style.color = brown; name.style.fontFamily = fontCss;
+
+      document.getElementById('prevBarTrack').style.borderColor = brown;
+      document.getElementById('prevBarFill').style.background = pink;
+
+      ['prevStamp1','prevStamp2','prevStamp3'].forEach((id, i) => {
+        const el = document.getElementById(id);
+        el.style.background = brown;
+        if (i === 0 && prevSelloUrl) { el.style.backgroundImage = 'url(' + prevSelloUrl + ')'; }
+      });
+
+      const reward = document.getElementById('prevReward');
+      reward.style.background = butterMid; reward.style.borderColor = brown; reward.style.color = brown;
+      document.getElementById('prevRewardHeading').style.fontFamily = fontCss;
+      const rh = document.getElementById('reward_heading'); if (rh) document.getElementById('prevRewardHeading').textContent = rh.value || 'Tu premio, cada vez más cerca';
+      const rt = document.getElementById('reward_text'); if (rt) document.getElementById('prevRewardText').textContent = rt.value || '';
+    }
+    document.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener('input', updatePreview);
+      el.addEventListener('change', updatePreview);
+    });
+    const logoFileInput = document.getElementById('logo');
+    if (logoFileInput) logoFileInput.addEventListener('change', () => {
+      if (logoFileInput.files[0]) document.getElementById('prevLogo').src = URL.createObjectURL(logoFileInput.files[0]);
+    });
+    const sello1Input = document.getElementById('sello1');
+    if (sello1Input) sello1Input.addEventListener('change', () => {
+      if (sello1Input.files[0]) { prevSelloUrl = URL.createObjectURL(sello1Input.files[0]); updatePreview(); }
+    });
+    updatePreview();
+  `;
+}
+
 async function sha256Hex(text) {
   const data = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -296,11 +400,14 @@ async function renderAdminDashboard(env, admin) {
 
   return new Response(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel · My Tapp</title>
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Poppins:wght@600;700;800&family=Playfair+Display:wght@600;700;800&family=Montserrat:wght@600;700;800&family=Caveat:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;}
     body{margin:0;background:#F4F1EA;font-family:'Quicksand',sans-serif;padding:24px;color:#2B2320;}
-    .wrap{max-width:640px;margin:0 auto;}
+    .wrap{max-width:1040px;margin:0 auto;}
+    .create-flex{display:flex;gap:24px;align-items:flex-start;}
+    .form-col{flex:1;min-width:0;}
+    ${previewStyles()}
     h1{font-family:'Baloo 2',sans-serif;font-size:22px;}
     h2{font-family:'Baloo 2',sans-serif;font-size:16px;margin-top:30px;}
     table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;font-size:13px;margin-bottom:10px;}
@@ -360,6 +467,8 @@ async function renderAdminDashboard(env, admin) {
       </div>
 
       <h2>Crear negocio nuevo</h2>
+      <div class="create-flex">
+      <div class="form-col">
       <div class="card">
         <form id="bizForm">
           <label>Nombre del negocio</label>
@@ -393,11 +502,11 @@ async function renderAdminDashboard(env, admin) {
 
           <label>Tipografía</label>
           <select id="font_family">
-            <option value="Baloo 2">Redondeada y divertida</option>
-            <option value="Poppins">Moderna y minimalista</option>
-            <option value="Playfair Display">Elegante y clásica</option>
-            <option value="Montserrat">Seria y corporativa</option>
-            <option value="Caveat">Manuscrita y artesanal</option>
+            <option value="Baloo 2" style="font-family:'Baloo 2','Arial Rounded MT Bold',sans-serif;">Baloo 2 — Redondeada y divertida</option>
+            <option value="Poppins" style="font-family:'Poppins',sans-serif;">Poppins — Moderna y minimalista</option>
+            <option value="Playfair Display" style="font-family:'Playfair Display',serif;">Playfair Display — Elegante y clásica</option>
+            <option value="Montserrat" style="font-family:'Montserrat',sans-serif;">Montserrat — Seria y corporativa</option>
+            <option value="Caveat" style="font-family:'Caveat',cursive;">Caveat — Manuscrita y artesanal</option>
           </select>
 
           <label>Cuántos sellos para el premio</label>
@@ -424,6 +533,10 @@ async function renderAdminDashboard(env, admin) {
           <button type="submit">Crear negocio</button>
         </form>
         <p class="msg" id="msg"></p>
+      </div>
+      </div>
+
+      ${previewPanelHtml(null, null)}
       </div>
     </div>
     <script>
@@ -537,6 +650,7 @@ async function renderAdminDashboard(env, admin) {
           msg.textContent = 'Error: ' + err.message; msg.className = 'msg err';
         }
       });
+      ${previewScript(null)}
     </script>
   </body></html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
@@ -729,19 +843,21 @@ async function handleEditBusinessForm(request, env, slug) {
   if (!b) return new Response('Negocio no encontrado', { status: 404 });
 
   const fontOptions = Object.keys(FONTS).map(key =>
-    `<option value="${key}"${b.font_family === key ? ' selected' : ''}>${FONTS[key].label}</option>`
+    `<option value="${key}" style="font-family:'${key}',${FONTS[key].fallback};"${b.font_family === key ? ' selected' : ''}>${key} — ${FONTS[key].label}</option>`
   ).join('');
+  const allFontsGoogleParams = Object.values(FONTS).map(f => f.google).join('&family=');
 
   const colorField = (id, label, value) => `
     <div>${label}<div class="color-field"><input type="color" class="colorPicker" id="${id}" value="${value}"><input type="text" class="colorHex" id="${id}_hex" value="${value}"></div></div>`;
 
   return new Response(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Editar ${escapeHtml(b.name)} · My Tapp</title>
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=${allFontsGoogleParams}&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;}
     body{margin:0;background:#F4F1EA;font-family:'Quicksand',sans-serif;padding:24px;color:#2B2320;}
-    .wrap{max-width:640px;margin:0 auto;}
+    .wrap{max-width:1040px;margin:0 auto;display:flex;gap:24px;align-items:flex-start;}
+    .form-col{flex:1;min-width:0;}
     h1{font-family:'Baloo 2',sans-serif;font-size:20px;}
     .card{background:white;border:2px solid #2B2320;border-radius:16px;padding:20px;margin-top:12px;}
     label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;}
@@ -759,9 +875,11 @@ async function handleEditBusinessForm(request, env, slug) {
     .msg{text-align:center;font-size:13px;margin-top:12px;}
     .msg.ok{color:#215A34;} .msg.err{color:#B23A3A;}
     a.back{display:inline-block;margin-bottom:14px;color:#2B2320;font-weight:700;text-decoration:none;}
+    ${previewStyles()}
   </style></head>
   <body>
     <div class="wrap">
+      <div class="form-col">
       <a class="back" href="/admin">← Volver al panel</a>
       <h1>Editar ${escapeHtml(b.name)}</h1>
       <div class="card">
@@ -822,6 +940,9 @@ async function handleEditBusinessForm(request, env, slug) {
         </form>
         <p class="msg" id="msg"></p>
       </div>
+      </div>
+
+      ${previewPanelHtml(b.logo_base64, b.sello_1_base64)}
     </div>
     <script>
       document.querySelectorAll('.colorPicker').forEach(picker => {
@@ -884,6 +1005,7 @@ async function handleEditBusinessForm(request, env, slug) {
           msg.textContent = 'Error: ' + err.message; msg.className = 'msg err';
         }
       });
+      ${previewScript(b.sello_1_base64)}
     </script>
   </body></html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
