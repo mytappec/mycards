@@ -38,6 +38,8 @@ export default {
         if (parts[1] === 'business' && parts[2] && parts[3] === 'unlock' && request.method === 'POST') return handleUnlockBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'reveal-pin' && request.method === 'POST') return handleRevealPin(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'update-pin-note' && request.method === 'POST') return handleUpdatePinNote(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'payment' && request.method === 'POST') return handleUpdatePayment(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'toggle-suspend' && request.method === 'POST') return handleToggleSuspend(request, env, parts[2]);
         return handleAdminPage(request, env);
       }
 
@@ -592,10 +594,12 @@ function renderAdminLogin() {
 }
 
 async function renderAdminDashboard(env, admin) {
-  const { results } = await env.DB.prepare('SELECT slug, name, created_at, staff_login_locked_until FROM businesses ORDER BY id DESC').all();
+  const { results } = await env.DB.prepare('SELECT slug, name, created_at, staff_login_locked_until, last_payment_date, next_payment_date, is_suspended FROM businesses ORDER BY id DESC').all();
   const now = new Date();
+  const today = now.toISOString().slice(0, 10);
   const rows = results.map(b => {
     const isLocked = b.staff_login_locked_until && new Date(b.staff_login_locked_until + 'Z') > now;
+    const isOverdue = b.next_payment_date && b.next_payment_date < today;
     return `
     <tr>
       <td>${escapeHtml(b.name)}</td>
@@ -606,6 +610,24 @@ async function renderAdminDashboard(env, admin) {
       <td><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
       <td><span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span></td>
       <td>${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;font-weight:700;">🔒 Desbloquear PIN</a>` : '—'}</td>
+      <td>
+        <div class="payment-cell" data-slug="${escapeHtml(b.slug)}">
+          <div style="margin-bottom:4px;">
+            <label style="font-size:10px;font-weight:400;margin:0;">Pagó:</label>
+            <input type="date" class="last-payment-input" value="${b.last_payment_date || ''}" style="font-size:11px;padding:3px 5px;width:120px;">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:400;margin:0;">Próximo:</label>
+            <input type="date" class="next-payment-input" value="${b.next_payment_date || ''}" style="font-size:11px;padding:3px 5px;width:120px;${isOverdue ? 'border-color:#B23A3A;color:#B23A3A;font-weight:700;' : ''}">
+          </div>
+          <button type="button" class="save-payment-btn" style="width:auto;margin-top:4px;padding:4px 10px;font-size:11px;">Guardar</button>
+        </div>
+      </td>
+      <td>
+        <a href="#" class="toggle-suspend" data-slug="${escapeHtml(b.slug)}" data-suspended="${b.is_suspended}" style="color:${b.is_suspended ? '#215A34' : '#B26A00'};font-weight:700;">
+          ${b.is_suspended ? '▶️ Activar' : '⏸️ Suspender'}
+        </a>
+      </td>
       <td><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
     </tr>`;
   }).join('');
@@ -658,8 +680,8 @@ async function renderAdminDashboard(env, admin) {
 
       <h2>Tus negocios (${results.length})</h2>
       <table>
-        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>QR</th><th>Editar</th><th>Tu PIN</th><th>Desbloquear</th><th>Borrar</th></tr>
-        ${rows || '<tr><td colspan="9">Todavía no has creado ningún negocio</td></tr>'}
+        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>QR</th><th>Editar</th><th>Tu PIN</th><th>Desbloquear</th><th>Pago</th><th>Estado</th><th>Borrar</th></tr>
+        ${rows || '<tr><td colspan="11">Todavía no has creado ningún negocio</td></tr>'}
       </table>
       <p id="deleteMsg" class="msg"></p>
 
@@ -814,6 +836,39 @@ async function renderAdminDashboard(env, admin) {
           } else {
             alert(data.error || 'No se pudo ver el PIN');
           }
+        });
+      });
+      document.querySelectorAll('.last-payment-input').forEach(input => {
+        input.addEventListener('change', () => {
+          const cell = input.closest('.payment-cell');
+          const nextInput = cell.querySelector('.next-payment-input');
+          if (input.value && !nextInput.value) {
+            const d = new Date(input.value + 'T00:00:00');
+            d.setMonth(d.getMonth() + 1);
+            nextInput.value = d.toISOString().slice(0, 10);
+          }
+        });
+      });
+      document.querySelectorAll('.save-payment-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const cell = btn.closest('.payment-cell');
+          const slug = cell.dataset.slug;
+          const last_payment_date = cell.querySelector('.last-payment-input').value;
+          const next_payment_date = cell.querySelector('.next-payment-input').value;
+          btn.textContent = 'Guardando...';
+          const res = await fetch('/admin/business/' + slug + '/payment', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ last_payment_date, next_payment_date }) });
+          if (res.ok) { location.reload(); } else { btn.textContent = 'Error, reintenta'; }
+        });
+      });
+      document.querySelectorAll('.toggle-suspend').forEach(link => {
+        link.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const slug = link.dataset.slug;
+          const isSuspended = link.dataset.suspended === '1';
+          const action = isSuspended ? 'activar' : 'suspender';
+          if (!confirm('¿Seguro que quieres ' + action + ' este negocio?' + (isSuspended ? '' : ' Su staff no va a poder sellar hasta que lo actives de nuevo.'))) return;
+          const res = await fetch('/admin/business/' + slug + '/toggle-suspend', { method: 'POST' });
+          if (res.ok) { location.reload(); } else { alert('No se pudo cambiar el estado'); }
         });
       });
       document.querySelectorAll('.download-qr').forEach(link => {
@@ -1168,6 +1223,35 @@ async function handleUpdatePinNote(request, env, slug) {
 
   await env.DB.prepare('UPDATE businesses SET staff_pin_note = ? WHERE id = ?').bind(note || null, business.id).run();
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleUpdatePayment(request, env, slug) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  const { last_payment_date, next_payment_date } = await request.json().catch(() => ({}));
+  await env.DB.prepare('UPDATE businesses SET last_payment_date = ?, next_payment_date = ? WHERE id = ?')
+    .bind(last_payment_date || null, next_payment_date || null, business.id).run();
+
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleToggleSuspend(request, env, slug) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  const newValue = business.is_suspended ? 0 : 1;
+  await env.DB.prepare('UPDATE businesses SET is_suspended = ? WHERE id = ?').bind(newValue, business.id).run();
+
+  return new Response(JSON.stringify({ ok: true, is_suspended: newValue }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleUnlockBusiness(request, env, slug) {
@@ -1743,11 +1827,33 @@ async function handleStaffPage(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
 
+  if (business.is_suspended) {
+    return new Response(renderSuspendedPage(business), { status: 402, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+
   const cookieVal = getCookie(request, 'staff_session');
   const isLoggedIn = cookieVal === business.staff_pin_hash;
 
   const html = isLoggedIn ? renderStaffPanel(business) : renderStaffLogin(business);
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+function renderSuspendedPage(b) {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff · ${escapeHtml(b.name)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F4F1EA;font-family:'Quicksand',sans-serif;padding:24px;}
+    .box{width:100%;max-width:360px;background:white;border:2.5px solid #2B2320;border-radius:24px;padding:32px 24px;box-shadow:0 10px 0 #2B2320;text-align:center;}
+    p{font-size:15px;color:#2B2320;line-height:1.5;}
+    a{color:#593212;font-weight:700;}
+  </style></head>
+  <body>
+    <div class="box">
+      <p>Ups! ¿Olvidaste pagar tu suscripción? 😴<br><br>Por favor envíanos el comprobante a "<a href="mailto:mytapp.ec@gmail.com">mytapp.ec@gmail.com</a>" con el nombre de tu negocio y continúa disfrutando de My Tapp.</p>
+    </div>
+  </body></html>`;
 }
 
 function baseStaffStyles(b) {
@@ -1963,6 +2069,10 @@ function renderStaffPanel(b) {
 async function handleLogin(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
+
+  if (business.is_suspended) {
+    return new Response(JSON.stringify({ error: 'Este negocio está suspendido. Contacta a la administradora de My Tapp.' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
 
   // si está bloqueado por demasiados intentos fallidos, ni siquiera se revisa el PIN
   if (business.staff_login_locked_until) {
@@ -2215,6 +2325,10 @@ async function handleHistorial(request, env, slug, code) {
 async function handleStamp(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  if (business.is_suspended) {
+    return new Response(JSON.stringify({ error: 'Este negocio está suspendido. Contacta a la administradora de My Tapp.' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
 
   const cookieVal = getCookie(request, 'staff_session');
   if (cookieVal !== business.staff_pin_hash) {
