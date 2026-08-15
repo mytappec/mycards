@@ -1,6 +1,11 @@
 // ============================================================
 // Tarjetas de sellos digitales — Worker principal
 // Rutas:
+//   GET  /admin                -> login / crear tu cuenta / panel (según el caso)
+//   POST /admin/signup         -> crea tu cuenta (solo si todavía no existe ninguna)
+//   POST /admin/login          -> inicia sesión con correo y contraseña
+//   GET  /admin/logout         -> cierra tu sesión
+//   POST /admin/businesses     -> crea un negocio nuevo (protegido con tu sesión)
 //   GET  /:slug/nuevo          -> formulario público para que el CLIENTE se registre solo
 //   POST /:slug/nuevo          -> crea al cliente y lo manda directo a su tarjeta
 //   GET  /:slug/:code          -> tarjeta del cliente
@@ -18,6 +23,15 @@ export default {
     const parts = url.pathname.split('/').filter(Boolean);
 
     try {
+      // ---- tu panel de administración (My Tapp) ----
+      if (parts[0] === 'admin') {
+        if (parts[1] === 'signup' && request.method === 'POST') return handleAdminSignup(request, env);
+        if (parts[1] === 'login' && request.method === 'POST') return handleAdminLogin(request, env);
+        if (parts[1] === 'logout') return handleAdminLogout();
+        if (parts[1] === 'businesses' && request.method === 'POST') return handleCreateBusiness(request, env);
+        return handleAdminPage(request, env);
+      }
+
       // ---- panel del staff ----
       if (parts[0] === 'staff' && parts[1]) {
         const slug = parts[1];
@@ -58,6 +72,29 @@ async function sha256Hex(text) {
   return [...new Uint8Array(hashBuffer)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+function bytesToHex(bytes) {
+  return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return bytes;
+}
+
+// contraseñas reales: con salt único por persona + 100,000 vueltas de PBKDF2,
+// no un hash simple como el PIN (que es solo un candado corto, no una contraseña)
+async function hashPassword(password, existingSaltHex) {
+  const salt = existingSaltHex ? hexToBytes(existingSaltHex) : crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+  return `${bytesToHex(salt)}:${bytesToHex(new Uint8Array(bits))}`;
+}
+async function verifyPassword(password, stored) {
+  const [saltHex] = stored.split(':');
+  const recomputed = await hashPassword(password, saltHex);
+  return recomputed === stored;
+}
+
 function generateCode(slug) {
   const prefix = slug.slice(0, 2).toUpperCase();
   const rand = crypto.getRandomValues(new Uint8Array(4));
@@ -78,6 +115,339 @@ async function getBusiness(env, slug) {
 // ------------------------------------------------------------
 // tarjeta del cliente
 // ------------------------------------------------------------
+
+// ------------------------------------------------------------
+// tu panel de administración (My Tapp)
+// ------------------------------------------------------------
+
+async function getAdminFromSession(env, cookieVal) {
+  if (!cookieVal || !cookieVal.includes('.')) return null;
+  const [idStr, token] = cookieVal.split('.');
+  const admin = await env.DB.prepare('SELECT * FROM admins WHERE id = ?').bind(Number(idStr)).first();
+  if (!admin) return null;
+  const expected = await sha256Hex(admin.password_hash);
+  return token === expected ? admin : null;
+}
+
+async function handleAdminPage(request, env) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (admin) return renderAdminDashboard(env, admin);
+
+  const row = await env.DB.prepare('SELECT COUNT(*) as count FROM admins').first();
+  const hasAdmin = Number(row.count) > 0;
+  return new Response(hasAdmin ? renderAdminLogin() : renderAdminSignup(), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+function adminBaseStyles() {
+  return `
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;background:#F4F1EA;font-family:'Quicksand',sans-serif;padding:24px;}
+  .box{width:100%;max-width:380px;margin:60px auto;background:white;border:2.5px solid #2B2320;border-radius:20px;padding:28px 24px;box-shadow:0 8px 0 #2B2320;}
+  h1{font-family:'Baloo 2',sans-serif;font-size:20px;color:#2B2320;margin:0 0 4px;text-align:center;}
+  p.sub{font-size:13px;color:#6B6259;text-align:center;margin:0 0 20px;}
+  input{width:100%;padding:12px 14px;border:2px solid #2B2320;border-radius:12px;font-size:15px;margin-bottom:10px;font-family:'Quicksand',sans-serif;}
+  button{width:100%;padding:13px;border:2px solid #2B2320;border-radius:12px;background:#FFD966;color:#2B2320;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
+  button:active{transform:scale(.98);}
+  .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;}
+  .msg.ok{color:#215A34;} .msg.err{color:#B23A3A;}
+  a{color:#2B2320;}
+  `;
+}
+
+function renderAdminSignup() {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crear cuenta · My Tapp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>${adminBaseStyles()}</style></head>
+  <body>
+    <div class="box">
+      <h1>My Tapp</h1>
+      <p class="sub">Primera vez aquí. Crea tu cuenta de administradora con tu propio correo y contraseña.</p>
+      <form id="f">
+        <input type="email" id="email" placeholder="Tu correo" required>
+        <input type="password" id="password" placeholder="Contraseña (mínimo 6 caracteres)" required minlength="6">
+        <button type="submit">Crear mi cuenta</button>
+      </form>
+      <p class="msg" id="msg"></p>
+    </div>
+    <script>
+      document.getElementById('f').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Creando...'; msg.className = 'msg';
+        const res = await fetch('/admin/signup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
+        if (res.ok) { location.href = '/admin'; }
+        else { const d = await res.json(); msg.textContent = d.error || 'No se pudo crear la cuenta'; msg.className = 'msg err'; }
+      });
+    </script>
+  </body></html>`;
+}
+
+function renderAdminLogin() {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar · My Tapp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>${adminBaseStyles()}</style></head>
+  <body>
+    <div class="box">
+      <h1>My Tapp</h1>
+      <p class="sub">Entra con tu correo y contraseña.</p>
+      <form id="f">
+        <input type="email" id="email" placeholder="Tu correo" required>
+        <input type="password" id="password" placeholder="Contraseña" required>
+        <button type="submit">Entrar</button>
+      </form>
+      <p class="msg" id="msg"></p>
+    </div>
+    <script>
+      document.getElementById('f').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Entrando...'; msg.className = 'msg';
+        const res = await fetch('/admin/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
+        if (res.ok) { location.href = '/admin'; }
+        else { const d = await res.json(); msg.textContent = d.error || 'Correo o contraseña incorrectos'; msg.className = 'msg err'; }
+      });
+    </script>
+  </body></html>`;
+}
+
+async function renderAdminDashboard(env, admin) {
+  const { results } = await env.DB.prepare('SELECT slug, name, created_at FROM businesses ORDER BY id DESC').all();
+  const rows = results.map(b => `
+    <tr>
+      <td>${escapeHtml(b.name)}</td>
+      <td>${escapeHtml(b.slug)}</td>
+      <td><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Panel staff</a></td>
+      <td><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a></td>
+    </tr>`).join('');
+
+  return new Response(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel · My Tapp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;background:#F4F1EA;font-family:'Quicksand',sans-serif;padding:24px;color:#2B2320;}
+    .wrap{max-width:640px;margin:0 auto;}
+    h1{font-family:'Baloo 2',sans-serif;font-size:22px;}
+    h2{font-family:'Baloo 2',sans-serif;font-size:16px;margin-top:30px;}
+    table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;font-size:13px;margin-bottom:10px;}
+    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #eee;}
+    th{background:#2B2320;color:white;}
+    .card{background:white;border:2px solid #2B2320;border-radius:16px;padding:20px;margin-top:12px;}
+    label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;}
+    input[type=text], input[type=number], input[type=email]{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;}
+    input[type=color]{width:100%;height:42px;border:2px solid #2B2320;border-radius:10px;padding:2px;}
+    input[type=file]{width:100%;font-size:12px;margin-top:4px;}
+    .colors{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .sellos{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    button{margin-top:18px;width:100%;padding:14px;border:2px solid #2B2320;border-radius:12px;background:#FFD966;color:#2B2320;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
+    .msg{text-align:center;font-size:13px;margin-top:12px;}
+    .msg.ok{color:#215A34;} .msg.err{color:#B23A3A;}
+    a.logout{float:right;font-size:12px;}
+    a{color:#2B2320;}
+  </style></head>
+  <body>
+    <div class="wrap">
+      <a class="logout" href="/admin/logout">Cerrar sesión</a>
+      <h1>My Tapp — ${escapeHtml(admin.email)}</h1>
+
+      <h2>Tus negocios (${results.length})</h2>
+      <table>
+        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th></tr>
+        ${rows || '<tr><td colspan="4">Todavía no has creado ningún negocio</td></tr>'}
+      </table>
+
+      <h2>Crear negocio nuevo</h2>
+      <div class="card">
+        <form id="bizForm">
+          <label>Nombre del negocio</label>
+          <input type="text" id="name" required placeholder="Ej. Cloud's Cookies">
+
+          <label>Slug (va en el link, sin espacios ni tildes)</label>
+          <input type="text" id="slug" required placeholder="Ej. cloudscookies">
+
+          <label>Logo (imagen con fondo transparente)</label>
+          <input type="file" id="logo" accept="image/*" required>
+
+          <label>Sellos (hasta 4 variantes de color)</label>
+          <div class="sellos">
+            <input type="file" id="sello1" accept="image/*" required>
+            <input type="file" id="sello2" accept="image/*" required>
+            <input type="file" id="sello3" accept="image/*" required>
+            <input type="file" id="sello4" accept="image/*" required>
+          </div>
+
+          <label>Colores de marca</label>
+          <div class="colors">
+            <div>Fondo de página<input type="color" id="color_page_bg" value="#DCEAF4"></div>
+            <div>Fondo de tarjeta<input type="color" id="color_card_bg" value="#FFFCF5"></div>
+            <div>Tinta / texto<input type="color" id="color_brown" value="#593212"></div>
+            <div>Tinta fuerte (sombra)<input type="color" id="color_brown_deep" value="#3E2107"></div>
+            <div>Texto secundario<input type="color" id="color_brown_soft" value="#8A5A34"></div>
+            <div>Acento (QR, barra)<input type="color" id="color_pink" value="#F4D3DF"></div>
+            <div>Fondo del premio<input type="color" id="color_butter_mid" value="#F9E6B2"></div>
+            <div>Fondo claro extra<input type="color" id="color_butter_light" value="#FBEFD2"></div>
+          </div>
+
+          <label>Cuántos sellos para el premio</label>
+          <input type="number" id="total_stamps" value="10" min="3" max="30" required>
+
+          <label>Saludo (arriba del nombre)</label>
+          <input type="text" id="greeting_eyebrow" value="¡Hello!">
+
+          <label>Título del premio</label>
+          <input type="text" id="reward_heading" value="Tu premio, cada vez más cerca">
+
+          <label>Texto del premio</label>
+          <input type="text" id="reward_text" required placeholder="Ej. Al llegar a tu sello #10, recibes tu producto gratis.">
+
+          <label>Instagram (usuario)</label>
+          <input type="text" id="instagram_handle" placeholder="@usuario">
+
+          <label>Instagram (link completo)</label>
+          <input type="text" id="instagram_url" placeholder="https://www.instagram.com/usuario">
+
+          <label>PIN para el staff de este negocio (4-6 dígitos)</label>
+          <input type="text" id="pin" required placeholder="Ej. 1234">
+
+          <button type="submit">Crear negocio</button>
+        </form>
+        <p class="msg" id="msg"></p>
+      </div>
+    </div>
+    <script>
+      function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+      document.getElementById('bizForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Creando negocio...'; msg.className = 'msg';
+        try {
+          const logoFile = document.getElementById('logo').files[0];
+          const s1 = document.getElementById('sello1').files[0];
+          const s2 = document.getElementById('sello2').files[0];
+          const s3 = document.getElementById('sello3').files[0];
+          const s4 = document.getElementById('sello4').files[0];
+          const payload = {
+            name: document.getElementById('name').value.trim(),
+            slug: document.getElementById('slug').value.trim().toLowerCase(),
+            logo_base64: await fileToBase64(logoFile),
+            sello_1_base64: await fileToBase64(s1),
+            sello_2_base64: await fileToBase64(s2),
+            sello_3_base64: await fileToBase64(s3),
+            sello_4_base64: await fileToBase64(s4),
+            color_page_bg: document.getElementById('color_page_bg').value,
+            color_card_bg: document.getElementById('color_card_bg').value,
+            color_brown: document.getElementById('color_brown').value,
+            color_brown_deep: document.getElementById('color_brown_deep').value,
+            color_brown_soft: document.getElementById('color_brown_soft').value,
+            color_pink: document.getElementById('color_pink').value,
+            color_butter_mid: document.getElementById('color_butter_mid').value,
+            color_butter_light: document.getElementById('color_butter_light').value,
+            total_stamps: Number(document.getElementById('total_stamps').value),
+            greeting_eyebrow: document.getElementById('greeting_eyebrow').value,
+            reward_heading: document.getElementById('reward_heading').value,
+            reward_text: document.getElementById('reward_text').value,
+            instagram_handle: document.getElementById('instagram_handle').value,
+            instagram_url: document.getElementById('instagram_url').value,
+            pin: document.getElementById('pin').value
+          };
+          const res = await fetch('/admin/businesses', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          const data = await res.json();
+          if (res.ok) {
+            msg.innerHTML = '✅ Negocio creado. <a href="/' + data.slug + '/nuevo" target="_blank">Ver link de registro</a>';
+            msg.className = 'msg ok';
+            setTimeout(() => location.reload(), 1800);
+          } else {
+            msg.textContent = data.error || 'No se pudo crear'; msg.className = 'msg err';
+          }
+        } catch (err) {
+          msg.textContent = 'Error: ' + err.message; msg.className = 'msg err';
+        }
+      });
+    </script>
+  </body></html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+async function handleAdminSignup(request, env) {
+  const row = await env.DB.prepare('SELECT COUNT(*) as count FROM admins').first();
+  if (Number(row.count) > 0) {
+    return new Response(JSON.stringify({ error: 'Ya existe una cuenta de administradora. Inicia sesión.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+  const { email, password } = await request.json();
+  if (!email || !password || password.length < 6) {
+    return new Response(JSON.stringify({ error: 'Correo o contraseña inválidos (mínimo 6 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  const passwordHash = await hashPassword(password);
+  await env.DB.prepare('INSERT INTO admins (email, password_hash) VALUES (?, ?)').bind(email.trim().toLowerCase(), passwordHash).run();
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleAdminLogin(request, env) {
+  const { email, password } = await request.json();
+  const admin = await env.DB.prepare('SELECT * FROM admins WHERE email = ?').bind((email || '').trim().toLowerCase()).first();
+  if (!admin || !(await verifyPassword(password || '', admin.password_hash))) {
+    return new Response(JSON.stringify({ error: 'Correo o contraseña incorrectos' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+  const token = await sha256Hex(admin.password_hash);
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  headers.append('Set-Cookie', `admin_session=${admin.id}.${token}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`);
+  return new Response(JSON.stringify({ ok: true }), { headers });
+}
+
+function handleAdminLogout() {
+  const headers = new Headers({ 'Location': '/admin' });
+  headers.append('Set-Cookie', `admin_session=; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
+  return new Response(null, { status: 302, headers });
+}
+
+async function handleCreateBusiness(request, env) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const body = await request.json();
+  const slug = (body.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+  if (!slug || !body.name || !body.logo_base64 || !body.pin) {
+    return new Response(JSON.stringify({ error: 'Faltan campos obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (['admin', 'staff'].includes(slug)) {
+    return new Response(JSON.stringify({ error: 'Ese slug está reservado, usa otro' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  const existing = await env.DB.prepare('SELECT id FROM businesses WHERE slug = ?').bind(slug).first();
+  if (existing) {
+    return new Response(JSON.stringify({ error: 'Ya existe un negocio con ese slug' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const pinHash = await sha256Hex(body.pin);
+
+  await env.DB.prepare(`INSERT INTO businesses
+    (slug, name, logo_base64, color_page_bg, color_card_bg, color_brown, color_brown_deep, color_brown_soft, color_pink, color_butter_mid, color_butter_light,
+     sello_1_base64, sello_2_base64, sello_3_base64, sello_4_base64, total_stamps, greeting_eyebrow, reward_heading, reward_text, reward_emoji,
+     instagram_handle, instagram_url, staff_pin_hash)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .bind(slug, body.name, body.logo_base64,
+      body.color_page_bg || '#DCEAF4', body.color_card_bg || '#FFFCF5', body.color_brown || '#593212', body.color_brown_deep || '#3E2107',
+      body.color_brown_soft || '#8A5A34', body.color_pink || '#F4D3DF', body.color_butter_mid || '#F9E6B2', body.color_butter_light || '#FBEFD2',
+      body.sello_1_base64, body.sello_2_base64, body.sello_3_base64, body.sello_4_base64,
+      body.total_stamps || 10, body.greeting_eyebrow || '¡Hello!', body.reward_heading || 'Tu premio, cada vez más cerca', body.reward_text, '⭐',
+      body.instagram_handle || null, body.instagram_url || null, pinHash)
+    .run();
+
+  return new Response(JSON.stringify({ ok: true, slug }), { headers: { 'Content-Type': 'application/json' } });
+}
 
 async function handlePublicRegisterForm(env, slug) {
   const business = await getBusiness(env, slug);
