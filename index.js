@@ -32,6 +32,9 @@ export default {
         if (parts[1] === 'recuperar') return new Response(renderAdminRecoverForm(), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
         if (parts[1] === 'cambiar-password' && request.method === 'POST') return handleAdminChangePassword(request, env);
         if (parts[1] === 'businesses' && request.method === 'POST') return handleCreateBusiness(request, env);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'edit') return handleEditBusinessForm(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'update' && request.method === 'POST') return handleUpdateBusiness(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBusiness(request, env, parts[2]);
         return handleAdminPage(request, env);
       }
 
@@ -68,6 +71,19 @@ export default {
 // ------------------------------------------------------------
 // utilidades
 // ------------------------------------------------------------
+
+// Catálogo de tipografías, para que cada marca elija la que le queda,
+// en vez de tener siempre la misma redondita para todas.
+const FONTS = {
+  'Baloo 2':          { label: 'Redondeada y divertida',  google: 'Baloo+2:wght@600;700;800',        fallback: "'Arial Rounded MT Bold', sans-serif" },
+  'Poppins':           { label: 'Moderna y minimalista',   google: 'Poppins:wght@600;700;800',        fallback: "sans-serif" },
+  'Playfair Display':  { label: 'Elegante y clásica',      google: 'Playfair+Display:wght@600;700;800', fallback: "serif" },
+  'Montserrat':        { label: 'Seria y corporativa',     google: 'Montserrat:wght@600;700;800',     fallback: "sans-serif" },
+  'Caveat':            { label: 'Manuscrita y artesanal',  google: 'Caveat:wght@600;700',             fallback: "cursive" },
+};
+function getFontConfig(fontFamily) {
+  return FONTS[fontFamily] || FONTS['Baloo 2'];
+}
 
 async function sha256Hex(text) {
   const data = new TextEncoder().encode(text);
@@ -274,6 +290,8 @@ async function renderAdminDashboard(env, admin) {
       <td>${escapeHtml(b.slug)}</td>
       <td><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Panel staff</a></td>
       <td><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a></td>
+      <td><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
+      <td><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
     </tr>`).join('');
 
   return new Response(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -299,6 +317,7 @@ async function renderAdminDashboard(env, admin) {
     .color-field{display:flex;gap:6px;}
     .color-field input.colorHex{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:13px;font-family:monospace;text-transform:uppercase;}
     input[type=file]{width:100%;font-size:12px;margin-top:4px;}
+    select{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;background:white;}
     .colors{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
     .sellos{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
     button{margin-top:18px;width:100%;padding:14px;border:2px solid #2B2320;border-radius:12px;background:#FFD966;color:#2B2320;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
@@ -314,9 +333,10 @@ async function renderAdminDashboard(env, admin) {
 
       <h2>Tus negocios (${results.length})</h2>
       <table>
-        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th></tr>
-        ${rows || '<tr><td colspan="4">Todavía no has creado ningún negocio</td></tr>'}
+        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>Editar</th><th>Borrar</th></tr>
+        ${rows || '<tr><td colspan="6">Todavía no has creado ningún negocio</td></tr>'}
       </table>
+      <p id="deleteMsg" class="msg"></p>
 
       <h2 style="display:flex;align-items:center;justify-content:space-between;">
         <span>Tu cuenta</span>
@@ -351,12 +371,12 @@ async function renderAdminDashboard(env, admin) {
           <label>Logo (imagen con fondo transparente)</label>
           <input type="file" id="logo" accept="image/*" required>
 
-          <label>Sellos (hasta 4 variantes de color)</label>
+          <label>Sellos (solo el primero es obligatorio, los demás son opcionales)</label>
           <div class="sellos">
             <input type="file" id="sello1" accept="image/*" required>
-            <input type="file" id="sello2" accept="image/*" required>
-            <input type="file" id="sello3" accept="image/*" required>
-            <input type="file" id="sello4" accept="image/*" required>
+            <input type="file" id="sello2" accept="image/*">
+            <input type="file" id="sello3" accept="image/*">
+            <input type="file" id="sello4" accept="image/*">
           </div>
 
           <label>Colores de marca</label>
@@ -370,6 +390,15 @@ async function renderAdminDashboard(env, admin) {
             <div>Fondo del premio<div class="color-field"><input type="color" class="colorPicker" id="color_butter_mid" value="#F9E6B2"><input type="text" class="colorHex" id="color_butter_mid_hex" value="#F9E6B2"></div></div>
             <div>Fondo claro extra<div class="color-field"><input type="color" class="colorPicker" id="color_butter_light" value="#FBEFD2"><input type="text" class="colorHex" id="color_butter_light_hex" value="#FBEFD2"></div></div>
           </div>
+
+          <label>Tipografía</label>
+          <select id="font_family">
+            <option value="Baloo 2">Redondeada y divertida</option>
+            <option value="Poppins">Moderna y minimalista</option>
+            <option value="Playfair Display">Elegante y clásica</option>
+            <option value="Montserrat">Seria y corporativa</option>
+            <option value="Caveat">Manuscrita y artesanal</option>
+          </select>
 
           <label>Cuántos sellos para el premio</label>
           <input type="number" id="total_stamps" value="10" min="3" max="30" required>
@@ -409,6 +438,20 @@ async function renderAdminDashboard(env, admin) {
         const card = document.getElementById('settingsCard');
         const showing = card.style.display !== 'none';
         card.style.display = showing ? 'none' : 'block';
+      });
+      document.querySelectorAll('.delete-biz').forEach(link => {
+        link.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const slug = link.dataset.slug;
+          const name = link.dataset.name;
+          const sure = confirm('¿Seguro que quieres borrar "' + name + '"? Esto borra también a todos sus clientes registrados y no se puede deshacer.');
+          if (!sure) return;
+          const deleteMsg = document.getElementById('deleteMsg');
+          deleteMsg.textContent = 'Borrando...'; deleteMsg.className = 'msg';
+          const res = await fetch('/admin/business/' + slug + '/delete', { method: 'POST' });
+          if (res.ok) { location.reload(); }
+          else { const d = await res.json(); deleteMsg.textContent = d.error || 'No se pudo borrar'; deleteMsg.className = 'msg err'; }
+        });
       });
       function fileToBase64(file) {
         return new Promise((resolve, reject) => {
@@ -461,9 +504,10 @@ async function renderAdminDashboard(env, admin) {
             slug: document.getElementById('slug').value.trim().toLowerCase(),
             logo_base64: await fileToBase64(logoFile),
             sello_1_base64: await fileToBase64(s1),
-            sello_2_base64: await fileToBase64(s2),
-            sello_3_base64: await fileToBase64(s3),
-            sello_4_base64: await fileToBase64(s4),
+            sello_2_base64: s2 ? await fileToBase64(s2) : null,
+            sello_3_base64: s3 ? await fileToBase64(s3) : null,
+            sello_4_base64: s4 ? await fileToBase64(s4) : null,
+            font_family: document.getElementById('font_family').value,
             color_page_bg: document.getElementById('color_page_bg').value,
             color_card_bg: document.getElementById('color_card_bg').value,
             color_brown: document.getElementById('color_brown').value,
@@ -637,15 +681,22 @@ async function handleCreateBusiness(request, env) {
 
   const pinHash = await sha256Hex(body.pin);
 
+  // los sellos 2, 3 y 4 son opcionales: si faltan, se repite el anterior disponible
+  const sello1 = body.sello_1_base64;
+  const sello2 = body.sello_2_base64 || sello1;
+  const sello3 = body.sello_3_base64 || sello2;
+  const sello4 = body.sello_4_base64 || sello3;
+  const fontFamily = FONTS[body.font_family] ? body.font_family : 'Baloo 2';
+
   await env.DB.prepare(`INSERT INTO businesses
     (slug, name, logo_base64, color_page_bg, color_card_bg, color_brown, color_brown_deep, color_brown_soft, color_pink, color_butter_mid, color_butter_light,
-     sello_1_base64, sello_2_base64, sello_3_base64, sello_4_base64, total_stamps, greeting_eyebrow, reward_heading, reward_text, reward_emoji,
+     sello_1_base64, sello_2_base64, sello_3_base64, sello_4_base64, font_family, total_stamps, greeting_eyebrow, reward_heading, reward_text, reward_emoji,
      instagram_handle, instagram_url, staff_pin_hash)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .bind(slug, body.name, body.logo_base64,
       body.color_page_bg || '#DCEAF4', body.color_card_bg || '#FFFCF5', body.color_brown || '#593212', body.color_brown_deep || '#3E2107',
       body.color_brown_soft || '#8A5A34', body.color_pink || '#F4D3DF', body.color_butter_mid || '#F9E6B2', body.color_butter_light || '#FBEFD2',
-      body.sello_1_base64, body.sello_2_base64, body.sello_3_base64, body.sello_4_base64,
+      sello1, sello2, sello3, sello4, fontFamily,
       body.total_stamps || 10, body.greeting_eyebrow || '¡Hello!', body.reward_heading || 'Tu premio, cada vez más cerca', body.reward_text, '⭐',
       body.instagram_handle || null, body.instagram_url || null, pinHash)
     .run();
@@ -653,22 +704,239 @@ async function handleCreateBusiness(request, env) {
   return new Response(JSON.stringify({ ok: true, slug }), { headers: { 'Content-Type': 'application/json' } });
 }
 
+async function handleDeleteBusiness(request, env, slug) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  // se borra en orden: primero la bitácora de visitas, luego los clientes, y al final el negocio
+  await env.DB.prepare('DELETE FROM visits WHERE business_id = ?').bind(business.id).run();
+  await env.DB.prepare('DELETE FROM customers WHERE business_id = ?').bind(business.id).run();
+  await env.DB.prepare('DELETE FROM businesses WHERE id = ?').bind(business.id).run();
+
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleEditBusinessForm(request, env, slug) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(renderAdminLogin(), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+
+  const b = await getBusiness(env, slug);
+  if (!b) return new Response('Negocio no encontrado', { status: 404 });
+
+  const fontOptions = Object.keys(FONTS).map(key =>
+    `<option value="${key}"${b.font_family === key ? ' selected' : ''}>${FONTS[key].label}</option>`
+  ).join('');
+
+  const colorField = (id, label, value) => `
+    <div>${label}<div class="color-field"><input type="color" class="colorPicker" id="${id}" value="${value}"><input type="text" class="colorHex" id="${id}_hex" value="${value}"></div></div>`;
+
+  return new Response(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editar ${escapeHtml(b.name)} · My Tapp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;background:#F4F1EA;font-family:'Quicksand',sans-serif;padding:24px;color:#2B2320;}
+    .wrap{max-width:640px;margin:0 auto;}
+    h1{font-family:'Baloo 2',sans-serif;font-size:20px;}
+    .card{background:white;border:2px solid #2B2320;border-radius:16px;padding:20px;margin-top:12px;}
+    label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;}
+    input[type=text], input[type=number]{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;}
+    input[type=color]{width:46px;height:42px;border:2px solid #2B2320;border-radius:10px;padding:2px;flex-shrink:0;}
+    input[type=file]{width:100%;font-size:12px;margin-top:4px;}
+    select{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;background:white;}
+    .color-field{display:flex;gap:6px;}
+    .color-field input.colorHex{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:13px;font-family:monospace;text-transform:uppercase;}
+    .colors{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .sellos{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .current-img{width:40px;height:40px;object-fit:contain;background:#F4F1EA;border-radius:8px;padding:4px;vertical-align:middle;margin-right:8px;}
+    .hint{font-size:11px;color:#8A6F4E;margin-top:2px;}
+    button{margin-top:18px;width:100%;padding:14px;border:2px solid #2B2320;border-radius:12px;background:#FFD966;color:#2B2320;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
+    .msg{text-align:center;font-size:13px;margin-top:12px;}
+    .msg.ok{color:#215A34;} .msg.err{color:#B23A3A;}
+    a.back{display:inline-block;margin-bottom:14px;color:#2B2320;font-weight:700;text-decoration:none;}
+  </style></head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="/admin">← Volver al panel</a>
+      <h1>Editar ${escapeHtml(b.name)}</h1>
+      <div class="card">
+        <form id="editForm">
+          <label>Nombre del negocio</label>
+          <input type="text" id="name" value="${escapeHtml(b.name)}" required>
+
+          <p class="hint">El slug (${escapeHtml(b.slug)}) no se puede cambiar, para no romper los links que tus clientes ya tienen guardados.</p>
+
+          <label>Logo actual</label>
+          <img class="current-img" src="data:image/png;base64,${b.logo_base64}">
+          <input type="file" id="logo" accept="image/*">
+          <p class="hint">Deja vacío para mantener el logo actual.</p>
+
+          <label>Sellos actuales</label>
+          <div class="sellos">
+            <div><img class="current-img" src="data:image/png;base64,${b.sello_1_base64}"><input type="file" id="sello1" accept="image/*"></div>
+            <div><img class="current-img" src="data:image/png;base64,${b.sello_2_base64}"><input type="file" id="sello2" accept="image/*"></div>
+            <div><img class="current-img" src="data:image/png;base64,${b.sello_3_base64}"><input type="file" id="sello3" accept="image/*"></div>
+            <div><img class="current-img" src="data:image/png;base64,${b.sello_4_base64}"><input type="file" id="sello4" accept="image/*"></div>
+          </div>
+          <p class="hint">Deja vacíos los que no quieras cambiar.</p>
+
+          <label>Tipografía</label>
+          <select id="font_family">${fontOptions}</select>
+
+          <label>Colores de marca</label>
+          <div class="colors">
+            ${colorField('color_page_bg', 'Fondo de página', b.color_page_bg)}
+            ${colorField('color_card_bg', 'Fondo de tarjeta', b.color_card_bg)}
+            ${colorField('color_brown', 'Tinta / texto', b.color_brown)}
+            ${colorField('color_brown_deep', 'Tinta fuerte (sombra)', b.color_brown_deep)}
+            ${colorField('color_brown_soft', 'Texto secundario', b.color_brown_soft)}
+            ${colorField('color_pink', 'Acento (QR, barra)', b.color_pink)}
+            ${colorField('color_butter_mid', 'Fondo del premio', b.color_butter_mid)}
+            ${colorField('color_butter_light', 'Fondo claro extra', b.color_butter_light)}
+          </div>
+
+          <label>Cuántos sellos para el premio</label>
+          <input type="number" id="total_stamps" value="${b.total_stamps}" min="3" max="30" required>
+
+          <label>Saludo (arriba del nombre)</label>
+          <input type="text" id="greeting_eyebrow" value="${escapeHtml(b.greeting_eyebrow)}">
+
+          <label>Título del premio</label>
+          <input type="text" id="reward_heading" value="${escapeHtml(b.reward_heading)}">
+
+          <label>Texto del premio</label>
+          <input type="text" id="reward_text" value="${escapeHtml(b.reward_text)}" required>
+
+          <label>Instagram (usuario)</label>
+          <input type="text" id="instagram_handle" value="${escapeHtml(b.instagram_handle || '')}">
+
+          <label>Instagram (link completo)</label>
+          <input type="text" id="instagram_url" value="${escapeHtml(b.instagram_url || '')}">
+
+          <button type="submit">Guardar cambios</button>
+        </form>
+        <p class="msg" id="msg"></p>
+      </div>
+    </div>
+    <script>
+      document.querySelectorAll('.colorPicker').forEach(picker => {
+        const hexInput = document.getElementById(picker.id + '_hex');
+        picker.addEventListener('input', () => { hexInput.value = picker.value.toUpperCase(); });
+        hexInput.addEventListener('input', () => {
+          let v = hexInput.value.trim();
+          if (v && v[0] !== '#') v = '#' + v;
+          if (/^#[0-9A-Fa-f]{6}$/.test(v)) { picker.value = v; hexInput.style.borderColor = '#2B2320'; }
+          else { hexInput.style.borderColor = '#B23A3A'; }
+        });
+        hexInput.addEventListener('blur', () => { hexInput.value = picker.value.toUpperCase(); hexInput.style.borderColor = '#2B2320'; });
+      });
+      function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+      document.getElementById('editForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Guardando...'; msg.className = 'msg';
+        try {
+          const logoFile = document.getElementById('logo').files[0];
+          const s1 = document.getElementById('sello1').files[0];
+          const s2 = document.getElementById('sello2').files[0];
+          const s3 = document.getElementById('sello3').files[0];
+          const s4 = document.getElementById('sello4').files[0];
+          const payload = {
+            name: document.getElementById('name').value.trim(),
+            logo_base64: logoFile ? await fileToBase64(logoFile) : null,
+            sello_1_base64: s1 ? await fileToBase64(s1) : null,
+            sello_2_base64: s2 ? await fileToBase64(s2) : null,
+            sello_3_base64: s3 ? await fileToBase64(s3) : null,
+            sello_4_base64: s4 ? await fileToBase64(s4) : null,
+            font_family: document.getElementById('font_family').value,
+            color_page_bg: document.getElementById('color_page_bg').value,
+            color_card_bg: document.getElementById('color_card_bg').value,
+            color_brown: document.getElementById('color_brown').value,
+            color_brown_deep: document.getElementById('color_brown_deep').value,
+            color_brown_soft: document.getElementById('color_brown_soft').value,
+            color_pink: document.getElementById('color_pink').value,
+            color_butter_mid: document.getElementById('color_butter_mid').value,
+            color_butter_light: document.getElementById('color_butter_light').value,
+            total_stamps: Number(document.getElementById('total_stamps').value),
+            greeting_eyebrow: document.getElementById('greeting_eyebrow').value,
+            reward_heading: document.getElementById('reward_heading').value,
+            reward_text: document.getElementById('reward_text').value,
+            instagram_handle: document.getElementById('instagram_handle').value,
+            instagram_url: document.getElementById('instagram_url').value
+          };
+          const res = await fetch('/admin/business/${slug}/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          const data = await res.json();
+          if (res.ok) { msg.textContent = '✅ Cambios guardados'; msg.className = 'msg ok'; }
+          else { msg.textContent = data.error || 'No se pudo guardar'; msg.className = 'msg err'; }
+        } catch (err) {
+          msg.textContent = 'Error: ' + err.message; msg.className = 'msg err';
+        }
+      });
+    </script>
+  </body></html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+async function handleUpdateBusiness(request, env, slug) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  const body = await request.json();
+  const fontFamily = FONTS[body.font_family] ? body.font_family : business.font_family;
+
+  await env.DB.prepare(`UPDATE businesses SET
+      name = ?, logo_base64 = COALESCE(?, logo_base64),
+      sello_1_base64 = COALESCE(?, sello_1_base64), sello_2_base64 = COALESCE(?, sello_2_base64),
+      sello_3_base64 = COALESCE(?, sello_3_base64), sello_4_base64 = COALESCE(?, sello_4_base64),
+      font_family = ?, color_page_bg = ?, color_card_bg = ?, color_brown = ?, color_brown_deep = ?, color_brown_soft = ?,
+      color_pink = ?, color_butter_mid = ?, color_butter_light = ?, total_stamps = ?, greeting_eyebrow = ?,
+      reward_heading = ?, reward_text = ?, instagram_handle = ?, instagram_url = ?
+    WHERE id = ?`)
+    .bind(
+      body.name, body.logo_base64 || null,
+      body.sello_1_base64 || null, body.sello_2_base64 || null, body.sello_3_base64 || null, body.sello_4_base64 || null,
+      fontFamily, body.color_page_bg, body.color_card_bg, body.color_brown, body.color_brown_deep, body.color_brown_soft,
+      body.color_pink, body.color_butter_mid, body.color_butter_light, body.total_stamps, body.greeting_eyebrow,
+      body.reward_heading, body.reward_text, body.instagram_handle || null, body.instagram_url || null,
+      business.id
+    ).run();
+
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
 async function handlePublicRegisterForm(env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
 
+  const font = getFontConfig(business.font_family);
+
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bienvenido · ${escapeHtml(business.name)}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=${font.google}&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;}
     body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:${business.color_page_bg};font-family:'Quicksand',sans-serif;padding:24px;}
     .box{width:100%;max-width:360px;background:${business.color_card_bg};border:2.5px solid ${business.color_brown};border-radius:24px;padding:28px 24px;box-shadow:0 10px 0 ${business.color_brown_deep};text-align:center;}
     .brand-logo{max-width:140px;width:60%;margin:0 auto 18px;display:block;}
-    h1{font-family:'Baloo 2',sans-serif;font-size:19px;color:${business.color_brown};margin:0 0 6px;}
+    h1{font-family:'${business.font_family}',${font.fallback};font-size:19px;color:${business.color_brown};margin:0 0 6px;}
     p.sub{font-size:13px;color:${business.color_brown_soft};margin:0 0 20px;}
     input{width:100%;padding:12px 14px;border:2px solid ${business.color_brown};border-radius:12px;font-size:15px;margin-bottom:10px;font-family:'Quicksand',sans-serif;text-align:center;}
-    button{width:100%;padding:13px;border:2px solid ${business.color_brown};border-radius:12px;background:${business.color_pink};color:${business.color_brown};font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;margin-top:6px;}
+    button{width:100%;padding:13px;border:2px solid ${business.color_brown};border-radius:12px;background:${business.color_pink};color:${business.color_brown};font-weight:800;font-size:15px;cursor:pointer;font-family:'${business.font_family}',${font.fallback};margin-top:6px;}
     button:active{transform:scale(.98);}
     .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;color:#B23A3A;}
   </style></head>
@@ -769,6 +1037,8 @@ function renderCustomerCard(b, customer, slug, origin) {
     ? `<b>${total}</b> de ${total} sellos. <b>¡Ya tienes tu premio! 🎉</b>`
     : `<b>${filled}</b> de ${total} sellos, te faltan <b>${left}</b> para tu premio.`;
 
+  const font = getFontConfig(b.font_family);
+
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -776,12 +1046,13 @@ function renderCustomerCard(b, customer, slug, origin) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(b.name)} — Tarjeta de sellos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=${font.google}&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --page-bg:${b.color_page_bg}; --card-bg:${b.color_card_bg};
     --brown:${b.color_brown}; --brown-deep:${b.color_brown_deep}; --brown-soft:${b.color_brown_soft};
     --pink:${b.color_pink}; --butter-mid:${b.color_butter_mid}; --butter-light:${b.color_butter_light};
+    --font-display:'${b.font_family}',${font.fallback};
     --img-s1:url("data:image/png;base64,${sellos[0]}");
     --img-s2:url("data:image/png;base64,${sellos[1]}");
     --img-s3:url("data:image/png;base64,${sellos[2]}");
@@ -794,12 +1065,12 @@ function renderCustomerCard(b, customer, slug, origin) {
   .card-top{padding:30px 24px 22px;text-align:center;border-bottom:2px solid var(--brown);}
   .brand-logo{max-width:150px;width:56%;height:auto;display:block;margin:0 auto;}
   .card-body{padding:20px 24px 22px;}
-  .greeting-eyebrow{font-family:'Baloo 2','Arial Rounded MT Bold','Quicksand',sans-serif;font-weight:700;font-size:16px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
-  .greeting-name{font-family:'Baloo 2','Arial Rounded MT Bold','Quicksand',sans-serif;font-weight:800;font-size:21px;color:var(--brown);margin:1px 0 16px;line-height:1.15;}
+  .greeting-eyebrow{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
+  .greeting-name{font-family:var(--font-display);font-weight:800;font-size:21px;color:var(--brown);margin:1px 0 16px;line-height:1.15;}
   .progress-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
   .progress-track{flex:1;height:20px;border-radius:99px;background:#FFFFFF;border:2px solid var(--brown);overflow:hidden;}
   .progress-fill{height:100%;border-radius:99px;background:var(--pink);}
-  .progress-pct{font-family:'Baloo 2',sans-serif;font-weight:700;font-size:13px;color:var(--brown);min-width:34px;text-align:right;}
+  .progress-pct{font-family:var(--font-display);font-weight:700;font-size:13px;color:var(--brown);min-width:34px;text-align:right;}
   .progress-text{font-size:12.5px;color:var(--brown-soft);margin:0 0 26px;}
   .progress-text b{color:var(--brown);}
   .stamp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:14px;}
@@ -816,15 +1087,15 @@ function renderCustomerCard(b, customer, slug, origin) {
   .stamp.reward::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2.5px solid var(--butter-mid);opacity:0;z-index:1;}
   .stamp.reward:not(.filled)::after{opacity:1;animation:pulse 1.8s ease-in-out infinite;}
   @keyframes pulse{0%,100%{transform:scale(1);opacity:.55;}50%{transform:scale(1.04);opacity:1;}}
-  .reward-tag{position:absolute;bottom:-15px;left:0;right:0;width:max-content;margin:0 auto;background:var(--butter-mid);border:1.5px solid var(--brown);color:var(--brown);font-family:'Baloo 2',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;white-space:nowrap;text-align:center;z-index:3;}
+  .reward-tag{position:absolute;bottom:-15px;left:0;right:0;width:max-content;margin:0 auto;background:var(--butter-mid);border:1.5px solid var(--brown);color:var(--brown);font-family:var(--font-display);font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;white-space:nowrap;text-align:center;z-index:3;}
   .reward-note{margin-top:26px;background:var(--butter-mid);border:2px solid var(--brown);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:10px;color:var(--brown);font-size:12px;}
   .reward-note .r-emoji{font-size:24px;flex-shrink:0;}
-  .reward-note strong{display:block;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:13.5px;margin-bottom:1px;color:var(--brown);}
+  .reward-note strong{display:block;font-family:var(--font-display);font-weight:700;font-size:13.5px;margin-bottom:1px;color:var(--brown);}
   .qr-section{margin-top:20px;border-top:2px dashed var(--page-bg);padding-top:18px;display:flex;align-items:center;gap:14px;}
   .qr-box{width:86px;height:86px;background:var(--pink);border:2px solid var(--brown);border-radius:14px;padding:6px;flex-shrink:0;}
   .qr-box canvas{width:100%!important;height:100%!important;border-radius:6px;display:block;}
   .qr-copy{font-size:11.5px;color:var(--brown-soft);line-height:1.45;}
-  .qr-copy b{display:block;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:13.5px;color:var(--brown);letter-spacing:.3px;margin-bottom:2px;}
+  .qr-copy b{display:block;font-family:var(--font-display);font-weight:700;font-size:13.5px;color:var(--brown);letter-spacing:.3px;margin-bottom:2px;}
   .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:16px auto 0;padding:7px 14px;background:var(--page-bg);border-radius:99px;color:var(--brown);text-decoration:none;font-size:12px;font-weight:700;}
   .credit{text-align:center;font-size:13px;color:var(--brown);margin:18px 0 0;}
   .credit a{color:var(--brown);font-weight:700;text-decoration:underline;}
@@ -897,11 +1168,12 @@ async function handleStaffPage(request, env, slug) {
 }
 
 function baseStaffStyles(b) {
+  const font = getFontConfig(b.font_family);
   return `
   *{box-sizing:border-box;}
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:${b.color_page_bg};font-family:'Quicksand',sans-serif;padding:24px;}
   .box{width:100%;max-width:340px;background:${b.color_card_bg};border:2.5px solid ${b.color_brown};border-radius:24px;padding:28px 22px;box-shadow:0 10px 0 ${b.color_brown_deep};}
-  h1{font-family:'Baloo 2',sans-serif;font-size:19px;color:${b.color_brown};margin:0 0 4px;text-align:center;}
+  h1{font-family:'${b.font_family}',${font.fallback};font-size:19px;color:${b.color_brown};margin:0 0 4px;text-align:center;}
   p.sub{font-size:12.5px;color:${b.color_brown_soft};text-align:center;margin:0 0 20px;}
   input{width:100%;padding:12px 14px;border:2px solid ${b.color_brown};border-radius:12px;font-size:16px;margin-bottom:12px;font-family:'Quicksand',sans-serif;}
   button{width:100%;padding:12px;border:2px solid ${b.color_brown};border-radius:12px;background:${b.color_pink};color:${b.color_brown};font-weight:700;font-size:15px;cursor:pointer;}
@@ -914,9 +1186,10 @@ function baseStaffStyles(b) {
 }
 
 function renderStaffLogin(b) {
+  const font = getFontConfig(b.font_family);
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Staff · ${escapeHtml(b.name)}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=${font.google}&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>${baseStaffStyles(b)}</style></head>
   <body>
     <div class="box">
@@ -945,12 +1218,13 @@ function renderStaffLogin(b) {
 }
 
 function renderStaffPanel(b) {
+  const font = getFontConfig(b.font_family);
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Staff · ${escapeHtml(b.name)}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=${font.google}&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
   <style>${baseStaffStyles(b)}
-    .scan-btn{background:${b.color_blue};margin-bottom:12px;}
+    .scan-btn{background:${b.color_pink};margin-bottom:12px;}
     .secondary-btn{width:100%;padding:10px;border:2px dashed ${b.color_brown};border-radius:12px;background:transparent;color:${b.color_brown};font-weight:700;font-size:13px;cursor:pointer;margin-top:14px;}
     #registerForm{margin-top:10px;}
     #preview{width:100%;border-radius:14px;border:2px solid ${b.color_brown};margin-bottom:12px;display:none;}
