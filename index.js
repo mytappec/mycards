@@ -28,6 +28,9 @@ export default {
         if (parts[1] === 'signup' && request.method === 'POST') return handleAdminSignup(request, env);
         if (parts[1] === 'login' && request.method === 'POST') return handleAdminLogin(request, env);
         if (parts[1] === 'logout') return handleAdminLogout();
+        if (parts[1] === 'recuperar' && request.method === 'POST') return handleAdminRecover(request, env);
+        if (parts[1] === 'recuperar') return new Response(renderAdminRecoverForm(), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+        if (parts[1] === 'cambiar-password' && request.method === 'POST') return handleAdminChangePassword(request, env);
         if (parts[1] === 'businesses' && request.method === 'POST') return handleCreateBusiness(request, env);
         return handleAdminPage(request, env);
       }
@@ -159,7 +162,11 @@ function renderAdminSignup() {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Crear cuenta · My Tapp</title>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>${adminBaseStyles()}</style></head>
+  <style>${adminBaseStyles()}
+    .recovery-box{background:#FFF3CD;border:2px solid #856404;border-radius:12px;padding:16px;text-align:center;margin-top:14px;}
+    .recovery-code{font-family:monospace;font-size:17px;font-weight:700;color:#2B2320;letter-spacing:1px;margin:8px 0;word-break:break-all;}
+    .warn{font-size:12px;color:#856404;}
+  </style></head>
   <body>
     <div class="box">
       <h1>My Tapp</h1>
@@ -170,6 +177,14 @@ function renderAdminSignup() {
         <button type="submit">Crear mi cuenta</button>
       </form>
       <p class="msg" id="msg"></p>
+      <div id="recoveryBox" style="display:none;">
+        <div class="recovery-box">
+          <b>Guarda este código de recuperación</b>
+          <div class="recovery-code" id="recoveryCode"></div>
+          <p class="warn">Es la única forma de recuperar tu cuenta si olvidas tu contraseña. No te lo vuelvo a mostrar. Guárdalo en tu gestor de contraseñas o en un lugar seguro.</p>
+        </div>
+        <button type="button" id="continueBtn">Ya lo guardé, continuar</button>
+      </div>
     </div>
     <script>
       document.getElementById('f').addEventListener('submit', async (e) => {
@@ -179,9 +194,15 @@ function renderAdminSignup() {
         const msg = document.getElementById('msg');
         msg.textContent = 'Creando...'; msg.className = 'msg';
         const res = await fetch('/admin/signup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
-        if (res.ok) { location.href = '/admin'; }
-        else { const d = await res.json(); msg.textContent = d.error || 'No se pudo crear la cuenta'; msg.className = 'msg err'; }
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('recoveryCode').textContent = data.recoveryCode;
+          document.getElementById('f').style.display = 'none';
+          document.getElementById('recoveryBox').style.display = 'block';
+          msg.textContent = '';
+        } else { const d = await res.json(); msg.textContent = d.error || 'No se pudo crear la cuenta'; msg.className = 'msg err'; }
       });
+      document.getElementById('continueBtn').addEventListener('click', () => { location.href = '/admin'; });
     </script>
   </body></html>`;
 }
@@ -201,6 +222,7 @@ function renderAdminLogin() {
         <button type="submit">Entrar</button>
       </form>
       <p class="msg" id="msg"></p>
+      <p class="sub"><a href="/admin/recuperar">¿Olvidaste tu contraseña?</a></p>
     </div>
     <script>
       document.getElementById('f').addEventListener('submit', async (e) => {
@@ -242,7 +264,9 @@ async function renderAdminDashboard(env, admin) {
     .card{background:white;border:2px solid #2B2320;border-radius:16px;padding:20px;margin-top:12px;}
     label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;}
     input[type=text], input[type=number], input[type=email]{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;}
-    input[type=color]{width:100%;height:42px;border:2px solid #2B2320;border-radius:10px;padding:2px;}
+    input[type=color]{width:46px;height:42px;border:2px solid #2B2320;border-radius:10px;padding:2px;flex-shrink:0;}
+    .color-field{display:flex;gap:6px;}
+    .color-field input.colorHex{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:13px;font-family:monospace;text-transform:uppercase;}
     input[type=file]{width:100%;font-size:12px;margin-top:4px;}
     .colors{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
     .sellos{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -262,6 +286,18 @@ async function renderAdminDashboard(env, admin) {
         <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th></tr>
         ${rows || '<tr><td colspan="4">Todavía no has creado ningún negocio</td></tr>'}
       </table>
+
+      <h2>Tu cuenta</h2>
+      <div class="card">
+        <form id="pwForm">
+          <label>Contraseña actual</label>
+          <input type="password" id="currentPassword" required>
+          <label>Nueva contraseña</label>
+          <input type="password" id="newPassword" required minlength="6">
+          <button type="submit">Cambiar contraseña</button>
+        </form>
+        <p class="msg" id="pwMsg"></p>
+      </div>
 
       <h2>Crear negocio nuevo</h2>
       <div class="card">
@@ -285,14 +321,14 @@ async function renderAdminDashboard(env, admin) {
 
           <label>Colores de marca</label>
           <div class="colors">
-            <div>Fondo de página<input type="color" id="color_page_bg" value="#DCEAF4"></div>
-            <div>Fondo de tarjeta<input type="color" id="color_card_bg" value="#FFFCF5"></div>
-            <div>Tinta / texto<input type="color" id="color_brown" value="#593212"></div>
-            <div>Tinta fuerte (sombra)<input type="color" id="color_brown_deep" value="#3E2107"></div>
-            <div>Texto secundario<input type="color" id="color_brown_soft" value="#8A5A34"></div>
-            <div>Acento (QR, barra)<input type="color" id="color_pink" value="#F4D3DF"></div>
-            <div>Fondo del premio<input type="color" id="color_butter_mid" value="#F9E6B2"></div>
-            <div>Fondo claro extra<input type="color" id="color_butter_light" value="#FBEFD2"></div>
+            <div>Fondo de página<div class="color-field"><input type="color" class="colorPicker" id="color_page_bg" value="#DCEAF4"><input type="text" class="colorHex" id="color_page_bg_hex" value="#DCEAF4"></div></div>
+            <div>Fondo de tarjeta<div class="color-field"><input type="color" class="colorPicker" id="color_card_bg" value="#FFFCF5"><input type="text" class="colorHex" id="color_card_bg_hex" value="#FFFCF5"></div></div>
+            <div>Tinta / texto<div class="color-field"><input type="color" class="colorPicker" id="color_brown" value="#593212"><input type="text" class="colorHex" id="color_brown_hex" value="#593212"></div></div>
+            <div>Tinta fuerte (sombra)<div class="color-field"><input type="color" class="colorPicker" id="color_brown_deep" value="#3E2107"><input type="text" class="colorHex" id="color_brown_deep_hex" value="#3E2107"></div></div>
+            <div>Texto secundario<div class="color-field"><input type="color" class="colorPicker" id="color_brown_soft" value="#8A5A34"><input type="text" class="colorHex" id="color_brown_soft_hex" value="#8A5A34"></div></div>
+            <div>Acento (QR, barra)<div class="color-field"><input type="color" class="colorPicker" id="color_pink" value="#F4D3DF"><input type="text" class="colorHex" id="color_pink_hex" value="#F4D3DF"></div></div>
+            <div>Fondo del premio<div class="color-field"><input type="color" class="colorPicker" id="color_butter_mid" value="#F9E6B2"><input type="text" class="colorHex" id="color_butter_mid_hex" value="#F9E6B2"></div></div>
+            <div>Fondo claro extra<div class="color-field"><input type="color" class="colorPicker" id="color_butter_light" value="#FBEFD2"><input type="text" class="colorHex" id="color_butter_light_hex" value="#FBEFD2"></div></div>
           </div>
 
           <label>Cuántos sellos para el premio</label>
@@ -330,6 +366,34 @@ async function renderAdminDashboard(env, admin) {
           reader.readAsDataURL(file);
         });
       }
+      document.querySelectorAll('.colorPicker').forEach(picker => {
+        const hexInput = document.getElementById(picker.id + '_hex');
+        picker.addEventListener('input', () => { hexInput.value = picker.value.toUpperCase(); });
+        hexInput.addEventListener('input', () => {
+          let v = hexInput.value.trim();
+          if (v && v[0] !== '#') v = '#' + v;
+          if (/^#[0-9A-Fa-f]{6}$/.test(v)) { picker.value = v; hexInput.style.borderColor = '#2B2320'; }
+          else { hexInput.style.borderColor = '#B23A3A'; }
+        });
+        hexInput.addEventListener('blur', () => { hexInput.value = picker.value.toUpperCase(); hexInput.style.borderColor = '#2B2320'; });
+      });
+
+      document.getElementById('pwForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const pwMsg = document.getElementById('pwMsg');
+        pwMsg.textContent = 'Actualizando...'; pwMsg.className = 'msg';
+        const res = await fetch('/admin/cambiar-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ currentPassword, newPassword }) });
+        const data = await res.json();
+        if (res.ok) {
+          pwMsg.textContent = '✅ Contraseña actualizada'; pwMsg.className = 'msg ok';
+          document.getElementById('pwForm').reset();
+        } else {
+          pwMsg.textContent = data.error || 'No se pudo cambiar'; pwMsg.className = 'msg err';
+        }
+      });
+
       document.getElementById('bizForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const msg = document.getElementById('msg');
@@ -391,8 +455,17 @@ async function handleAdminSignup(request, env) {
     return new Response(JSON.stringify({ error: 'Correo o contraseña inválidos (mínimo 6 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   const passwordHash = await hashPassword(password);
-  await env.DB.prepare('INSERT INTO admins (email, password_hash) VALUES (?, ?)').bind(email.trim().toLowerCase(), passwordHash).run();
-  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+  const recoveryCode = generateRecoveryCode();
+  const recoveryCodeHash = await sha256Hex(recoveryCode);
+  await env.DB.prepare('INSERT INTO admins (email, password_hash, recovery_code_hash) VALUES (?, ?, ?)')
+    .bind(email.trim().toLowerCase(), passwordHash, recoveryCodeHash).run();
+  return new Response(JSON.stringify({ ok: true, recoveryCode }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+function generateRecoveryCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  const hex = bytesToHex(bytes).toUpperCase();
+  return hex.match(/.{1,4}/g).join('-'); // ej. 4F2A-9C1B-77E0-...
 }
 
 async function handleAdminLogin(request, env) {
@@ -411,6 +484,75 @@ function handleAdminLogout() {
   const headers = new Headers({ 'Location': '/admin' });
   headers.append('Set-Cookie', `admin_session=; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
   return new Response(null, { status: 302, headers });
+}
+
+function renderAdminRecoverForm() {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recuperar cuenta · My Tapp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>${adminBaseStyles()}</style></head>
+  <body>
+    <div class="box">
+      <h1>Recuperar cuenta</h1>
+      <p class="sub">Escribe tu correo y el código de recuperación que guardaste cuando creaste tu cuenta.</p>
+      <form id="f">
+        <input type="email" id="email" placeholder="Tu correo" required>
+        <input type="text" id="code" placeholder="Código de recuperación" required>
+        <input type="password" id="password" placeholder="Nueva contraseña (mínimo 6 caracteres)" required minlength="6">
+        <button type="submit">Restablecer contraseña</button>
+      </form>
+      <p class="msg" id="msg"></p>
+      <p class="sub"><a href="/admin">← Volver a entrar</a></p>
+    </div>
+    <script>
+      document.getElementById('f').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const code = document.getElementById('code').value.trim();
+        const password = document.getElementById('password').value;
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Verificando...'; msg.className = 'msg';
+        const res = await fetch('/admin/recuperar', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, code, password }) });
+        if (res.ok) { msg.textContent = '✅ Contraseña actualizada. Ya puedes entrar.'; msg.className = 'msg ok'; }
+        else { const d = await res.json(); msg.textContent = d.error || 'Código o correo incorrectos'; msg.className = 'msg err'; }
+      });
+    </script>
+  </body></html>`;
+}
+
+async function handleAdminRecover(request, env) {
+  const { email, code, password } = await request.json();
+  if (!password || password.length < 6) {
+    return new Response(JSON.stringify({ error: 'La contraseña debe tener al menos 6 caracteres' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  const admin = await env.DB.prepare('SELECT * FROM admins WHERE email = ?').bind((email || '').trim().toLowerCase()).first();
+  if (!admin || !admin.recovery_code_hash) {
+    return new Response(JSON.stringify({ error: 'Correo o código incorrectos' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+  const codeHash = await sha256Hex((code || '').trim().toUpperCase());
+  if (codeHash !== admin.recovery_code_hash) {
+    return new Response(JSON.stringify({ error: 'Correo o código incorrectos' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+  const newHash = await hashPassword(password);
+  await env.DB.prepare('UPDATE admins SET password_hash = ? WHERE id = ?').bind(newHash, admin.id).run();
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleAdminChangePassword(request, env) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const { currentPassword, newPassword } = await request.json();
+  if (!(await verifyPassword(currentPassword || '', admin.password_hash))) {
+    return new Response(JSON.stringify({ error: 'Tu contraseña actual no es correcta' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (!newPassword || newPassword.length < 6) {
+    return new Response(JSON.stringify({ error: 'La nueva contraseña debe tener al menos 6 caracteres' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  const newHash = await hashPassword(newPassword);
+  await env.DB.prepare('UPDATE admins SET password_hash = ? WHERE id = ?').bind(newHash, admin.id).run();
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleCreateBusiness(request, env) {
