@@ -318,8 +318,11 @@ async function renderAdminDashboard(env, admin) {
         ${rows || '<tr><td colspan="4">Todavía no has creado ningún negocio</td></tr>'}
       </table>
 
-      <h2>Tu cuenta</h2>
-      <div class="card">
+      <h2 style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Tu cuenta</span>
+        <button type="button" id="toggleSettingsBtn" style="width:auto;margin:0;padding:8px 14px;font-size:12px;background:#F4F1EA;">⚙️ Configuración</button>
+      </h2>
+      <div class="card" id="settingsCard" style="display:none;">
         <form id="pwForm">
           <label>Contraseña actual</label>
           <div class="pw-wrap">
@@ -401,6 +404,11 @@ async function renderAdminDashboard(env, admin) {
           if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
           else { input.type = 'password'; btn.textContent = '👁'; }
         });
+      });
+      document.getElementById('toggleSettingsBtn').addEventListener('click', () => {
+        const card = document.getElementById('settingsCard');
+        const showing = card.style.display !== 'none';
+        card.style.display = showing ? 'none' : 'block';
       });
       function fileToBase64(file) {
         return new Promise((resolve, reject) => {
