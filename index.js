@@ -482,6 +482,7 @@ async function renderAdminDashboard(env, admin) {
       <td>${escapeHtml(b.slug)}</td>
       <td><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Panel staff</a></td>
       <td><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a></td>
+      <td><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
       <td><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
       <td><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
     </tr>`).join('');
@@ -533,8 +534,8 @@ async function renderAdminDashboard(env, admin) {
 
       <h2>Tus negocios (${results.length})</h2>
       <table>
-        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>Editar</th><th>Borrar</th></tr>
-        ${rows || '<tr><td colspan="6">Todavía no has creado ningún negocio</td></tr>'}
+        <tr><th>Nombre</th><th>Slug</th><th>Staff</th><th>Registro</th><th>QR</th><th>Editar</th><th>Borrar</th></tr>
+        ${rows || '<tr><td colspan="7">Todavía no has creado ningún negocio</td></tr>'}
       </table>
       <p id="deleteMsg" class="msg"></p>
 
@@ -676,6 +677,23 @@ async function renderAdminDashboard(env, admin) {
           const res = await fetch('/admin/business/' + slug + '/delete', { method: 'POST' });
           if (res.ok) { location.reload(); }
           else { const d = await res.json(); deleteMsg.textContent = d.error || 'No se pudo borrar'; deleteMsg.className = 'msg err'; }
+        });
+      });
+      document.querySelectorAll('.download-qr').forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (typeof QRCode === 'undefined') { alert('No se pudo generar el QR, intenta recargar la página.'); return; }
+          const slug = link.dataset.slug;
+          const name = link.dataset.name;
+          const url = location.origin + '/' + slug + '/nuevo';
+          const canvas = document.createElement('canvas');
+          QRCode.toCanvas(canvas, url, { width: 800, margin: 3, color: { dark: '#000000', light: '#FFFFFF' } }, (err) => {
+            if (err) { alert('No se pudo generar el QR: ' + err.message); return; }
+            const link2 = document.createElement('a');
+            link2.download = 'QR_' + name.replace(/[^a-z0-9]+/gi, '_') + '.png';
+            link2.href = canvas.toDataURL('image/png');
+            link2.click();
+          });
         });
       });
       function fileToBase64(file) {
@@ -1391,7 +1409,7 @@ function renderCustomerCard(b, customer, slug, origin) {
   .qr-box{width:86px;height:86px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:14px;padding:6px;flex-shrink:0;}
   .qr-box canvas{width:100%!important;height:100%!important;border-radius:6px;display:block;}
   .qr-copy{font-size:11.5px;color:var(--text-qr-instruction);line-height:1.45;}
-  .qr-copy b{display:block;font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:13.5px;color:var(--text-qr-code);letter-spacing:.3px;margin-bottom:2px;}
+  .qr-copy b{display:block;font-family:var(--font-display);font-weight:700;font-style:normal;font-size:13.5px;color:var(--text-qr-code);letter-spacing:.3px;margin-bottom:2px;}
   .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:16px auto 0;padding:7px 14px;background:var(--instagram-bg);border-radius:99px;color:var(--text-instagram);text-decoration:none;font-size:12px;font-weight:700;}
   .credit{text-align:center;font-size:13px;color:var(--text-credit);margin:18px 0 0;}
   .credit a{color:var(--text-credit);font-weight:700;text-decoration:underline;}
