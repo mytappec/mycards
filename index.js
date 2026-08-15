@@ -178,7 +178,6 @@ function renderCustomerCard(b, customer, slug, origin) {
   const left = total - filled;
 
   const cardUrl = `${origin}/${slug}/${customer.code}`;
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=${encodeURIComponent(cardUrl)}&color=${b.color_brown.replace('#','')}&bgcolor=${b.color_pink.replace('#','')}`;
 
   let stampsHtml = '';
   for (let i = 1; i <= total; i++) {
@@ -249,13 +248,14 @@ function renderCustomerCard(b, customer, slug, origin) {
   .reward-note strong{display:block;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:13.5px;margin-bottom:1px;color:var(--brown);}
   .qr-section{margin-top:20px;border-top:2px dashed var(--page-bg);padding-top:18px;display:flex;align-items:center;gap:14px;}
   .qr-box{width:86px;height:86px;background:var(--pink);border:2px solid var(--brown);border-radius:14px;padding:6px;flex-shrink:0;}
-  .qr-box img{width:100%;height:100%;border-radius:6px;}
+  .qr-box canvas{width:100%!important;height:100%!important;border-radius:6px;display:block;}
   .qr-copy{font-size:11.5px;color:var(--brown-soft);line-height:1.45;}
   .qr-copy b{display:block;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:13.5px;color:var(--brown);letter-spacing:.3px;margin-bottom:2px;}
   .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:16px auto 0;padding:7px 14px;background:var(--page-bg);border-radius:99px;color:var(--brown);text-decoration:none;font-size:12px;font-weight:700;}
   .credit{text-align:center;font-size:13px;color:var(--brown);margin:18px 0 0;}
   .credit a{color:var(--brown);font-weight:700;text-decoration:underline;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -277,7 +277,7 @@ function renderCustomerCard(b, customer, slug, origin) {
           <span><strong>${escapeHtml(b.reward_heading)}</strong>${escapeHtml(b.reward_text)}</span>
         </div>
         <div class="qr-section">
-          <div class="qr-box"><img src="${qrSrc}" alt="QR"></div>
+          <div class="qr-box"><canvas id="qrCanvas"></canvas></div>
           <div class="qr-copy">
             <b>#${escapeHtml(customer.code)}</b>
             Muestra este código en caja para sumar tu sello en cada compra.
@@ -291,6 +291,14 @@ function renderCustomerCard(b, customer, slug, origin) {
     </div>
     <p class="credit">Design by <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
   </div>
+  <script>
+    if (typeof QRCode !== 'undefined') {
+      QRCode.toCanvas(document.getElementById('qrCanvas'), ${JSON.stringify(cardUrl)}, {
+        width: 300, margin: 1,
+        color: { dark: ${JSON.stringify(b.color_brown)}, light: ${JSON.stringify(b.color_pink)} }
+      });
+    }
+  </script>
 </body>
 </html>`;
 }
