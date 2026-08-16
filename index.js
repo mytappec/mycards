@@ -602,15 +602,15 @@ async function renderAdminDashboard(env, admin) {
     const isOverdue = b.next_payment_date && b.next_payment_date < today;
     return `
     <tr>
-      <td style="white-space:nowrap;"><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
-      <td style="white-space:nowrap;">${escapeHtml(b.name)}</td>
-      <td style="white-space:nowrap;">${escapeHtml(b.slug)}</td>
-      <td style="white-space:nowrap;"><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
-      <td style="white-space:nowrap;"><span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span></td>
-      <td style="white-space:nowrap;">${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;font-weight:700;">🔒 Desbloquear</a>` : '—'}</td>
-      <td style="white-space:nowrap;"><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Link para staff</a></td>
-      <td style="white-space:nowrap;"><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link para clientes</a></td>
-      <td style="white-space:nowrap;">
+      <td data-label="Editar tarjeta" style="white-space:nowrap;"><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
+      <td data-label="Negocio" style="white-space:nowrap;">${escapeHtml(b.name)}</td>
+      <td data-label="Slug" style="white-space:nowrap;">${escapeHtml(b.slug)}</td>
+      <td data-label="Código QR" style="white-space:nowrap;"><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
+      <td data-label="PIN" style="white-space:nowrap;"><span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span></td>
+      <td data-label="Ver PIN" style="white-space:nowrap;">${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;font-weight:700;">🔒 Desbloquear</a>` : '—'}</td>
+      <td data-label="Panel staff" style="white-space:nowrap;"><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Link para staff</a></td>
+      <td data-label="Link registro" style="white-space:nowrap;"><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link para clientes</a></td>
+      <td data-label="Suscripción" style="white-space:nowrap;">
         <div class="payment-cell" data-slug="${escapeHtml(b.slug)}">
           <div style="margin-bottom:4px;">
             <label style="font-size:10px;font-weight:400;margin:0;">Pagó:</label>
@@ -623,12 +623,12 @@ async function renderAdminDashboard(env, admin) {
           <button type="button" class="save-payment-btn" style="width:auto;margin-top:4px;padding:4px 10px;font-size:11px;">Guardar</button>
         </div>
       </td>
-      <td style="white-space:nowrap;">
+      <td data-label="Estado de pago" style="white-space:nowrap;">
         <a href="#" class="toggle-suspend" data-slug="${escapeHtml(b.slug)}" data-suspended="${b.is_suspended}" style="color:${b.is_suspended ? '#215A34' : '#B26A00'};font-weight:700;">
           ${b.is_suspended ? '▶️ Activar' : '⏸️ Suspender'}
         </a>
       </td>
-      <td style="white-space:nowrap;"><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
+      <td data-label="Borrar" style="white-space:nowrap;"><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
     </tr>`;
   }).join('');
 
@@ -648,6 +648,18 @@ async function renderAdminDashboard(env, admin) {
     h2{font-family:'Baloo 2',sans-serif;font-size:16px;margin-top:30px;}
     table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;font-size:13px;margin-bottom:10px;}
     th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #eee;white-space:nowrap;}
+    @media (max-width: 900px) {
+      .create-flex{flex-direction:column;}
+      .preview-col{width:100%;position:static;}
+    }
+    @media (max-width: 760px) {
+      table, thead, tbody, th, td, tr { display:block; }
+      thead { display:none; }
+      table{background:none;}
+      tr{background:white;border:2px solid #2B2320;border-radius:14px;margin-bottom:14px;padding:10px 4px;}
+      td{border:none;padding:7px 12px;white-space:normal;}
+      td::before{content:attr(data-label);display:block;font-size:10px;font-weight:700;color:#8A6F4E;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+    }
     th{font-size:12px;}
     th{background:#2B2320;color:white;}
     .card{background:white;border:2px solid #2B2320;border-radius:16px;padding:20px;margin-top:12px;}
@@ -703,8 +715,12 @@ async function renderAdminDashboard(env, admin) {
       <h2>Tus negocios (${results.length})</h2>
       <div style="overflow-x:auto;">
       <table>
+        <thead>
         <tr><th>Editar<br>tarjeta</th><th>Negocio</th><th>Slug</th><th>Código<br>QR</th><th>PIN</th><th>Ver<br>PIN</th><th>Panel<br>staff</th><th>Link<br>registro</th><th>Suscripción</th><th>Estado<br>de pago</th><th>Borrar</th></tr>
+        </thead>
+        <tbody>
         ${rows || '<tr><td colspan="11">Todavía no has creado ningún negocio</td></tr>'}
+        </tbody>
       </table>
       </div>
       <p id="deleteMsg" class="msg"></p>
@@ -1291,6 +1307,10 @@ async function handleEditBusinessForm(request, env, slug) {
     body{margin:0;background:#F4F1EA;font-family:'Quicksand',sans-serif;padding:24px;color:#2B2320;}
     .wrap{max-width:1040px;margin:0 auto;display:flex;gap:24px;align-items:flex-start;}
     .form-col{flex:1;min-width:0;}
+    @media (max-width: 900px) {
+      .wrap{flex-direction:column;}
+      .preview-col{width:100%;position:static;}
+    }
     h1{font-family:'Baloo 2',sans-serif;font-size:20px;}
     .card{background:white;border:2px solid #2B2320;border-radius:16px;padding:20px;margin-top:12px;}
     label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;}
