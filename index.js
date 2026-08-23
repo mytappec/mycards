@@ -2040,8 +2040,14 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:12px auto 0;padding:7px 14px;background:var(--instagram-bg);border-radius:99px;color:var(--text-instagram);text-decoration:none;font-size:12px;font-weight:700;}
   .card{opacity:0;transform:translateY(10px);}
   .intro-bg{position:fixed;inset:0;background:var(--page-bg);z-index:100;}
-  .intro-mascot{position:fixed;top:44%;left:50%;transform:translate(-50%,-50%);width:180px;height:auto;z-index:101;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18));}
-  .brand-bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:flex-end;justify-content:space-between;padding:8px 20px calc(10px + env(safe-area-inset-bottom, 0px));z-index:40;pointer-events:none;}
+  .intro-mascot{position:fixed;top:44%;left:50%;width:180px;height:auto;z-index:101;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18));animation:introWiggle .6s ease-in-out 1 forwards;}
+  @keyframes introWiggle{
+    0%{transform:translate(-50%,-50%) translateX(0) rotate(0deg);}
+    25%{transform:translate(-50%,-50%) translateX(-9px) rotate(-4deg);}
+    75%{transform:translate(-50%,-50%) translateX(9px) rotate(4deg);}
+    100%{transform:translate(-50%,-50%) translateX(0) rotate(0deg);}
+  }
+  .brand-bar{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:430px;display:flex;align-items:flex-end;justify-content:flex-start;gap:16px;padding:8px 18px calc(10px + env(safe-area-inset-bottom, 0px));z-index:40;pointer-events:none;}
   .mascot-corner{width:106px;height:auto;opacity:0;transition:opacity .2s ease;pointer-events:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));}
   .footer-brand{margin:0;pointer-events:auto;}
   .footer-brand a{display:inline-block;}
@@ -2110,9 +2116,9 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
         var dy = finalRect.top - introRect.top;
         var scale = finalRect.width / introRect.width;
         introMascot.style.transformOrigin = 'top left';
-        introMascot.style.transition = 'transform .9s cubic-bezier(.22,1,.36,1)';
+        introMascot.style.transition = 'transform .75s cubic-bezier(.22,1,.36,1)';
         introMascot.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(' + scale + ')';
-        introBg.style.transition = 'opacity .9s ease';
+        introBg.style.transition = 'opacity .75s ease';
         introBg.style.opacity = '0';
         card.style.transition = 'opacity .7s ease, transform .7s ease';
         card.style.opacity = '1';
@@ -2121,8 +2127,8 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
           introBg.style.display = 'none';
           introMascot.style.display = 'none';
           finalMascot.style.opacity = '1';
-        }, 900);
-      }, 1000);
+        }, 750);
+      }, 680);
     })();
     if (typeof QRCode !== 'undefined') {
       QRCode.toCanvas(document.getElementById('qrCanvas'), ${JSON.stringify(cardUrl)}, {
