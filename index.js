@@ -241,7 +241,6 @@ function colorGroupsHtml(b) {
       ${colorField('color_brown', 'Nombre del cliente', v('color_brown', '#593212'))}
       ${colorField('color_text_progress_pct', 'Porcentaje al lado de la barra (ej. 40%)', v('color_text_progress_pct', '#593212'))}
       ${colorField('color_text_progress_label', 'Texto debajo de la barra: "X de 10 sellos..."', v('color_text_progress_label', '#8A5A34'))}
-      ${colorField('color_text_progress_number', 'Números en negrita de ese mismo texto', v('color_text_progress_number', '#593212'))}
       ${colorField('color_reward_heading', 'Título: "Tu premio, cada vez más cerca"', v('color_reward_heading', '#593212'))}
       ${colorField('color_reward_text', 'Descripción debajo de ese título', v('color_reward_text', '#593212'))}
       ${colorField('color_text_qr_code', 'Código de cliente (ej. #ABC123)', v('color_text_qr_code', '#593212'))}
@@ -2005,7 +2004,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   }
   *{box-sizing:border-box;}
   body{margin:0;min-height:100vh;background:var(--page-bg);font-family:'Quicksand','Segoe UI',sans-serif;padding:18px 14px;overflow-x:hidden;}
-  .wrap{width:100%;max-width:430px;margin:0 auto;position:relative;}
+  .wrap{width:100%;max-width:430px;margin:0 auto;position:relative;padding-bottom:58px;}
   .card{background:var(--card-bg);border-radius:32px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep);overflow:visible;position:relative;}
   .card-inner{border-radius:29.5px;overflow:hidden;}
   .card-top{padding:20px 24px 14px;text-align:center;border-bottom:2px solid var(--border-card);}
@@ -2018,7 +2017,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .progress-fill{height:100%;border-radius:99px;background:var(--pink);}
   .progress-pct{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:14px;color:var(--text-progress-pct);min-width:36px;text-align:right;}
   .progress-text{font-size:13.5px;color:var(--text-progress-label);margin:0 0 14px;}
-  .progress-text b{color:var(--text-progress-number);}
+  .progress-text b{color:inherit;font-weight:800;}
   .stamp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px;}
   .stamp{aspect-ratio:1;border-radius:50%;background:var(--stamp-bg);display:flex;align-items:center;justify-content:center;position:relative;}
   .stamp-img{width:84%;height:84%;background-size:contain;background-position:center;background-repeat:no-repeat;opacity:0;}
@@ -2041,9 +2040,9 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .qr-copy{font-size:11.5px;color:var(--text-qr-instruction);line-height:1.4;max-width:280px;}
   .qr-copy b{display:block;font-family:var(--font-display);font-weight:700;font-style:normal;font-size:14px;color:var(--text-qr-code);letter-spacing:.3px;margin-bottom:3px;}
   .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:12px auto 0;padding:7px 14px;background:var(--instagram-bg);border-radius:99px;color:var(--text-instagram);text-decoration:none;font-size:12px;font-weight:700;}
-  .mascot-float{position:absolute;left:-22px;top:-30px;width:118px;height:auto;pointer-events:none;filter:drop-shadow(0 8px 12px rgba(0,0,0,.2));animation:mascotFloat 3.4s ease-in-out infinite;z-index:6;transform-origin:bottom center;}
-  @keyframes mascotFloat{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-10px) rotate(3deg);}}
-  @media (max-width:460px){ .mascot-float{width:92px;left:-14px;top:-24px;} }
+  .mascot-float{position:absolute;right:2px;bottom:0;width:96px;height:auto;pointer-events:none;filter:drop-shadow(0 8px 12px rgba(0,0,0,.2));animation:mascotFloat 3.4s ease-in-out infinite;z-index:6;transform-origin:bottom center;}
+  @keyframes mascotFloat{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-8px) rotate(2deg);}}
+  @media (max-width:460px){ .mascot-float{width:78px;right:0;} }
   .footer-brand{text-align:center;margin:16px 0 0;}
   .footer-brand img{height:42px;width:auto;margin:0 auto 6px;display:block;}
   .footer-brand p{font-size:12.5px;color:var(--text-credit);margin:0;}
@@ -2084,12 +2083,12 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
         </a>` : ''}
       </div>
       </div>
-      <img class="mascot-float" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
     </div>
     <div class="footer-brand">
       <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
       <p>Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
     </div>
+    <img class="mascot-float" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
   </div>
   <script>
     if (typeof QRCode !== 'undefined') {
@@ -2464,11 +2463,14 @@ async function handleClientesList(request, env, slug) {
   <title>Clientes · ${escapeHtml(business.name)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
-    body{margin:0;padding:20px;font-family:'Quicksand',sans-serif;background:${business.color_page_bg};}
+    :root{color-scheme:light;}
+    *{color-scheme:light;}
+    body{margin:0;padding:20px;font-family:'Quicksand',sans-serif;background:${business.color_page_bg};color:${business.color_brown};}
     h1{font-family:'Baloo 2',sans-serif;color:${business.color_brown};font-size:18px;}
     table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:13px;}
-    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid ${business.color_page_bg};}
-    th{background:${business.color_brown};color:white;}
+    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid ${business.color_page_bg};background:${business.color_card_bg};color:${business.color_brown};}
+    th{background:${business.color_brown};color:#FFFFFF!important;}
+    tr:nth-child(even) td{background:${business.color_page_bg};}
     a{color:${business.color_brown};}
     a.back{display:inline-block;margin-bottom:14px;color:${business.color_brown};font-weight:700;text-decoration:none;}
     .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
@@ -2477,7 +2479,7 @@ async function handleClientesList(request, env, slug) {
     .msg{font-size:13px;margin:0;}
     .msg.err{color:#B23A3A;}
     .clientes-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-    .clientes-header img{height:26px;width:auto;opacity:.9;}
+    .clientes-header img{height:52px;width:auto;opacity:.95;}
   </style></head>
   <body>
     <a class="back" href="/staff/${slug}">← Volver al panel</a>
