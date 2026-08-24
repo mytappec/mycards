@@ -2568,6 +2568,8 @@ function renderLandingPage() {
   .wrap{max-width:1120px;margin:0 auto;padding:0 28px;}
   h1,h2,h3{font-family:'Baloo 2',sans-serif;margin:0;color:var(--brown);}
   .eyebrow{font-family:'Manrope',sans-serif;font-weight:800;font-size:11.5px;letter-spacing:2px;text-transform:uppercase;color:var(--terracotta);display:flex;align-items:center;gap:9px;justify-content:center;margin-bottom:14px;}
+  .eyebrow.on-dark{color:var(--mustard);}
+  .eyebrow.on-dark::before,.eyebrow.on-dark::after{background:var(--mustard);}
   .eyebrow::before,.eyebrow::after{content:'';width:22px;height:1.5px;background:var(--terracotta);opacity:.55;}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;padding:15px 30px;border-radius:99px;text-decoration:none;border:none;cursor:pointer;transition:transform .18s var(--ease),box-shadow .18s var(--ease);}
   .btn:active{transform:translateY(1px) scale(.99);}
@@ -2584,10 +2586,11 @@ function renderLandingPage() {
   .nav.scrolled{background:rgba(253,251,242,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 2px 18px rgba(66,40,27,.08);padding:10px 0;}
   .nav-logo{height:34px;width:auto;transition:height .3s var(--ease);}
   .nav.scrolled .nav-logo{height:28px;}
-  .nav-links{display:flex;align-items:center;gap:34px;list-style:none;margin:0;padding:0;}
-  .nav-links a{font-family:'Manrope',sans-serif;font-weight:700;font-size:14.5px;text-decoration:none;color:var(--brown);position:relative;padding:4px 0;}
-  .nav-links a::after{content:'';position:absolute;left:0;right:0;bottom:-2px;height:2px;background:var(--terracotta);transform:scaleX(0);transform-origin:right;transition:transform .25s var(--ease);}
-  .nav-links a:hover::after{transform:scaleX(1);transform-origin:left;}
+  .nav-links{display:flex;align-items:center;gap:6px;list-style:none;margin:0;padding:0;}
+  .nav-links a{font-family:'Manrope',sans-serif;font-weight:700;font-size:14.5px;text-decoration:none;color:var(--brown);position:relative;padding:9px 16px;border-radius:99px;transition:color .25s var(--ease);}
+  .nav-links a::before{content:'';position:absolute;inset:0;background:var(--pale-blue);border-radius:99px;transform:scale(.55);opacity:0;transition:transform .3s var(--ease),opacity .3s var(--ease);z-index:-1;}
+  .nav-links a:hover{color:var(--terracotta-deep);}
+  .nav-links a:hover::before{transform:scale(1);opacity:1;}
   .nav-cta{display:flex;align-items:center;gap:18px;}
   .nav-cta .btn{padding:11px 22px;font-size:14px;}
   .nav-burger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:8px;}
@@ -2617,37 +2620,52 @@ function renderLandingPage() {
   .hero-lead{font-size:17.5px;line-height:1.6;color:var(--brown-soft);max-width:500px;margin:0 auto 30px;}
   .hero-ctas{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;}
 
-  .hero-stage{position:relative;z-index:1;max-width:880px;height:400px;margin:54px auto 0;}
-  .stage-card{position:absolute;top:10%;left:4%;width:230px;background:var(--brown);border-radius:24px;padding:20px;box-shadow:var(--shadow-lg);transform:rotate(-10deg);z-index:1;}
-  .stage-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;}
-  .stage-card-top span{color:var(--pale-blue);font-family:'Baloo 2',sans-serif;font-size:12.5px;}
-  .stage-stamps{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:13px;}
+  .hero-stage{position:relative;z-index:1;max-width:540px;height:360px;margin:50px auto 0;}
+  .stage-card{position:absolute;top:96px;left:225px;width:215px;background:var(--brown);border-radius:22px;padding:19px;box-shadow:var(--shadow-lg);transform:rotate(7deg);z-index:1;animation:swayCard 4.4s ease-in-out infinite;transform-origin:20% 30%;}
+  .stage-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .stage-card-top span{color:var(--pale-blue);font-family:'Baloo 2',sans-serif;font-size:12px;}
+  .stage-stamps{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px;}
   .stage-stamps i{display:block;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.14);}
   .stage-stamps i.on{background:var(--mustard);}
-  .stage-card-bar{height:7px;border-radius:99px;background:rgba(255,255,255,.16);overflow:hidden;}
+  .stage-card-bar{height:6px;border-radius:99px;background:rgba(255,255,255,.16);overflow:hidden;}
   .stage-card-bar b{display:block;width:60%;height:100%;background:var(--terracotta);border-radius:99px;}
-  .stage-mascot{position:absolute;top:-18px;left:38%;width:300px;z-index:3;filter:drop-shadow(0 22px 30px rgba(66,40,27,.28));}
-  .stage-dot{position:absolute;border-radius:50%;z-index:2;}
-  .stage-dot.d1{width:24px;height:24px;background:var(--mustard);top:6%;right:22%;}
-  .stage-dot.d2{width:15px;height:15px;background:var(--terracotta);bottom:24%;left:1%;}
-  .stage-dot.d3{width:38px;height:38px;border:3px solid var(--pale-blue);top:14%;right:4%;}
-  .stage-dot.d4{width:12px;height:12px;background:var(--pale-blue);bottom:8%;left:24%;}
-  .stage-mono{position:absolute;width:64px;bottom:2%;right:10%;transform:rotate(11deg);opacity:.95;z-index:2;filter:drop-shadow(0 6px 10px rgba(66,40,27,.15));}
-  .hero-trust{position:relative;z-index:1;margin-top:30px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--brown-soft);font-weight:600;}
+  .stage-mascot{position:absolute;top:38px;left:-10px;width:270px;z-index:2;filter:drop-shadow(0 18px 24px rgba(66,40,27,.26));animation:floatY 3.6s ease-in-out infinite;}
+  .tap-point{position:absolute;top:158px;left:248px;width:14px;height:14px;z-index:3;}
+  .tap-point i{position:absolute;inset:0;border-radius:50%;background:var(--terracotta);}
+  .tap-point b{position:absolute;inset:0;border-radius:50%;border:2px solid var(--terracotta);animation:tapRipple 2.2s ease-out infinite;}
+  .tap-point b.b2{animation-delay:.7s;}
+  .stage-dot{position:absolute;border-radius:50%;z-index:0;animation:dotPulse 3s ease-in-out infinite;}
+  .stage-dot.d1{width:20px;height:20px;background:var(--mustard);top:14px;right:24px;}
+  .stage-dot.d2{width:13px;height:13px;background:var(--pale-blue);bottom:8px;left:8px;animation-delay:.5s;}
+  .stage-dot.d3{width:30px;height:30px;border:3px solid var(--pale-blue);background:none;bottom:30px;right:0;animation-delay:1s;}
+  .stage-mono{position:absolute;width:54px;bottom:-6px;left:60px;transform:rotate(-9deg);opacity:.95;z-index:0;filter:drop-shadow(0 6px 10px rgba(66,40,27,.15));}
+  @keyframes floatY{0%,100%{transform:translateY(0) rotate(-2deg);}50%{transform:translateY(-11px) rotate(1deg);}}
+  @keyframes swayCard{0%,100%{transform:rotate(7deg);}50%{transform:rotate(3deg);}}
+  @keyframes tapRipple{0%{transform:scale(.5);opacity:.6;}100%{transform:scale(2.6);opacity:0;}}
+  @keyframes dotPulse{0%,100%{transform:scale(1);opacity:.8;}50%{transform:scale(1.2);opacity:1;}}
+  .hero-trust{position:relative;z-index:1;margin-top:24px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--brown-soft);font-weight:600;}
   .hero-trust img{height:16px;width:auto;opacity:.85;}
   @media (max-width:940px){
     .hero{padding:120px 0 50px;}
-    .hero-stage{height:300px;max-width:320px;}
-    .stage-card{width:170px;left:2%;top:16%;padding:15px;}
-    .stage-mascot{width:210px;left:34%;top:-10px;}
-    .stage-dot.d3{width:28px;height:28px;}
-    .stage-mono{width:48px;}
+    .hero-stage{height:300px;max-width:400px;}
+    .stage-card{width:170px;left:175px;top:76px;padding:15px;}
+    .stage-mascot{width:210px;left:-10px;top:26px;}
+    .tap-point{top:126px;left:190px;}
+    .stage-mono{width:44px;left:44px;}
   }
   @media (max-width:420px){
-    .hero-stage{max-width:280px;height:270px;}
-    .stage-card{width:150px;}
-    .stage-mascot{width:185px;left:32%;}
+    .hero-stage{max-width:320px;height:270px;}
+    .stage-card{width:150px;left:150px;top:66px;}
+    .stage-mascot{width:185px;top:20px;}
+    .tap-point{top:110px;left:165px;}
   }
+
+  /* ---------- marquee (franja en movimiento) ---------- */
+  .marquee{position:relative;z-index:2;background:var(--terracotta);padding:15px 0;overflow:hidden;transform:rotate(-1.1deg) scale(1.03);margin:-14px 0 -10px;box-shadow:0 4px 18px rgba(176,71,46,.25);}
+  .marquee-track{display:flex;align-items:center;width:max-content;gap:38px;animation:marqueeScroll 24s linear infinite;white-space:nowrap;}
+  .marquee-track span{font-family:'Baloo 2',sans-serif;font-weight:700;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--cream);}
+  .marquee-track span.sep{opacity:.55;font-size:12px;}
+  @keyframes marqueeScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
 
   /* ---------- process (dark band) ---------- */
   .process{background:var(--brown);color:var(--cream);padding:88px 0;position:relative;overflow:hidden;}
@@ -2769,7 +2787,7 @@ function renderLandingPage() {
         </div>
       </div>
       <div class="hero-stage reveal" style="--d:140ms">
-        <div class="stage-dot d3"></div>
+        <img class="stage-mascot" id="heroMascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="Mascota Hey Tapp">
         <div class="stage-card">
           <div class="stage-card-top"><span>¡Hello!</span><span>7/10</span></div>
           <div class="stage-stamps">
@@ -2778,19 +2796,32 @@ function renderLandingPage() {
           </div>
           <div class="stage-card-bar"><b></b></div>
         </div>
-        <img class="stage-mascot" id="heroMascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="Mascota Hey Tapp">
+        <div class="tap-point"><b></b><b class="b2"></b><i></i></div>
         <div class="stage-dot d1"></div>
         <div class="stage-dot d2"></div>
-        <div class="stage-dot d4"></div>
+        <div class="stage-dot d3"></div>
         <img class="stage-mono" src="data:image/png;base64,${HEY_TAPP_MONO_BROWN_BASE64}" alt="">
       </div>
       <div class="hero-trust reveal"><img src="data:image/png;base64,${HEY_TAPP_MONO_BROWN_BASE64}" alt="">Diseñada y desarrollada por Anaelí Brand</div>
     </div>
   </header>
 
+  <div class="marquee">
+    <div class="marquee-track">
+      <span>Sellos digitales</span><span class="sep">✦</span>
+      <span>Tu marca, tus reglas</span><span class="sep">✦</span>
+      <span>Clientes que vuelven</span><span class="sep">✦</span>
+      <span>Hecho por Anaelí Brand</span><span class="sep">✦</span>
+      <span>Sellos digitales</span><span class="sep">✦</span>
+      <span>Tu marca, tus reglas</span><span class="sep">✦</span>
+      <span>Clientes que vuelven</span><span class="sep">✦</span>
+      <span>Hecho por Anaelí Brand</span><span class="sep">✦</span>
+    </div>
+  </div>
+
   <section class="process" id="como-funciona">
     <div class="wrap">
-      <div class="eyebrow reveal">Así de simple</div>
+      <div class="eyebrow on-dark reveal">Así de simple</div>
       <h2 class="reveal">Cómo funciona Hey Tapp</h2>
       <p class="process-sub reveal">Tres pasos, y tu negocio ya tiene su propio sistema de fidelización.</p>
       <div class="process-steps">
