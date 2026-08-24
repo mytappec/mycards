@@ -235,7 +235,21 @@ function passwordModalScript() {
 function colorGroupsHtml(b) {
   const v = (key, fallback) => (b && b[key]) || fallback;
   return `
-    <label style="margin-top:18px;">🔤 Textos</label>
+    <div class="quick-palette">
+      <label style="margin-top:0;">⚡ Paleta rápida — elige estos 5 y genera el resto</label>
+      <p class="hint" style="margin:-2px 0 10px;">Elige el fondo, la tarjeta, el color principal (texto/marco) y dos acentos. Después dale a "Generar paleta completa" y se acomodan solos los otros 24 campos de abajo — igual puedes afinar cualquiera a mano después.</p>
+      <div class="quick-grid">
+        ${colorField('qp_page_bg', 'Fondo de pantalla', v('color_page_bg', '#DCEAF4'))}
+        ${colorField('qp_card_bg', 'Fondo de la tarjeta', v('color_card_bg', '#FFFCF5'))}
+        ${colorField('qp_brown', 'Color principal (texto y marco)', v('color_brown', '#593212'))}
+        ${colorField('qp_pink', 'Color de acento 1', v('color_pink', '#F4D3DF'))}
+        ${colorField('qp_butter_mid', 'Color de acento 2', v('color_butter_mid', '#F9E6B2'))}
+      </div>
+      <button type="button" id="quickPaletteBtn" style="margin-top:10px;background:#2B2320;color:white;">🪄 Generar paleta completa</button>
+      <p class="hint" id="quickPaletteMsg" style="min-height:14px;"></p>
+    </div>
+
+    <label style="margin-top:22px;">🔤 Textos</label>
     <div class="colors">
       ${colorField('color_brown_soft', 'Título bienvenida: "¡Hello!"', v('color_brown_soft', '#8A5A34'))}
       ${colorField('color_brown', 'Nombre del cliente', v('color_brown', '#593212'))}
@@ -271,6 +285,56 @@ function colorGroupsHtml(b) {
       ${colorField('color_border_qr', 'Contorno del recuadro del código QR', v('color_border_qr', '#593212'))}
       ${colorField('color_qr_pattern_dark', 'Color del QR: cuadritos del código', v('color_qr_pattern_dark', '#593212'))}
     </div>
+  `;
+}
+
+// ---- botón "Generar paleta completa": a partir de 5 colores base, calcula
+// tonos derivados (más claros/oscuros) y llena TODOS los demás campos de color
+// de forma coherente, para no tener que elegir uno por uno. ----
+function quickPaletteScript() {
+  return `
+    function hexMix(hex1, hex2, weight) {
+      const c1 = hex1.replace('#',''), c2 = hex2.replace('#','');
+      const r1=parseInt(c1.substr(0,2),16), g1=parseInt(c1.substr(2,2),16), b1=parseInt(c1.substr(4,2),16);
+      const r2=parseInt(c2.substr(0,2),16), g2=parseInt(c2.substr(2,2),16), b2=parseInt(c2.substr(4,2),16);
+      const r=Math.round(r1+(r2-r1)*weight), g=Math.round(g1+(g2-g1)*weight), b=Math.round(b1+(b2-b1)*weight);
+      return '#'+[r,g,b].map(n=>n.toString(16).padStart(2,'0')).join('').toUpperCase();
+    }
+    function setColorField(id, hex) {
+      const picker = document.getElementById(id);
+      const hexInput = document.getElementById(id + '_hex');
+      if (!picker) return;
+      picker.value = hex;
+      if (hexInput) hexInput.value = hex;
+      picker.dispatchEvent(new Event('input'));
+    }
+    const quickBtn = document.getElementById('quickPaletteBtn');
+    if (quickBtn) quickBtn.addEventListener('click', () => {
+      const pageBg = document.getElementById('qp_page_bg').value;
+      const cardBg = document.getElementById('qp_card_bg').value;
+      const brown = document.getElementById('qp_brown').value;
+      const pink = document.getElementById('qp_pink').value;
+      const butterMid = document.getElementById('qp_butter_mid').value;
+      const brownSoft = hexMix(brown, '#FFFFFF', 0.35);
+      const brownDeep = hexMix(brown, '#000000', 0.30);
+      const butterLight = hexMix(butterMid, '#FFFFFF', 0.45);
+      const stampRing = hexMix(cardBg, '#FFFFFF', 0.5);
+      [
+        ['color_page_bg', pageBg], ['color_card_bg', cardBg], ['color_brown', brown],
+        ['color_pink', pink], ['color_butter_mid', butterMid],
+        ['color_brown_soft', brownSoft], ['color_brown_deep', brownDeep],
+        ['color_text_progress_pct', brown], ['color_text_progress_label', brownSoft],
+        ['color_reward_heading', brown], ['color_reward_text', brown],
+        ['color_text_qr_code', brown], ['color_text_qr_instruction', brownSoft],
+        ['color_text_instagram', brown], ['color_text_credit', brown],
+        ['color_stamp_bg', brown], ['color_qr_bg', pink], ['color_qr_pattern_light', pink],
+        ['color_instagram_bg', pageBg], ['color_butter_light', butterLight],
+        ['color_border_card', brown], ['color_border_progress', brown],
+        ['color_border_stamp_ring', stampRing], ['color_border_qr', brown], ['color_qr_pattern_dark', brown],
+      ].forEach(([id, hex]) => setColorField(id, hex));
+      const msg = document.getElementById('quickPaletteMsg');
+      if (msg) { msg.textContent = '✅ Listo — se acomodaron los demás colores. Revisa la vista previa.'; msg.style.color = '#215A34'; }
+    });
   `;
 }
 
@@ -750,6 +814,10 @@ async function renderAdminDashboard(env, admin) {
     input[type=file]{width:100%;font-size:12px;margin-top:4px;}
     select{width:100%;padding:10px 12px;border:2px solid #2B2320;border-radius:10px;font-size:14px;font-family:'Quicksand',sans-serif;background:white;}
     .colors{display:flex;flex-direction:column;gap:0;}
+    .quick-palette{background:#FBF7EE;border:2px dashed #C9A46A;border-radius:14px;padding:14px 16px;margin-top:16px;}
+    .quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;}
+    .quick-grid .color-row{border-bottom:none;padding:5px 0;}
+    @media (max-width:520px){ .quick-grid{grid-template-columns:1fr;} }
     .sellos{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
     button{margin-top:18px;width:100%;padding:14px;border:2px solid #2B2320;border-radius:12px;background:${adminBtnBg};color:${adminBtnText};font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
     .msg{text-align:center;font-size:13px;margin-top:12px;}
@@ -1158,6 +1226,7 @@ async function renderAdminDashboard(env, admin) {
         }
       });
       ${previewScript(null)}
+      ${quickPaletteScript()}
       ${passwordModalScript()}
     </script>
   </body></html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
@@ -1516,6 +1585,10 @@ async function handleEditBusinessForm(request, env, slug) {
     .color-row input[type=color]{width:38px;height:34px;flex-shrink:0;padding:2px;}
     .color-row input.colorHex{width:100px;flex-shrink:0;padding:7px 8px;border:2px solid #2B2320;border-radius:8px;font-size:12px;font-family:monospace;text-transform:uppercase;}
     .colors{display:flex;flex-direction:column;gap:0;}
+    .quick-palette{background:#FBF7EE;border:2px dashed #C9A46A;border-radius:14px;padding:14px 16px;margin-top:16px;}
+    .quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;}
+    .quick-grid .color-row{border-bottom:none;padding:5px 0;}
+    @media (max-width:520px){ .quick-grid{grid-template-columns:1fr;} }
     .sellos{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
     .current-img{width:40px;height:40px;object-fit:contain;background:#F4F1EA;border-radius:8px;padding:4px;vertical-align:middle;margin-right:8px;}
     .hint{font-size:11px;color:#8A6F4E;margin-top:2px;}
@@ -1541,7 +1614,9 @@ async function handleEditBusinessForm(request, env, slug) {
           <label>Nombre del negocio</label>
           <input type="text" id="name" value="${escapeHtml(b.name)}" required>
 
-          <p class="hint">El slug (${escapeHtml(b.slug)}) no se puede cambiar, para no romper los links que tus clientes ya tienen guardados.</p>
+          <p class="hint">El slug (${escapeHtml(b.slug)}) es la parte del link que va después de tu dominio.</p>
+          <input type="text" id="slug" value="${escapeHtml(b.slug)}" required pattern="[a-z0-9-]+">
+          <p class="hint" style="color:#B23A3A;">⚠️ Si lo cambias, los links y códigos QR que tus clientes ya tienen guardados (con el slug anterior) van a dejar de funcionar. Solo cámbialo si sabes lo que haces.</p>
 
           <label>Logo actual</label>
           <img class="current-img" src="data:image/png;base64,${b.logo_base64}">
@@ -1667,6 +1742,7 @@ async function handleEditBusinessForm(request, env, slug) {
           const s4 = document.getElementById('sello4').files[0];
           const payload = {
             name: document.getElementById('name').value.trim(),
+            slug: document.getElementById('slug').value.trim(),
             logo_base64: logoFile ? await fileToBase64(logoFile) : null,
             sello_1_base64: s1 ? await fileToBase64(s1) : null,
             sello_2_base64: s2 ? await fileToBase64(s2) : null,
@@ -1690,13 +1766,21 @@ async function handleEditBusinessForm(request, env, slug) {
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
           const res = await fetch('/admin/business/${slug}/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
           const data = await res.json();
-          if (res.ok) { msg.textContent = '✅ Cambios guardados'; msg.className = 'msg ok'; }
+          if (res.ok) {
+            if (data.slug && data.slug !== '${slug}') {
+              msg.textContent = '✅ Guardado. El slug cambió, redirigiendo...'; msg.className = 'msg ok';
+              setTimeout(() => { location.href = '/admin/business/' + data.slug + '/edit'; }, 900);
+            } else {
+              msg.textContent = '✅ Cambios guardados'; msg.className = 'msg ok';
+            }
+          }
           else { msg.textContent = data.error || 'No se pudo guardar'; msg.className = 'msg err'; }
         } catch (err) {
           msg.textContent = 'Error: ' + err.message; msg.className = 'msg err';
         }
       });
       ${previewScript(b.sello_1_base64)}
+      ${quickPaletteScript()}
       ${passwordModalScript()}
       // ---- deshacer cambios (estilo Ctrl+Z) mientras se edita este formulario ----
       (function () {
@@ -1792,12 +1876,31 @@ async function handleUpdateBusiness(request, env, slug) {
   const body = await request.json();
   const fontFamily = FONTS[body.font_family] ? body.font_family : business.font_family;
 
+  // slug: si lo cambiaron, validar formato y que no choque con otro negocio existente
+  let newSlug = business.slug;
+  if (typeof body.slug === 'string') {
+    const cleanSlug = body.slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (!cleanSlug) {
+      return new Response(JSON.stringify({ error: 'El slug no puede quedar vacío' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (['admin', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined'].includes(cleanSlug)) {
+      return new Response(JSON.stringify({ error: 'Ese slug está reservado, usa otro' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (cleanSlug !== business.slug) {
+      const existing = await env.DB.prepare('SELECT id FROM businesses WHERE slug = ? AND id != ?').bind(cleanSlug, business.id).first();
+      if (existing) {
+        return new Response(JSON.stringify({ error: 'Ya existe otro negocio con ese slug' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+    newSlug = cleanSlug;
+  }
+
   // campos con imagen: si no se subió una nueva, se mantiene la actual (COALESCE en SQL)
   const imageFields = { logo_base64: body.logo_base64 || null, sello_1_base64: body.sello_1_base64 || null,
     sello_2_base64: body.sello_2_base64 || null, sello_3_base64: body.sello_3_base64 || null, sello_4_base64: body.sello_4_base64 || null };
 
   const fixedFields = {
-    name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
+    slug: newSlug, name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
     greeting_eyebrow: body.greeting_eyebrow, reward_heading: body.reward_heading, reward_text: body.reward_text,
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url),
     instruction_text: body.instruction_text || business.instruction_text,
@@ -1822,7 +1925,7 @@ async function handleUpdateBusiness(request, env, slug) {
     .bind(...values, business.id)
     .run();
 
-  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ ok: true, slug: newSlug }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handlePublicRegisterForm(env, slug) {
@@ -1846,7 +1949,9 @@ async function handlePublicRegisterForm(env, slug) {
     button{width:100%;padding:16px;border:2px solid ${business.color_brown};border-radius:14px;background:${btnColors.bg};color:${btnColors.text};font-weight:800;font-size:16px;cursor:pointer;font-family:'${business.font_family}',${font.fallback};margin-top:8px;}
     button:active{transform:scale(.98);}
     .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;color:#B23A3A;}
-    .footer-brand{text-align:center;margin:26px 0 0;}
+    .credit{text-align:center;font-size:12.5px;color:${business.color_brown};margin:22px 0 0;}
+    .credit a{color:${business.color_brown};font-weight:700;text-decoration:underline;}
+    .footer-brand{text-align:center;margin:16px 0 0;}
     .footer-brand a{display:inline-block;}
     .footer-brand img{width:26%;min-width:95px;max-width:150px;height:auto;display:block;margin:0 auto;}
   </style></head>
@@ -1861,6 +1966,7 @@ async function handlePublicRegisterForm(env, slug) {
         <button type="submit">Continuar</button>
       </form>
       <p class="msg" id="msg"></p>
+      <p class="credit">Hey! Tapp, una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
     </div>
     <div class="footer-brand">
       <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">
@@ -2503,21 +2609,21 @@ async function handleClientesList(request, env, slug) {
   <style>
     :root{color-scheme:light;}
     *{color-scheme:light;}
-    body{margin:0;padding:20px;font-family:'Quicksand',sans-serif;background:${business.color_page_bg};color:${business.color_brown};}
-    h1{font-family:'Baloo 2',sans-serif;color:${business.color_brown};font-size:18px;}
-    table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:13px;}
-    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid ${business.color_page_bg};background:${business.color_card_bg};color:${business.color_brown};}
-    th{background:${business.color_brown};color:#FFFFFF!important;}
-    tr:nth-child(even) td{background:${business.color_page_bg};}
-    a{color:${business.color_brown};}
-    a.back{display:inline-block;margin-bottom:14px;color:${business.color_brown};font-weight:700;text-decoration:none;}
+    body{margin:0;padding:20px;font-family:'Quicksand',sans-serif;background:${HEY_TAPP_BRAND.paleBlue};color:${HEY_TAPP_BRAND.brown};}
+    h1{font-family:'Baloo 2',sans-serif;color:${HEY_TAPP_BRAND.brown};font-size:18px;}
+    table{width:100%;border-collapse:collapse;background:${HEY_TAPP_BRAND.cream};border-radius:12px;overflow:hidden;font-size:13px;}
+    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid ${HEY_TAPP_BRAND.paleBlue};background:${HEY_TAPP_BRAND.cream};color:${HEY_TAPP_BRAND.brown};}
+    th{background:${HEY_TAPP_BRAND.brown};color:#FFFFFF!important;}
+    tr:nth-child(even) td{background:${HEY_TAPP_BRAND.paleBlue};}
+    a{color:${HEY_TAPP_BRAND.brown};}
+    a.back{display:inline-block;margin-bottom:14px;color:${HEY_TAPP_BRAND.brown};font-weight:700;text-decoration:none;}
     .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
     button#deleteSelectedBtn{background:#B23A3A;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;}
     button#deleteSelectedBtn:disabled{background:#ccc;cursor:not-allowed;}
     .msg{font-size:13px;margin:0;}
     .msg.err{color:#B23A3A;}
     .clientes-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-    .clientes-header img{height:52px;width:auto;opacity:.95;}
+    .clientes-header img{height:74px;width:auto;opacity:.95;}
   </style></head>
   <body>
     <a class="back" href="/staff/${slug}">← Volver al panel</a>
