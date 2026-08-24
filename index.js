@@ -2605,38 +2605,48 @@ function renderLandingPage() {
   }
 
   /* ---------- hero ---------- */
-  .hero{position:relative;padding:168px 0 90px;overflow:hidden;}
+  .hero{position:relative;padding:150px 0 70px;overflow:hidden;text-align:center;}
   .hero-blob{position:absolute;border-radius:50%;filter:blur(2px);z-index:0;}
   .hero-blob.b1{width:480px;height:480px;background:radial-gradient(circle at 30% 30%,var(--pale-blue),transparent 72%);top:-160px;right:-140px;}
-  .hero-blob.b2{width:320px;height:320px;background:radial-gradient(circle at 60% 40%,var(--mustard),transparent 70%);opacity:.55;bottom:-120px;left:-100px;}
-  .hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:1.05fr .95fr;gap:20px;align-items:center;}
+  .hero-blob.b2{width:320px;height:320px;background:radial-gradient(circle at 60% 40%,var(--mustard),transparent 70%);opacity:.55;bottom:-60px;left:-100px;}
+  .hero-top{position:relative;z-index:1;max-width:700px;margin:0 auto;}
   .hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--paper);border:1px solid rgba(66,40,27,.1);padding:7px 16px 7px 8px;border-radius:99px;font-size:12.5px;font-weight:700;box-shadow:var(--shadow-sm);margin-bottom:22px;}
   .hero-badge img{height:20px;width:20px;border-radius:50%;}
-  .hero h1{font-size:clamp(34px,4.6vw,54px);line-height:1.08;letter-spacing:-.5px;margin-bottom:20px;}
+  .hero h1{font-size:clamp(36px,5.6vw,60px);line-height:1.06;letter-spacing:-.5px;margin-bottom:20px;}
   .hero h1 .accent{color:var(--terracotta);position:relative;white-space:nowrap;}
-  .hero-lead{font-size:17.5px;line-height:1.6;color:var(--brown-soft);max-width:480px;margin:0 0 32px;}
-  .hero-ctas{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
-  .hero-trust{margin-top:34px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--brown-soft);font-weight:600;}
+  .hero-lead{font-size:17.5px;line-height:1.6;color:var(--brown-soft);max-width:500px;margin:0 auto 30px;}
+  .hero-ctas{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;}
+
+  .hero-stage{position:relative;z-index:1;max-width:880px;height:400px;margin:54px auto 0;}
+  .stage-card{position:absolute;top:10%;left:4%;width:230px;background:var(--brown);border-radius:24px;padding:20px;box-shadow:var(--shadow-lg);transform:rotate(-10deg);z-index:1;}
+  .stage-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;}
+  .stage-card-top span{color:var(--pale-blue);font-family:'Baloo 2',sans-serif;font-size:12.5px;}
+  .stage-stamps{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:13px;}
+  .stage-stamps i{display:block;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.14);}
+  .stage-stamps i.on{background:var(--mustard);}
+  .stage-card-bar{height:7px;border-radius:99px;background:rgba(255,255,255,.16);overflow:hidden;}
+  .stage-card-bar b{display:block;width:60%;height:100%;background:var(--terracotta);border-radius:99px;}
+  .stage-mascot{position:absolute;top:-18px;left:38%;width:300px;z-index:3;filter:drop-shadow(0 22px 30px rgba(66,40,27,.28));}
+  .stage-dot{position:absolute;border-radius:50%;z-index:2;}
+  .stage-dot.d1{width:24px;height:24px;background:var(--mustard);top:6%;right:22%;}
+  .stage-dot.d2{width:15px;height:15px;background:var(--terracotta);bottom:24%;left:1%;}
+  .stage-dot.d3{width:38px;height:38px;border:3px solid var(--pale-blue);top:14%;right:4%;}
+  .stage-dot.d4{width:12px;height:12px;background:var(--pale-blue);bottom:8%;left:24%;}
+  .stage-mono{position:absolute;width:64px;bottom:2%;right:10%;transform:rotate(11deg);opacity:.95;z-index:2;filter:drop-shadow(0 6px 10px rgba(66,40,27,.15));}
+  .hero-trust{position:relative;z-index:1;margin-top:30px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--brown-soft);font-weight:600;}
   .hero-trust img{height:16px;width:auto;opacity:.85;}
-  .hero-visual{position:relative;display:flex;align-items:center;justify-content:center;height:480px;}
-  .hero-card{position:absolute;top:6%;left:0;width:250px;background:var(--brown);border-radius:26px;padding:22px;box-shadow:var(--shadow-lg);transform:rotate(-7deg);z-index:1;}
-  .hero-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
-  .hero-card-top span{color:var(--pale-blue);font-family:'Baloo 2',sans-serif;font-size:13px;}
-  .hero-stamps{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;}
-  .hero-stamps i{display:block;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.14);}
-  .hero-stamps i.on{background:var(--mustard);}
-  .hero-card-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.16);overflow:hidden;}
-  .hero-card-bar b{display:block;width:60%;height:100%;background:var(--terracotta);border-radius:99px;}
-  .hero-mascot{position:relative;width:290px;z-index:2;margin:70px 0 0 90px;filter:drop-shadow(0 22px 30px rgba(66,40,27,.28));}
   @media (max-width:940px){
-    .hero{padding:130px 0 60px;}
-    .hero-grid{grid-template-columns:1fr;text-align:center;}
-    .hero-lead{margin-left:auto;margin-right:auto;}
-    .hero-ctas{justify-content:center;}
-    .hero-trust{justify-content:center;}
-    .hero-visual{height:300px;margin-top:20px;}
-    .hero-card{width:180px;top:0;left:4%;padding:16px;}
-    .hero-mascot{width:200px;margin:56px 0 0 60px;}
+    .hero{padding:120px 0 50px;}
+    .hero-stage{height:300px;max-width:320px;}
+    .stage-card{width:170px;left:2%;top:16%;padding:15px;}
+    .stage-mascot{width:210px;left:34%;top:-10px;}
+    .stage-dot.d3{width:28px;height:28px;}
+    .stage-mono{width:48px;}
+  }
+  @media (max-width:420px){
+    .hero-stage{max-width:280px;height:270px;}
+    .stage-card{width:150px;}
+    .stage-mascot{width:185px;left:32%;}
   }
 
   /* ---------- process (dark band) ---------- */
@@ -2731,7 +2741,6 @@ function renderLandingPage() {
         <li><a href="#contacto">Contacto</a></li>
       </ul>
       <div class="nav-cta">
-        <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener" class="btn btn-ghost">Instagram</a>
         <a href="#contacto" class="btn btn-primary">Pide información</a>
       </div>
       <button class="nav-burger" id="burgerBtn" aria-label="Abrir menú"><span></span><span></span><span></span></button>
@@ -2749,28 +2758,33 @@ function renderLandingPage() {
   <header class="hero" id="inicio">
     <div class="hero-blob b1"></div>
     <div class="hero-blob b2"></div>
-    <div class="wrap hero-grid">
-      <div class="hero-copy reveal">
+    <div class="wrap">
+      <div class="hero-top reveal">
         <div class="hero-badge"><img src="data:image/png;base64,${HEY_TAPP_MONO_TERRACOTTA_BASE64}" alt="">Un producto de Anaelí Brand</div>
-        <h1>Dale a tus clientes<br>una <span class="accent">razón para volver</span></h1>
+        <h1>Dale a tus clientes una <span class="accent">razón para volver</span></h1>
         <p class="hero-lead">Haz que esa primera compra no sea la última. Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca — con una tarjeta de sellos digital creada completamente para ti.</p>
         <div class="hero-ctas">
           <a href="#contacto" class="btn btn-primary">Quiero mi tarjeta digital</a>
           <a href="#como-funciona" class="btn btn-ghost">Ver cómo funciona</a>
         </div>
-        <div class="hero-trust"><img src="data:image/png;base64,${HEY_TAPP_MONO_BROWN_BASE64}" alt="">Diseñada y desarrollada por Anaelí Brand</div>
       </div>
-      <div class="hero-visual reveal" style="--d:120ms">
-        <div class="hero-card">
-          <div class="hero-card-top"><span>¡Hello!</span><span>7/10</span></div>
-          <div class="hero-stamps">
+      <div class="hero-stage reveal" style="--d:140ms">
+        <div class="stage-dot d3"></div>
+        <div class="stage-card">
+          <div class="stage-card-top"><span>¡Hello!</span><span>7/10</span></div>
+          <div class="stage-stamps">
             <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
             <i class="on"></i><i class="on"></i><i></i><i></i><i></i>
           </div>
-          <div class="hero-card-bar"><b></b></div>
+          <div class="stage-card-bar"><b></b></div>
         </div>
-        <img class="hero-mascot" id="heroMascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="Mascota Hey Tapp">
+        <img class="stage-mascot" id="heroMascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="Mascota Hey Tapp">
+        <div class="stage-dot d1"></div>
+        <div class="stage-dot d2"></div>
+        <div class="stage-dot d4"></div>
+        <img class="stage-mono" src="data:image/png;base64,${HEY_TAPP_MONO_BROWN_BASE64}" alt="">
       </div>
+      <div class="hero-trust reveal"><img src="data:image/png;base64,${HEY_TAPP_MONO_BROWN_BASE64}" alt="">Diseñada y desarrollada por Anaelí Brand</div>
     </div>
   </header>
 
