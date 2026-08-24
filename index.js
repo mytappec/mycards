@@ -2671,13 +2671,34 @@ async function handleClientesList(request, env, slug) {
     .clientes-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
     .clientes-header img{height:74px;width:auto;opacity:.95;}
     @media (max-width:760px) {
-      table, thead, tbody, th, td, tr { display:block; }
+      table, thead, tbody, tr { display:block; }
       thead { display:none; }
       table{background:none;}
-      tbody tr{background:${HEY_TAPP_BRAND.cream};border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:14px;margin-bottom:14px;padding:10px 4px;}
-      tbody tr:nth-child(even){background:${HEY_TAPP_BRAND.cream};}
-      td{border:none;padding:7px 12px;white-space:normal;background:transparent!important;}
-      td::before{content:attr(data-label);display:block;font-size:10px;font-weight:700;color:${HEY_TAPP_BRAND.brown};opacity:.65;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+      tbody tr{
+        display:grid;
+        grid-template-columns:26px 1fr 1fr;
+        grid-template-areas:
+          "check name  name"
+          "ced   ced   cel"
+          "cod   cod   sellos"
+          "ciclo ciclo hist";
+        column-gap:12px; row-gap:10px;
+        align-items:start;
+        background:${HEY_TAPP_BRAND.cream};border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:14px;margin-bottom:14px;padding:14px 16px;
+      }
+      td{border:none;padding:0;white-space:normal;background:transparent!important;}
+      td:nth-child(1){grid-area:check;}
+      td:nth-child(2){grid-area:name;}
+      td:nth-child(3){grid-area:ced;}
+      td:nth-child(4){grid-area:cel;}
+      td:nth-child(5){grid-area:cod;}
+      td:nth-child(6){grid-area:sellos;}
+      td:nth-child(7){grid-area:ciclo;}
+      td:nth-child(8){grid-area:hist;}
+      td::before{content:attr(data-label);display:block;font-size:9px;font-weight:700;color:${HEY_TAPP_BRAND.brown};opacity:.6;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+      td:nth-child(1)::before{content:none;}
+      td:nth-child(1) input{margin-top:2px;}
+      td:nth-child(2){font-size:15px;font-weight:700;}
     }
   </style></head>
   <body>
