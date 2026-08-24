@@ -23,6 +23,25 @@ export default {
     const parts = url.pathname.split('/').filter(Boolean);
 
     try {
+      // ---- página de inicio de heytapp.com ----
+      if (parts.length === 0) {
+        return renderLandingPage();
+      }
+      if (parts.length === 1 && parts[0] === 'contacto' && request.method === 'POST') {
+        return handleCreateLead(request, env);
+      }
+      if (parts.length === 1 && parts[0] === 'site-manifest.json') {
+        const manifest = {
+          name: 'Hey Tapp', short_name: 'Hey Tapp', start_url: '/', display: 'standalone',
+          background_color: '#FDFBF2', theme_color: '#42281B',
+          icons: [
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          ],
+        };
+        return new Response(JSON.stringify(manifest), { headers: { 'Content-Type': 'application/manifest+json' } });
+      }
+
       // ---- ícono de la app (para "agregar a inicio" en el celular) ----
       if (parts[0] === 'apple-touch-icon.png' || url.pathname === '/apple-touch-icon.png') {
         return servePngIcon(HEY_TAPP_ICON_180);
@@ -41,6 +60,7 @@ export default {
 
       // ---- tu panel de administración (My Tapp) ----
       if (parts[0] === 'admin') {
+        if (parts[1] === 'leads') return handleLeadsList(request, env);
         if (parts[1] === 'signup' && request.method === 'POST') return handleAdminSignup(request, env);
         if (parts[1] === 'login' && request.method === 'POST') return handleAdminLogin(request, env);
         if (parts[1] === 'logout') return handleAdminLogout();
@@ -752,6 +772,8 @@ async function renderAdminDashboard(env, admin) {
   const adminBtnText = admin.ui_btn_text || '#B5CDEA';
   const adminLogo = admin.ui_logo_base64 || HEY_TAPP_LOGO_BASE64;
   const { results } = await env.DB.prepare('SELECT slug, name, created_at, staff_login_locked_until, last_payment_date, next_payment_date, is_suspended FROM businesses ORDER BY id DESC').all();
+  const leadsCountRow = await env.DB.prepare('SELECT COUNT(*) as n FROM leads').first().catch(() => null);
+  const leadsCount = leadsCountRow ? leadsCountRow.n : 0;
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const rows = results.map(b => {
@@ -860,6 +882,7 @@ async function renderAdminDashboard(env, admin) {
           <h1 style="white-space:nowrap;margin:0;">${escapeHtml(platformName)} by Anaelí Brand</h1>
         </div>
         <div style="display:flex;align-items:center;gap:14px;">
+          <a href="/admin/leads" style="text-decoration:none;font-size:12px;font-weight:700;color:#42281B;background:#EBDA8B;padding:8px 14px;border-radius:8px;">📬 Solicitudes${leadsCount > 0 ? ` (${leadsCount})` : ''}</a>
           <button type="button" id="toggleSettingsBtn" style="width:auto;margin:0;padding:8px 14px;font-size:12px;background:#F4F1EA;color:#2B2320;">⚙️ Configuración</button>
           <a class="logout" href="/admin/logout" style="float:none;">Cerrar sesión</a>
         </div>
@@ -1565,6 +1588,165 @@ async function handleUpdateAppearance(request, env) {
     .bind(uiLogo, uiBtnBg, uiBtnText, admin.id).run();
 
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// ------------------------------------------------------------
+// formulario de contacto de la página de inicio (heytapp.com)
+// ------------------------------------------------------------
+async function handleCreateLead(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const name = String(body.name || '').trim();
+  const phone = String(body.phone || '').trim();
+  const email = String(body.email || '').trim();
+  const instagram = String(body.instagram || '').trim();
+  const businessType = ['digital', 'fisico'].includes(body.business_type) ? body.business_type : null;
+
+  if (!name || !phone || !email) {
+    return new Response(JSON.stringify({ error: 'Faltan datos: nombre, celular y correo son obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return new Response(JSON.stringify({ error: 'Ese correo no parece válido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // se guarda SIEMPRE en la base de datos, pase lo que pase con el correo —
+  // así nunca se pierde una solicitud aunque el envío de email falle
+  const { meta } = await env.DB.prepare(
+    'INSERT INTO leads (name, phone, email, instagram, business_type) VALUES (?, ?, ?, ?, ?)'
+  ).bind(name, phone, email, instagram || null, businessType).run();
+
+  const planLabel = businessType === 'digital' ? 'Plan Emprende Digital'
+    : businessType === 'fisico' ? 'Plan Emprende Físico' : 'No especificó';
+
+  // envío automático a hola@heytapp.com — tres formas posibles, de la más
+  // simple a la más avanzada. No hace falta configurar las tres.
+  let emailed = false;
+
+  // opción 1: FormSubmit (la misma que ya usas en anaelidesign.com) — no
+  // necesita cuenta ni configuración, va directo a hola@heytapp.com.
+  // OJO: la primera vez que se use un correo nuevo en FormSubmit, ellos
+  // mandan un correo de confirmación a hola@heytapp.com que hay que
+  // aceptar UNA sola vez — después ya llegan todos los envíos derecho.
+  try {
+    const res = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        nombre: name, celular: phone, correo: email, instagram: instagram || '—', interesado_en: planLabel,
+        _subject: `Nueva solicitud de info — ${name}`,
+        _template: 'table',
+      }),
+    });
+    emailed = res.ok;
+  } catch (err) {
+    emailed = false;
+  }
+
+  // opción 2: Formspree (por si prefieres esa en vez de FormSubmit — solo
+  // se usa si configuras la variable FORMSPREE_FORM_ID)
+  if (!emailed && env.FORMSPREE_FORM_ID) {
+    try {
+      const res = await fetch(`https://formspree.io/f/${env.FORMSPREE_FORM_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          name, phone, email, instagram: instagram || '—', interesado_en: planLabel,
+          _subject: `Nueva solicitud de info — ${name}`,
+          _replyto: email,
+        }),
+      });
+      emailed = res.ok;
+    } catch (err) {
+      emailed = false;
+    }
+  }
+
+  // opción 3: Resend (necesita dominio heytapp.com verificado en resend.com)
+  if (!emailed && env.RESEND_API_KEY) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Hey Tapp <hola@heytapp.com>',
+          to: ['hola@heytapp.com'],
+          reply_to: email,
+          subject: `Nueva solicitud de info — ${name}`,
+          text: `Nueva solicitud desde heytapp.com\n\nNombre: ${name}\nCelular: ${phone}\nCorreo: ${email}\nInstagram del negocio: ${instagram || '—'}\nInteresado en: ${planLabel}`,
+        }),
+      });
+      emailed = res.ok;
+    } catch (err) {
+      emailed = false;
+    }
+  }
+
+  if (emailed) {
+    await env.DB.prepare('UPDATE leads SET emailed = 1 WHERE id = ?').bind(meta.last_row_id).run();
+  }
+
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// lista de solicitudes recibidas, para cuando no tengas el correo automático
+// configurado (o como respaldo aunque sí lo tengas)
+async function handleLeadsList(request, env) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) { const pname = await getPlatformName(env); return new Response(renderAdminLogin(pname), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } }); }
+
+  const { results } = await env.DB.prepare('SELECT * FROM leads ORDER BY id DESC').all();
+
+  const rows = results.map(l => {
+    const planLabel = l.business_type === 'digital' ? 'Emprende Digital'
+      : l.business_type === 'fisico' ? 'Emprende Físico' : '—';
+    return `
+    <tr>
+      <td data-label="Nombre">${escapeHtml(l.name)}</td>
+      <td data-label="Celular"><a href="tel:${escapeHtml(l.phone)}">${escapeHtml(l.phone)}</a></td>
+      <td data-label="Correo"><a href="mailto:${escapeHtml(l.email)}">${escapeHtml(l.email)}</a></td>
+      <td data-label="Instagram">${l.instagram ? escapeHtml(l.instagram) : '—'}</td>
+      <td data-label="Interesado en">${planLabel}</td>
+      <td data-label="Fecha">${escapeHtml(l.created_at)}</td>
+      <td data-label="Correo enviado">${l.emailed ? '✅' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
+  <title>Solicitudes · Hey Tapp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:light;}
+    *{box-sizing:border-box;color-scheme:light;}
+    body{margin:0;padding:24px;font-family:'Quicksand',sans-serif;background:linear-gradient(160deg,#DAE7F1 0%,#F4F1EA 42%);color:#42281B;}
+    h1{font-family:'Baloo 2',sans-serif;font-size:24px;margin:0 0 4px;}
+    p.sub{color:#6B6259;font-size:14px;margin:0 0 20px;}
+    a.back{display:inline-block;margin-bottom:16px;color:#42281B;font-weight:700;text-decoration:none;}
+    table{width:100%;border-collapse:collapse;background:#FDFBF2;border-radius:14px;overflow:hidden;font-size:14px;box-shadow:0 4px 16px rgba(66,40,27,.08);}
+    th,td{padding:12px 14px;text-align:left;border-bottom:1px solid #DAE7F1;color:#42281B;}
+    th{background:#42281B;color:#FFFFFF;font-size:13px;}
+    tr:nth-child(even) td{background:#F5F0E4;}
+    a{color:#B0472E;font-weight:700;}
+    .empty{padding:30px;text-align:center;color:#6B6259;background:#FDFBF2;border-radius:14px;}
+    @media (max-width:760px) {
+      table, thead, tbody, tr { display:block; }
+      thead { display:none; }
+      table{background:none;box-shadow:none;}
+      tbody tr{background:#FDFBF2;border:2px solid #42281B;border-radius:14px;margin-bottom:14px;padding:12px 14px;}
+      td{border:none;padding:6px 4px;}
+      td::before{content:attr(data-label);display:block;font-size:10px;font-weight:700;color:#42281B;opacity:.6;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+    }
+  </style></head>
+  <body>
+    <a class="back" href="/admin">← Volver al panel</a>
+    <h1>Solicitudes de info (${results.length})</h1>
+    <p class="sub">El correo automático a hola@heytapp.com está activo por FormSubmit — esto es tu respaldo, revísalo si algún correo no llegó.</p>
+    ${results.length ? `<table><thead><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>Instagram</th><th>Interesado en</th><th>Fecha</th><th>Correo enviado</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Todavía no hay solicitudes.</div>'}
+  </body></html>`;
+
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
 
 async function handleUnlockBusiness(request, env, slug) {
@@ -2308,6 +2490,198 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ------------------------------------------------------------
+// página de inicio de heytapp.com — presentación de la marca,
+// sin precios, con formulario para pedir información
+// ------------------------------------------------------------
+function renderLandingPage() {
+  const beneficios = [
+    ['🎨', 'Tarjeta 100% personalizada', 'Con el branding, colores y logo de tu marca.'],
+    ['🎯', 'Tu negocio, tus reglas', 'Elige el premio y la cantidad de sellos que quieres ofrecer.'],
+    ['📷', 'Registro fácil y rápido', 'Escaneando el QR del cliente o de forma manual.'],
+    ['🔑', 'Código único por cliente', 'Para llevar su progreso de forma individual.'],
+    ['👥', 'Panel exclusivo para tu staff', 'Desde donde podrán registrar y gestionar los sellos.'],
+    ['📊', 'Registro de clientes y compras', 'Para identificar quiénes compran y quiénes regresan.'],
+    ['📱', 'Botón directo a tu Instagram', 'Para llevar más clientes a tu perfil y mantenerlos conectados.'],
+    ['🎓', 'Capacitación + mejoras incluidas', 'Te enseñamos a usarla y recibes actualizaciones sin costo extra.'],
+  ];
+
+  const beneficiosHtml = beneficios.map(([emoji, titulo, texto]) => `
+    <div class="beneficio">
+      <span class="beneficio-emoji">${emoji}</span>
+      <div>
+        <strong>${titulo}</strong>
+        <p>${texto}</p>
+      </div>
+    </div>`).join('');
+
+  return new Response(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
+<title>Hey Tapp — Dale a tus clientes una razón para volver</title>
+<meta name="description" content="Tarjetas de sellos digitales, 100% personalizadas para tu marca. Sin apps que descargar, sin papelitos que perder.">
+<link rel="manifest" href="/site-manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#42281B">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{color-scheme:light;}
+  *{box-sizing:border-box;color-scheme:light;}
+  body{margin:0;font-family:'Quicksand',sans-serif;background:#FDFBF2;color:#42281B;}
+  .wrap{max-width:720px;margin:0 auto;padding:0 24px;}
+  a{color:inherit;}
+
+  .hero{background:linear-gradient(160deg,#DAE7F1 0%,#FDFBF2 70%);padding:44px 24px 30px;text-align:center;position:relative;overflow:hidden;}
+  .hero-logo{width:150px;height:auto;margin:0 auto 22px;display:block;}
+  .hero h1{font-family:'Baloo 2',sans-serif;font-size:30px;line-height:1.2;margin:0 0 12px;color:#42281B;}
+  .hero .subrayado{color:#B0472E;}
+  .hero p.lead{font-size:16px;color:#5A4A3A;max-width:480px;margin:0 auto 26px;line-height:1.55;}
+  .cta-btn{display:inline-block;background:#42281B;color:#FDFBF2;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:17px;padding:15px 34px;border-radius:99px;text-decoration:none;box-shadow:0 6px 18px rgba(66,40,27,.28);border:none;cursor:pointer;transition:transform .12s ease;}
+  .cta-btn:hover{transform:translateY(-1px);}
+  .hero-mascot{width:120px;height:auto;margin:26px auto 0;display:block;filter:drop-shadow(0 8px 14px rgba(0,0,0,.15));}
+
+  section{padding:38px 24px;}
+  h2{font-family:'Baloo 2',sans-serif;font-size:22px;text-align:center;margin:0 0 6px;color:#42281B;}
+  p.section-sub{text-align:center;color:#8A5A34;font-size:14.5px;max-width:460px;margin:0 auto 30px;line-height:1.5;}
+
+  .beneficios{display:grid;grid-template-columns:1fr 1fr;gap:20px 24px;}
+  .beneficio{display:flex;gap:12px;align-items:flex-start;}
+  .beneficio-emoji{font-size:26px;flex-shrink:0;line-height:1;margin-top:2px;}
+  .beneficio strong{display:block;font-size:14.5px;color:#42281B;margin-bottom:2px;}
+  .beneficio p{margin:0;font-size:13px;color:#7A6A57;line-height:1.4;}
+  @media (max-width:560px){ .beneficios{grid-template-columns:1fr;} }
+
+  .planes-section{background:#F5F0E0;}
+  .planes{display:flex;flex-direction:column;gap:16px;max-width:480px;margin:0 auto;}
+  .plan-card{background:#FDFBF2;border:2px solid #42281B;border-radius:20px;padding:22px 24px;}
+  .plan-card .tag{display:inline-block;background:#EBDA8B;color:#42281B;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 10px;border-radius:99px;margin-bottom:10px;}
+  .plan-card h3{font-family:'Baloo 2',sans-serif;font-size:19px;margin:0 0 6px;color:#B0472E;}
+  .plan-card p{margin:0;font-size:14px;color:#5A4A3A;line-height:1.5;}
+
+  .form-section{text-align:center;}
+  .form-box{background:#FDFBF2;border:2px solid #42281B;border-radius:24px;padding:30px 26px;max-width:440px;margin:0 auto;text-align:left;box-shadow:0 10px 0 #DAE7F1;}
+  .form-box input,.form-box select{width:100%;padding:13px 14px;border:1.5px solid #E2D9C8;border-radius:12px;font-size:15px;margin-bottom:12px;font-family:'Quicksand',sans-serif;background:#FEFDFB;}
+  .form-box input:focus,.form-box select:focus{outline:none;border-color:#B0472E;box-shadow:0 0 0 3px rgba(176,71,46,.12);}
+  .form-box label{display:block;font-size:12.5px;font-weight:700;color:#42281B;margin:0 0 5px;}
+  .form-box button{width:100%;margin-top:6px;}
+  .form-msg{text-align:center;font-size:13.5px;margin-top:12px;min-height:18px;}
+  .form-msg.ok{color:#215A34;font-weight:700;}
+  .form-msg.err{color:#B23A3A;font-weight:700;}
+
+  footer{text-align:center;padding:30px 24px 40px;}
+  footer img{height:34px;width:auto;margin:0 auto 8px;display:block;}
+  footer p{font-size:12.5px;color:#8A5A34;margin:0;}
+  footer a{font-weight:700;text-decoration:underline;}
+</style>
+</head>
+<body>
+
+  <div class="hero">
+    <div class="wrap">
+      <img class="hero-logo" src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
+      <h1>Dale a tus clientes<br>una <span class="subrayado">razón para volver</span></h1>
+      <p class="lead">Haz que esa primera compra no sea la última. Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca — con una tarjeta de sellos digital creada completamente para ti.</p>
+      <a href="#info" class="cta-btn">Quiero mi tarjeta digital</a>
+      <img class="hero-mascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
+    </div>
+  </div>
+
+  <section>
+    <div class="wrap">
+      <h2>¿Qué incluye Hey Tapp?</h2>
+      <p class="section-sub">Tus clientes ya te eligieron una vez. Hey Tapp te ayuda a que lo hagan de nuevo.</p>
+      <div class="beneficios">${beneficiosHtml}</div>
+    </div>
+  </section>
+
+  <section class="planes-section">
+    <div class="wrap">
+      <h2>Un plan para cada tipo de negocio</h2>
+      <p class="section-sub">Hecho especialmente para tu marca, desde cero.</p>
+      <div class="planes">
+        <div class="plan-card">
+          <span class="tag">Digital</span>
+          <h3>Plan Emprende Digital</h3>
+          <p>Para marcas que venden por Instagram, WhatsApp o canales digitales.</p>
+        </div>
+        <div class="plan-card">
+          <span class="tag">Físico</span>
+          <h3>Plan Emprende Físico</h3>
+          <p>Para marcas con tienda, local o punto de venta físico. Incluye hablador con QR listo para tu mostrador.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="form-section" id="info">
+    <div class="wrap">
+      <h2>Pide información</h2>
+      <p class="section-sub">Déjanos tus datos y te respondemos por correo con los precios y todos los detalles.</p>
+      <div class="form-box">
+        <form id="leadForm">
+          <label>Tu nombre</label>
+          <input type="text" id="lf_name" required>
+          <label>Celular</label>
+          <input type="tel" id="lf_phone" required>
+          <label>Correo</label>
+          <input type="email" id="lf_email" required>
+          <label>Instagram de tu negocio (opcional)</label>
+          <input type="text" id="lf_instagram" placeholder="@tunegocio">
+          <label>¿Cuál te interesa más?</label>
+          <select id="lf_type">
+            <option value="">Todavía no sé</option>
+            <option value="digital">Plan Emprende Digital</option>
+            <option value="fisico">Plan Emprende Físico</option>
+          </select>
+          <button type="submit" class="cta-btn" style="border:none;">Enviar</button>
+        </form>
+        <p class="form-msg" id="formMsg"></p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
+    <p>Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
+  </footer>
+
+  <script>
+    document.getElementById('leadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('formMsg');
+      const payload = {
+        name: document.getElementById('lf_name').value.trim(),
+        phone: document.getElementById('lf_phone').value.trim(),
+        email: document.getElementById('lf_email').value.trim(),
+        instagram: document.getElementById('lf_instagram').value.trim(),
+        business_type: document.getElementById('lf_type').value,
+      };
+      if (!payload.name || !payload.phone || !payload.email) {
+        msg.textContent = 'Completa nombre, celular y correo'; msg.className = 'form-msg err';
+        return;
+      }
+      msg.textContent = 'Enviando...'; msg.className = 'form-msg';
+      try {
+        const res = await fetch('/contacto', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (res.ok) {
+          msg.textContent = '✅ ¡Listo! Te escribimos pronto a tu correo.'; msg.className = 'form-msg ok';
+          document.getElementById('leadForm').reset();
+        } else {
+          msg.textContent = data.error || 'No se pudo enviar, intenta de nuevo'; msg.className = 'form-msg err';
+        }
+      } catch (err) {
+        msg.textContent = 'Error de conexión, intenta de nuevo'; msg.className = 'form-msg err';
+      }
+    });
+  </script>
+</body>
+</html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
 
 // ------------------------------------------------------------
