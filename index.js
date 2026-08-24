@@ -2418,7 +2418,6 @@ function renderStaffPanel(b, platformName) {
       <form id="registerForm" style="display:none;">
         <input type="text" id="regName" placeholder="Nombre completo">
         <input type="text" id="regCedula" placeholder="Cédula">
-        <input type="tel" id="regPhone" placeholder="Celular">
         <button type="submit">Crear tarjeta</button>
       </form>
       <p class="msg" id="regMsg"></p>
@@ -2529,12 +2528,11 @@ function renderStaffPanel(b, platformName) {
         e.preventDefault();
         const name = document.getElementById('regName').value.trim();
         const cedula = document.getElementById('regCedula').value.trim();
-        const phone = document.getElementById('regPhone').value.trim();
         if (!name) { regMsg.textContent = 'Falta el nombre'; regMsg.className = 'msg err'; return; }
         regMsg.textContent = 'Creando tarjeta...'; regMsg.className = 'msg';
         const res = await fetch(location.pathname + '/register', {
           method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ name, cedula, phone })
+          body: JSON.stringify({ name, cedula })
         });
         const data = await res.json();
         if (res.ok) {
@@ -2542,7 +2540,6 @@ function renderStaffPanel(b, platformName) {
           regMsg.className = 'msg ok';
           document.getElementById('regName').value = '';
           document.getElementById('regCedula').value = '';
-          document.getElementById('regPhone').value = '';
         } else {
           regMsg.textContent = data.error || 'No se pudo registrar';
           regMsg.className = 'msg err';
@@ -2610,14 +2607,14 @@ async function handleRegister(request, env, slug) {
     return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a ingresar el PIN' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
-  const { name, cedula, phone } = await request.json();
+  const { name, cedula } = await request.json();
   if (!name) {
     return new Response(JSON.stringify({ error: 'Falta el nombre del cliente' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
   const code = await generateUniqueCode(env, slug);
-  await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, phone, stamps) VALUES (?, ?, ?, ?, ?, 0)')
-    .bind(business.id, code, name, cedula || null, phone || null).run();
+  await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, stamps) VALUES (?, ?, ?, ?, 0)')
+    .bind(business.id, code, name, cedula || null).run();
 
   const url = new URL(request.url);
   const cardUrl = `${url.origin}/${slug}/${code}`;
@@ -2634,7 +2631,7 @@ async function handleClientesList(request, env, slug) {
   }
 
   const { results } = await env.DB.prepare(
-    'SELECT name, cedula, phone, code, stamps, cycle FROM customers WHERE business_id = ? ORDER BY id DESC'
+    'SELECT name, cedula, code, stamps, cycle FROM customers WHERE business_id = ? ORDER BY id DESC'
   ).bind(business.id).all();
 
   const rows = results.map(c => `
@@ -2642,7 +2639,6 @@ async function handleClientesList(request, env, slug) {
       <td data-label="Seleccionar"><input type="checkbox" class="row-check" value="${escapeHtml(c.code)}"></td>
       <td data-label="Nombre">${escapeHtml(c.name)}</td>
       <td data-label="Cédula">${escapeHtml(c.cedula || '—')}</td>
-      <td data-label="Celular">${escapeHtml(c.phone || '—')}</td>
       <td data-label="Código">${escapeHtml(c.code)}</td>
       <td data-label="Sellos">${c.stamps}/${business.total_stamps}</td>
       <td data-label="Ciclo">${c.cycle}</td>
@@ -2655,56 +2651,55 @@ async function handleClientesList(request, env, slug) {
   <style>
     :root{color-scheme:light;}
     *{color-scheme:light;}
-    body{margin:0;padding:20px;font-family:'Quicksand',sans-serif;background:${HEY_TAPP_BRAND.paleBlue};color:${HEY_TAPP_BRAND.brown};}
-    h1{font-family:'Baloo 2',sans-serif;color:${HEY_TAPP_BRAND.brown};font-size:18px;}
-    table{width:100%;border-collapse:collapse;background:${HEY_TAPP_BRAND.cream};border-radius:12px;overflow:hidden;font-size:13px;}
-    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid ${HEY_TAPP_BRAND.paleBlue};background:${HEY_TAPP_BRAND.cream};color:${HEY_TAPP_BRAND.brown};}
-    th{background:${HEY_TAPP_BRAND.brown};color:#FFFFFF!important;}
+    body{margin:0;padding:24px;font-family:'Quicksand',sans-serif;background:${HEY_TAPP_BRAND.paleBlue};color:${HEY_TAPP_BRAND.brown};font-size:15px;}
+    h1{font-family:'Baloo 2',sans-serif;color:${HEY_TAPP_BRAND.brown};font-size:24px;margin:0;}
+    table{width:100%;border-collapse:collapse;background:${HEY_TAPP_BRAND.cream};border-radius:12px;overflow:hidden;font-size:15px;box-shadow:0 4px 16px rgba(66,40,27,.08);}
+    th,td{padding:12px 14px;text-align:left;border-bottom:1px solid ${HEY_TAPP_BRAND.paleBlue};background:${HEY_TAPP_BRAND.cream};color:${HEY_TAPP_BRAND.brown};}
+    th{background:${HEY_TAPP_BRAND.brown};color:#FFFFFF!important;font-size:14px;}
     tr:nth-child(even) td{background:${HEY_TAPP_BRAND.paleBlue};}
-    a{color:${HEY_TAPP_BRAND.brown};}
-    a.back{display:inline-block;margin-bottom:14px;color:${HEY_TAPP_BRAND.brown};font-weight:700;text-decoration:none;}
-    .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
-    button#deleteSelectedBtn{background:#B23A3A;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;}
+    a{color:${HEY_TAPP_BRAND.brown};font-weight:700;}
+    a.back{display:inline-block;margin-bottom:16px;color:${HEY_TAPP_BRAND.brown};font-weight:700;text-decoration:none;font-size:15px;}
+    .toolbar{display:flex;align-items:center;gap:12px;margin:14px 0;}
+    button#deleteSelectedBtn{background:#B23A3A;color:white;border:none;border-radius:10px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;}
     button#deleteSelectedBtn:disabled{background:#ccc;cursor:not-allowed;}
-    .msg{font-size:13px;margin:0;}
+    .msg{font-size:14px;margin:0;}
     .msg.err{color:#B23A3A;}
     .clientes-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
     .clientes-header img{height:74px;width:auto;opacity:.95;}
     @media (max-width:760px) {
       table, thead, tbody, tr { display:block; }
       thead { display:none; }
-      table{background:none;}
+      table{background:none;box-shadow:none;}
       tbody tr{
         display:grid;
-        grid-template-columns:26px 1fr 1fr;
+        grid-template-columns:28px 1fr 1fr;
         grid-template-areas:
           "check name  name"
-          "ced   ced   cel"
-          "cod   cod   sellos"
-          "ciclo ciclo hist";
-        column-gap:12px; row-gap:10px;
+          "ced   ced   cod"
+          "sellos sellos ciclo"
+          "hist  hist  hist";
+        column-gap:14px; row-gap:12px;
         align-items:start;
-        background:${HEY_TAPP_BRAND.cream};border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:14px;margin-bottom:14px;padding:14px 16px;
+        background:${HEY_TAPP_BRAND.cream};border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:16px;margin-bottom:16px;padding:16px 18px;
       }
-      td{border:none;padding:0;white-space:normal;background:transparent!important;}
+      td{border:none;padding:0;white-space:normal;background:transparent!important;font-size:16px;}
       td:nth-child(1){grid-area:check;}
       td:nth-child(2){grid-area:name;}
       td:nth-child(3){grid-area:ced;}
-      td:nth-child(4){grid-area:cel;}
-      td:nth-child(5){grid-area:cod;}
-      td:nth-child(6){grid-area:sellos;}
-      td:nth-child(7){grid-area:ciclo;}
-      td:nth-child(8){grid-area:hist;}
-      td::before{content:attr(data-label);display:block;font-size:9px;font-weight:700;color:${HEY_TAPP_BRAND.brown};opacity:.6;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+      td:nth-child(4){grid-area:cod;}
+      td:nth-child(5){grid-area:sellos;}
+      td:nth-child(6){grid-area:ciclo;}
+      td:nth-child(7){grid-area:hist;font-size:15px;}
+      td::before{content:attr(data-label);display:block;font-size:11px;font-weight:700;color:${HEY_TAPP_BRAND.brown};opacity:.6;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;}
       td:nth-child(1)::before{content:none;}
-      td:nth-child(1) input{margin-top:2px;}
-      td:nth-child(2){font-size:15px;font-weight:700;}
+      td:nth-child(1) input{margin-top:2px;width:20px;height:20px;}
+      td:nth-child(2){font-size:18px;font-weight:700;}
     }
   </style></head>
   <body>
     <a class="back" href="/staff/${slug}">← Volver al panel</a>
     <div class="clientes-header">
-      <h1 style="margin:0;">Clientes de ${escapeHtml(business.name)} (${results.length})</h1>
+      <h1>Clientes de ${escapeHtml(business.name)} (${results.length})</h1>
       <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
     </div>
     <div class="toolbar">
@@ -2712,9 +2707,9 @@ async function handleClientesList(request, env, slug) {
       <p class="msg" id="deleteMsg"></p>
     </div>
     <table>
-      <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Nombre</th><th>Cédula</th><th>Celular</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr></thead>
+      <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Nombre</th><th>Cédula</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr></thead>
       <tbody>
-      ${rows || '<tr><td colspan="8">Todavía no hay clientes registrados</td></tr>'}
+      ${rows || '<tr><td colspan="7">Todavía no hay clientes registrados</td></tr>'}
       </tbody>
     </table>
     <script>
@@ -2826,13 +2821,13 @@ async function handleHistorial(request, env, slug, code) {
     *{box-sizing:border-box;color-scheme:light;}
     body{margin:0;padding:24px;font-family:'Quicksand',sans-serif;background:${business.color_page_bg};}
     .wrap{max-width:640px;margin:0 auto;}
-    h1{font-family:'Baloo 2',sans-serif;color:${business.color_brown};font-size:19px;margin-bottom:2px;}
-    p.sub{color:${business.color_brown_soft};font-size:13px;margin-top:0;}
-    table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:13px;box-shadow:0 3px 12px rgba(0,0,0,.06);}
-    th,td{padding:10px 12px;text-align:left;border-bottom:1px solid ${business.color_page_bg};color:${business.color_brown};background:${business.color_card_bg};}
-    th{background:${business.color_brown};color:#FFFFFF!important;}
-    a.back{display:inline-block;margin-bottom:14px;color:${business.color_brown};font-weight:700;text-decoration:none;}
-    .resumen{background:${business.color_butter_mid};border:2px solid ${business.color_brown};border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:13.5px;color:${business.color_brown};line-height:1.6;}
+    h1{font-family:'Baloo 2',sans-serif;color:${business.color_brown};font-size:23px;margin-bottom:3px;}
+    p.sub{color:${business.color_brown_soft};font-size:14.5px;margin-top:0;}
+    table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:15px;box-shadow:0 3px 12px rgba(0,0,0,.06);}
+    th,td{padding:12px 14px;text-align:left;border-bottom:1px solid ${business.color_page_bg};color:${business.color_brown};background:${business.color_card_bg};}
+    th{background:${business.color_brown};color:#FFFFFF!important;font-size:14px;}
+    a.back{display:inline-block;margin-bottom:16px;color:${business.color_brown};font-weight:700;text-decoration:none;font-size:15px;}
+    .resumen{background:${business.color_butter_mid};border:2px solid ${business.color_brown};border-radius:12px;padding:14px 18px;margin-bottom:18px;font-size:15px;color:${business.color_brown};line-height:1.7;}
     .footer-brand{text-align:center;margin:24px 0 0;}
     .footer-brand a{display:inline-block;}
     .footer-brand img{width:24%;min-width:90px;max-width:130px;height:auto;display:block;margin:0 auto;}
@@ -2840,16 +2835,16 @@ async function handleHistorial(request, env, slug, code) {
       table, thead, tbody, th, td, tr { display:block; }
       thead { display:none; }
       table{background:none;box-shadow:none;}
-      tr{background:${business.color_card_bg};border:2px solid ${business.color_brown};border-radius:12px;margin-bottom:10px;padding:8px 4px;}
-      td{border:none;padding:6px 12px;}
-      td::before{content:attr(data-label);display:block;font-size:10px;font-weight:700;color:${business.color_brown_soft};text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+      tr{background:${business.color_card_bg};border:2px solid ${business.color_brown};border-radius:14px;margin-bottom:12px;padding:10px 6px;}
+      td{border:none;padding:8px 14px;font-size:16px;}
+      td::before{content:attr(data-label);display:block;font-size:11px;font-weight:700;color:${business.color_brown_soft};text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;}
     }
   </style></head>
   <body>
     <div class="wrap">
     <a class="back" href="/staff/${slug}/clientes">← Volver a clientes</a>
     <h1>${escapeHtml(customer.name)}</h1>
-    <p class="sub">Código actual: ${escapeHtml(customer.code)} · Cédula: ${escapeHtml(customer.cedula || '—')} · Celular: ${escapeHtml(customer.phone || '—')}</p>
+    <p class="sub">Código actual: ${escapeHtml(customer.code)} · Cédula: ${escapeHtml(customer.cedula || '—')}</p>
     <div class="resumen">
       Sellos en su tarjeta actual: <b>${customer.stamps}/${business.total_stamps}</b><br>
       Premios ganados hasta ahora: <b>${premiosGanados}</b><br>
