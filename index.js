@@ -604,18 +604,20 @@ function adminBaseStyles() {
   return `
   *{box-sizing:border-box;}
   body{margin:0;min-height:100vh;background:linear-gradient(160deg,#DAE7F1 0%,#F4F1EA 42%);font-family:'Quicksand',sans-serif;padding:24px;}
-  .box{width:100%;max-width:380px;margin:60px auto;background:white;border:2.5px solid #2B2320;border-radius:20px;padding:28px 24px;box-shadow:0 8px 0 #2B2320;}
-  h1{font-family:'Baloo 2',sans-serif;font-size:20px;color:#2B2320;margin:0 0 4px;text-align:center;}
+  .box{width:100%;max-width:380px;margin:60px auto;background:white;border:1px solid #EDE4D3;border-radius:24px;padding:32px 28px;box-shadow:0 10px 30px rgba(66,40,27,.12);}
+  h1{font-family:'Baloo 2',sans-serif;font-size:22px;color:#42281B;margin:0 0 4px;text-align:center;}
   p.sub{font-size:13px;color:#6B6259;text-align:center;margin:0 0 20px;}
-  input{width:100%;padding:12px 14px;border:2px solid #2B2320;border-radius:12px;font-size:15px;margin-bottom:10px;font-family:'Quicksand',sans-serif;}
+  input{width:100%;padding:12px 14px;border:1.5px solid #E2D9C8;border-radius:12px;font-size:15px;margin-bottom:10px;font-family:'Quicksand',sans-serif;background:#FEFDFB;transition:border-color .15s ease,box-shadow .15s ease;}
+  input:focus{outline:none;border-color:#B0472E;box-shadow:0 0 0 3px rgba(176,71,46,.12);}
   .pw-wrap{position:relative;}
   .pw-wrap input{padding-right:44px;}
-  .pw-toggle{position:absolute;right:10px;top:11px;background:none!important;border:none!important;width:auto!important;padding:2px!important;font-size:18px;cursor:pointer;line-height:1;}
-  button{width:100%;padding:13px;border:2px solid #2B2320;border-radius:12px;background:#472619;color:#B5CDEA;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;}
-  button:active{transform:scale(.98);}
+  .pw-toggle{position:absolute;right:10px;top:11px;background:none!important;border:none!important;width:auto!important;padding:2px!important;font-size:18px;cursor:pointer;line-height:1;box-shadow:none!important;margin-top:0!important;}
+  button{width:100%;padding:13px;border:none;border-radius:13px;background:#472619;color:#B5CDEA;font-weight:800;font-size:15px;cursor:pointer;font-family:'Baloo 2',sans-serif;box-shadow:0 3px 10px rgba(66,40,27,.25);transition:transform .12s ease,box-shadow .12s ease;}
+  button:hover{box-shadow:0 5px 14px rgba(66,40,27,.32);}
+  button:active{transform:translateY(1px);box-shadow:0 2px 6px rgba(66,40,27,.25);}
   .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;}
   .msg.ok{color:#215A34;} .msg.err{color:#B23A3A;}
-  a{color:#2B2320;}
+  a{color:#42281B;font-weight:600;}
   `;
 }
 
@@ -635,7 +637,7 @@ function renderAdminSignup(platformName) {
       <form id="f">
         <input type="email" id="email" placeholder="Tu correo" required>
         <div class="pw-wrap">
-          <input type="password" id="password" placeholder="Contraseña (mínimo 6 caracteres)" required minlength="6">
+          <input type="password" id="password" placeholder="Contraseña (mín. 6 caracteres)" required minlength="6">
           <button type="button" class="pw-toggle" data-target="password">👁</button>
         </div>
         <button type="submit">Crear mi cuenta</button>
@@ -2326,19 +2328,20 @@ function baseStaffStyles(b) {
   return `
   *{box-sizing:border-box;}
   body{margin:0;min-height:100vh;background:${b.color_page_bg};font-family:'Quicksand',sans-serif;padding:24px;}
-  .box{width:100%;max-width:340px;margin:0 auto;background:${b.color_card_bg};border:2.5px solid ${b.color_brown};border-radius:24px;padding:28px 22px;box-shadow:0 10px 0 ${b.color_brown_deep};}
-  h1{font-family:'${b.font_family}',${font.fallback};font-size:19px;color:${b.color_brown};margin:0 0 4px;text-align:center;}
-  p.sub{font-size:12.5px;color:${b.color_brown_soft};text-align:center;margin:0 0 20px;}
-  input{width:100%;padding:12px 14px;border:2px solid ${b.color_brown};border-radius:12px;font-size:16px;margin-bottom:12px;font-family:'Quicksand',sans-serif;}
-  button{width:100%;padding:12px;border:2px solid ${b.color_brown};border-radius:12px;background:${btnColors.bg};color:${btnColors.text};font-weight:700;font-size:15px;cursor:pointer;}
+  .wrap{width:100%;max-width:420px;margin:0 auto;}
+  .box{width:100%;background:${b.color_card_bg};border:2.5px solid ${b.color_brown};border-radius:28px;padding:38px 32px;box-shadow:0 10px 0 ${b.color_brown_deep};}
+  h1{font-family:'${b.font_family}',${font.fallback};font-size:23px;color:${b.color_brown};margin:0 0 6px;text-align:center;}
+  p.sub{font-size:14px;color:${b.color_brown_soft};text-align:center;margin:0 0 26px;line-height:1.4;}
+  input{width:100%;padding:15px 16px;border:2px solid ${b.color_brown};border-radius:14px;font-size:16px;margin-bottom:14px;font-family:'Quicksand',sans-serif;}
+  button{width:100%;padding:15px;border:2px solid ${b.color_brown};border-radius:14px;background:${btnColors.bg};color:${btnColors.text};font-weight:700;font-size:16px;cursor:pointer;}
   button:active{transform:scale(.98);}
   .msg{text-align:center;font-size:13px;margin-top:12px;min-height:18px;}
   .msg.ok{color:#215A34;background:#DFF3E4;border:2px solid #3F7D4F;border-radius:12px;padding:14px 10px;font-size:17px;font-weight:800;}
   .msg.err{color:#B23A3A;background:#FBE4E4;border:2px solid #B23A3A;border-radius:12px;padding:14px 10px;font-size:15px;font-weight:700;}
   a.logout{display:block;text-align:center;margin-top:16px;font-size:12px;color:${b.color_brown_soft};}
-  .mytapp-corner{position:fixed;top:10px;right:14px;display:flex;align-items:center;gap:6px;font-size:10.5px;color:${b.color_brown};opacity:.85;}
-  .mytapp-corner img{height:16px;width:auto;display:block;}
-  .mytapp-corner a{color:${b.color_brown};font-weight:700;text-decoration:underline;}
+  .footer-brand{text-align:center;margin:22px 0 0;}
+  .footer-brand a{display:inline-block;}
+  .footer-brand img{width:26%;min-width:100px;max-width:150px;height:auto;display:block;margin:0 auto;}
   .scan-btn{background:${btnColors.bg}!important;color:${btnColors.text}!important;}
   `;
 }
@@ -2350,7 +2353,7 @@ function renderStaffLogin(b, platformName) {
   <link href="https://fonts.googleapis.com/css2?family=${font.google}&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>${baseStaffStyles(b)}</style></head>
   <body>
-    <div class="mytapp-corner"><img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp"><span>Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></span></div>
+    <div class="wrap">
     <div class="box">
       <h1>${escapeHtml(b.name)}</h1>
       <p class="sub">Ingresa el PIN del local para sumar sellos</p>
@@ -2359,6 +2362,12 @@ function renderStaffLogin(b, platformName) {
         <button type="submit">Entrar</button>
       </form>
       <p class="msg" id="msg"></p>
+    </div>
+    <div class="footer-brand">
+      <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">
+        <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp — Anaelí Brand">
+      </a>
+    </div>
     </div>
     <script>
       document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -2390,7 +2399,7 @@ function renderStaffPanel(b, platformName) {
     .scan-hint{font-size:11px;color:${b.color_brown_soft};text-align:center;margin:-4px 0 12px;}
   </style></head>
   <body>
-    <div class="mytapp-corner"><img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp"><span>Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></span></div>
+    <div class="wrap">
     <div class="box">
       <h1>${escapeHtml(b.name)}</h1>
       <p class="sub">Escanea el QR del cliente, o escribe su código a mano</p>
@@ -2400,7 +2409,7 @@ function renderStaffPanel(b, platformName) {
       <p class="scan-hint" id="scanHint"></p>
 
       <form id="stampForm">
-        <input type="text" id="code" placeholder="Código del cliente (ej. CC-JB2317)" autocapitalize="characters">
+        <input type="text" id="code" placeholder="Código del cliente" autocapitalize="characters">
         <button type="submit">Sumar sello</button>
       </form>
       <p class="msg" id="msg"></p>
@@ -2416,6 +2425,12 @@ function renderStaffPanel(b, platformName) {
 
       <a class="logout" href="/staff/${b.slug}/clientes">Ver todos los clientes</a>
       <a class="logout" href="/staff/${b.slug}/logout">Cerrar sesión del local</a>
+    </div>
+    <div class="footer-brand">
+      <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">
+        <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp — Anaelí Brand">
+      </a>
+    </div>
     </div>
     <script>
       const codeInput = document.getElementById('code');
@@ -2624,14 +2639,14 @@ async function handleClientesList(request, env, slug) {
 
   const rows = results.map(c => `
     <tr>
-      <td><input type="checkbox" class="row-check" value="${escapeHtml(c.code)}"></td>
-      <td>${escapeHtml(c.name)}</td>
-      <td>${escapeHtml(c.cedula || '—')}</td>
-      <td>${escapeHtml(c.phone || '—')}</td>
-      <td>${escapeHtml(c.code)}</td>
-      <td>${c.stamps}/${business.total_stamps}</td>
-      <td>${c.cycle}</td>
-      <td><a href="/staff/${slug}/historial/${escapeHtml(c.code)}">Ver fechas</a></td>
+      <td data-label="Seleccionar"><input type="checkbox" class="row-check" value="${escapeHtml(c.code)}"></td>
+      <td data-label="Nombre">${escapeHtml(c.name)}</td>
+      <td data-label="Cédula">${escapeHtml(c.cedula || '—')}</td>
+      <td data-label="Celular">${escapeHtml(c.phone || '—')}</td>
+      <td data-label="Código">${escapeHtml(c.code)}</td>
+      <td data-label="Sellos">${c.stamps}/${business.total_stamps}</td>
+      <td data-label="Ciclo">${c.cycle}</td>
+      <td data-label="Historial"><a href="/staff/${slug}/historial/${escapeHtml(c.code)}">Ver fechas</a></td>
     </tr>`).join('');
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
@@ -2655,6 +2670,15 @@ async function handleClientesList(request, env, slug) {
     .msg.err{color:#B23A3A;}
     .clientes-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
     .clientes-header img{height:74px;width:auto;opacity:.95;}
+    @media (max-width:760px) {
+      table, thead, tbody, th, td, tr { display:block; }
+      thead { display:none; }
+      table{background:none;}
+      tbody tr{background:${HEY_TAPP_BRAND.cream};border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:14px;margin-bottom:14px;padding:10px 4px;}
+      tbody tr:nth-child(even){background:${HEY_TAPP_BRAND.cream};}
+      td{border:none;padding:7px 12px;white-space:normal;background:transparent!important;}
+      td::before{content:attr(data-label);display:block;font-size:10px;font-weight:700;color:${HEY_TAPP_BRAND.brown};opacity:.65;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+    }
   </style></head>
   <body>
     <a class="back" href="/staff/${slug}">← Volver al panel</a>
@@ -2667,8 +2691,10 @@ async function handleClientesList(request, env, slug) {
       <p class="msg" id="deleteMsg"></p>
     </div>
     <table>
-      <tr><th><input type="checkbox" id="selectAll"></th><th>Nombre</th><th>Cédula</th><th>Celular</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr>
+      <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Nombre</th><th>Cédula</th><th>Celular</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr></thead>
+      <tbody>
       ${rows || '<tr><td colspan="8">Todavía no hay clientes registrados</td></tr>'}
+      </tbody>
     </table>
     <script>
       const checkboxes = () => Array.from(document.querySelectorAll('.row-check'));
@@ -2768,23 +2794,38 @@ async function handleHistorial(request, env, slug, code) {
     'SELECT stamped_at, cycle FROM visits WHERE customer_id = ? ORDER BY stamped_at DESC'
   ).bind(customer.id).all();
 
-  const rows = results.map(v => `<tr><td>${escapeHtml(v.stamped_at)}</td><td>Tarjeta #${v.cycle}</td></tr>`).join('');
+  const rows = results.map(v => `<tr><td data-label="Fecha">${escapeHtml(v.stamped_at)}</td><td data-label="Tarjeta">Tarjeta #${v.cycle}</td></tr>`).join('');
   const premiosGanados = customer.cycle - 1;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
   <title>Historial de ${escapeHtml(customer.name)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
-    body{margin:0;padding:20px;font-family:'Quicksand',sans-serif;background:${business.color_page_bg};}
-    h1{font-family:'Baloo 2',sans-serif;color:${business.color_brown};font-size:18px;margin-bottom:2px;}
+    :root{color-scheme:light;}
+    *{box-sizing:border-box;color-scheme:light;}
+    body{margin:0;padding:24px;font-family:'Quicksand',sans-serif;background:${business.color_page_bg};}
+    .wrap{max-width:640px;margin:0 auto;}
+    h1{font-family:'Baloo 2',sans-serif;color:${business.color_brown};font-size:19px;margin-bottom:2px;}
     p.sub{color:${business.color_brown_soft};font-size:13px;margin-top:0;}
-    table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:13px;}
-    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid ${business.color_page_bg};}
-    th{background:${business.color_brown};color:white;}
+    table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:13px;box-shadow:0 3px 12px rgba(0,0,0,.06);}
+    th,td{padding:10px 12px;text-align:left;border-bottom:1px solid ${business.color_page_bg};color:${business.color_brown};background:${business.color_card_bg};}
+    th{background:${business.color_brown};color:#FFFFFF!important;}
     a.back{display:inline-block;margin-bottom:14px;color:${business.color_brown};font-weight:700;text-decoration:none;}
-    .resumen{background:${business.color_butter_mid};border:2px solid ${business.color_brown};border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:${business.color_brown};}
+    .resumen{background:${business.color_butter_mid};border:2px solid ${business.color_brown};border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:13.5px;color:${business.color_brown};line-height:1.6;}
+    .footer-brand{text-align:center;margin:24px 0 0;}
+    .footer-brand a{display:inline-block;}
+    .footer-brand img{width:24%;min-width:90px;max-width:130px;height:auto;display:block;margin:0 auto;}
+    @media (max-width:600px) {
+      table, thead, tbody, th, td, tr { display:block; }
+      thead { display:none; }
+      table{background:none;box-shadow:none;}
+      tr{background:${business.color_card_bg};border:2px solid ${business.color_brown};border-radius:12px;margin-bottom:10px;padding:8px 4px;}
+      td{border:none;padding:6px 12px;}
+      td::before{content:attr(data-label);display:block;font-size:10px;font-weight:700;color:${business.color_brown_soft};text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+    }
   </style></head>
   <body>
+    <div class="wrap">
     <a class="back" href="/staff/${slug}/clientes">← Volver a clientes</a>
     <h1>${escapeHtml(customer.name)}</h1>
     <p class="sub">Código actual: ${escapeHtml(customer.code)} · Cédula: ${escapeHtml(customer.cedula || '—')} · Celular: ${escapeHtml(customer.phone || '—')}</p>
@@ -2794,9 +2835,17 @@ async function handleHistorial(request, env, slug, code) {
       Total de compras selladas: <b>${results.length}</b>
     </div>
     <table>
-      <tr><th>Fecha</th><th>Tarjeta</th></tr>
+      <thead><tr><th>Fecha</th><th>Tarjeta</th></tr></thead>
+      <tbody>
       ${rows || '<tr><td colspan="2">Todavía no tiene compras registradas</td></tr>'}
+      </tbody>
     </table>
+    <div class="footer-brand">
+      <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">
+        <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp — Anaelí Brand">
+      </a>
+    </div>
+    </div>
   </body></html>`;
 
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
