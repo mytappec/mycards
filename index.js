@@ -2593,8 +2593,10 @@ function renderLandingPage() {
   .eyebrow.on-dark::before,.eyebrow.on-dark::after{background:var(--mustard);}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;padding:15px 30px;border-radius:99px;text-decoration:none;border:none;cursor:pointer;transition:transform .18s var(--ease),box-shadow .18s var(--ease);}
   .btn:active{transform:translateY(1px) scale(.99);}
-  .btn-primary{background:var(--blue);color:var(--brown);box-shadow:0 8px 22px rgba(186,204,231,.55);}
-  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(186,204,231,.7);background:var(--blue-deep);}
+  .btn-primary{background:var(--terracotta);color:var(--cream);box-shadow:0 8px 22px rgba(176,71,46,.32);}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(176,71,46,.4);background:var(--terracotta-deep);}
+  .btn-blue{background:var(--blue);color:var(--brown);box-shadow:0 8px 22px rgba(186,204,231,.55);}
+  .btn-blue:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(186,204,231,.7);background:var(--blue-deep);}
   .btn-ghost{background:transparent;color:var(--brown);border:1.5px solid rgba(66,40,27,.25);}
   .btn-ghost:hover{border-color:var(--brown);background:rgba(66,40,27,.05);}
 
@@ -2629,9 +2631,6 @@ function renderLandingPage() {
 
   /* ---------- hero: el sello que da vida a la pagina ---------- */
   .hero{position:relative;padding:150px 0 70px;overflow:hidden;text-align:center;}
-  .hero-blob{position:absolute;border-radius:50%;filter:blur(2px);z-index:0;transition:transform .4s ease-out;}
-  .hero-blob.b1{width:480px;height:480px;background:radial-gradient(circle at 30% 30%,var(--pale-blue),transparent 72%);top:-160px;right:-140px;}
-  .hero-blob.b2{width:320px;height:320px;background:radial-gradient(circle at 60% 40%,var(--mustard),transparent 70%);opacity:.5;bottom:-60px;left:-100px;}
   .hero-bg-mascot{position:absolute;z-index:0;width:600px;top:20px;left:66%;transform:translateX(-50%);opacity:.05;pointer-events:none;}
   .hero-inner{position:relative;z-index:1;max-width:640px;margin:0 auto;}
 
@@ -2793,7 +2792,7 @@ function renderLandingPage() {
         <li data-section="contacto"><a href="#contacto">Contacto</a></li>
       </ul>
       <div class="nav-cta">
-        <a href="#contacto" class="btn btn-primary">Pide información</a>
+        <a href="#contacto" class="btn btn-blue">Pide información</a>
       </div>
       <button class="nav-burger" id="burgerBtn" aria-label="Abrir menú"><span></span><span></span><span></span></button>
     </div>
@@ -2804,20 +2803,18 @@ function renderLandingPage() {
     <a href="#como-funciona">Cómo funciona</a>
     <a href="#planes">Planes</a>
     <a href="#contacto">Contacto</a>
-    <a href="#contacto" class="btn btn-primary">Pide información</a>
+    <a href="#contacto" class="btn btn-blue">Pide información</a>
   </div>
 
   <header class="hero" id="inicio">
-    <div class="hero-blob b1" id="blob1"></div>
-    <div class="hero-blob b2" id="blob2"></div>
-    <img class="hero-bg-mascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
+    <img class="hero-bg-mascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_RED_BASE64}" alt="">
     <div class="hero-inner">
       <div class="logo-stage">
         <div class="impact-ring"></div>
         <div class="ink-dot" style="width:10px;height:10px;left:calc(50% - 60px);top:40%;--dx:-26px;--dy:-18px;"></div>
         <div class="ink-dot" style="width:7px;height:7px;left:calc(50% + 70px);top:35%;--dx:24px;--dy:-16px;"></div>
         <div class="ink-dot" style="width:8px;height:8px;left:calc(50% + 40px);top:60%;--dx:18px;--dy:20px;"></div>
-        <img class="stage-logo" src="data:image/png;base64,${HEY_TAPP_LOGO_BLUE_BASE64}" alt="Hey Tapp">
+        <img class="stage-logo" src="data:image/png;base64,${HEY_TAPP_LOGO_TERRACOTTA_BASE64}" alt="Hey Tapp">
       </div>
       <div class="duo-stage">
         <div class="duo-card">
@@ -2829,10 +2826,10 @@ function renderLandingPage() {
           <div class="duo-card-bar"><b></b></div>
           <div class="duo-tap"><b></b><i></i></div>
         </div>
-        <img class="duo-mascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_RED_BASE64}" alt="">
+        <img class="duo-mascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
       </div>
       <h1>Dale a tus clientes una<br><span class="accent">razón para volver</span></h1>
-      <p class="hero-lead">Haz que esa primera compra no sea la última. Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca, gracias a una tarjeta de sellos digital creada completamente para ti.</p>
+      <p class="hero-lead">Haz que esa primera compra no sea la última.<br>Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca, gracias a una tarjeta de sellos digital creada completamente para ti.</p>
       <div class="hero-ctas">
         <a href="#contacto" class="btn btn-primary">Quiero mi tarjeta digital</a>
         <a href="#como-funciona" class="btn btn-ghost">Ver cómo funciona</a>
@@ -2990,16 +2987,6 @@ function renderLandingPage() {
         entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('in-view'); io.unobserve(entry.target); } });
       }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
       document.querySelectorAll('.reveal').forEach(el => io.observe(el));
-
-      // el fondo del hero sigue muy sutilmente el mouse (profundidad, no scroll)
-      const blob1 = document.getElementById('blob1');
-      const blob2 = document.getElementById('blob2');
-      document.querySelector('.hero').addEventListener('mousemove', (e) => {
-        const x = (e.clientX / window.innerWidth - 0.5) * 18;
-        const y = (e.clientY / window.innerHeight - 0.5) * 18;
-        blob1.style.transform = 'translate(' + x + 'px,' + y + 'px)';
-        blob2.style.transform = 'translate(' + (-x) + 'px,' + (-y) + 'px)';
-      });
     }
 
     // resalta en el menú la sección donde estás mientras haces scroll
