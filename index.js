@@ -1666,28 +1666,29 @@ async function handleCreateLead(request, env) {
   const planLabel = businessType === 'digital' ? 'Plan Fideliza Digital'
     : businessType === 'fisico' ? 'Plan Fideliza Físico' : 'No especificó';
 
-  // envío automático a hola@heytapp.com — tres formas posibles, de la más
-  // simple a la más avanzada. No hace falta configurar las tres.
-  let emailed = false;
+  // si el navegador de la persona ya logró mandarlo directo a FormSubmit
+  // (la forma más confiable, porque así FormSubmit lo reconoce como un
+  // envío real desde heytapp.com), no hace falta que el servidor reintente.
+  // Si por algo falló allá (ej. un bloqueador de anuncios), el servidor
+  // lo intenta de nuevo como respaldo, de la más simple a la más avanzada.
+  let emailed = body.emailed === true;
 
-  // opción 1: FormSubmit (la misma que ya usas en anaelidesign.com) — no
-  // necesita cuenta ni configuración, va directo a hola@heytapp.com.
-  // OJO: la primera vez que se use un correo nuevo en FormSubmit, ellos
-  // mandan un correo de confirmación a hola@heytapp.com que hay que
-  // aceptar UNA sola vez — después ya llegan todos los envíos derecho.
-  try {
-    const res = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({
-        nombre: name, celular: phone, correo: email, instagram: instagram || '—', interesado_en: planLabel,
-        _subject: `Nueva solicitud de info — ${name}`,
-        _template: 'table',
-      }),
-    });
-    emailed = res.ok;
-  } catch (err) {
-    emailed = false;
+  // opción 1: FormSubmit (respaldo por si el navegador no pudo)
+  if (!emailed) {
+    try {
+      const res = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          nombre: name, celular: phone, correo: email, instagram: instagram || '—', interesado_en: planLabel,
+          _subject: `Nueva solicitud de info — ${name}`,
+          _template: 'table',
+        }),
+      });
+      emailed = res.ok;
+    } catch (err) {
+      emailed = false;
+    }
   }
 
   // opción 2: Formspree (por si prefieres esa en vez de FormSubmit — solo
@@ -1750,7 +1751,16 @@ async function handleLeadsList(request, env) {
   const admin = await getAdminFromSession(env, cookieVal);
   if (!admin) { const pname = await getPlatformName(env); return new Response(renderAdminLogin(pname), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } }); }
 
-  const { results } = await env.DB.prepare('SELECT * FROM leads ORDER BY id DESC').all();
+  // si todavía no corriste la migración de la tabla "leads" en tu base de
+  // datos, esto no debe tronar la página — mostramos un aviso claro en vez
+  let results = [];
+  let tableMissing = false;
+  try {
+    const query = await env.DB.prepare('SELECT * FROM leads ORDER BY id DESC').all();
+    results = query.results;
+  } catch (dbErr) {
+    tableMissing = true;
+  }
 
   const rows = results.map(l => {
     const planLabel = l.business_type === 'digital' ? 'Emprende Digital'
@@ -1783,6 +1793,8 @@ async function handleLeadsList(request, env) {
     tr:nth-child(even) td{background:#F5F0E4;}
     a{color:#B0472E;font-weight:700;}
     .empty{padding:30px;text-align:center;color:#6B6259;background:#FDFBF2;border-radius:14px;}
+    .warn-box{background:#FBE4E4;border:2px solid #B23A3A;border-radius:14px;padding:18px 20px;color:#7A2020;line-height:1.6;}
+    .warn-box code{background:#fff;padding:2px 6px;border-radius:6px;font-size:13px;}
     @media (max-width:760px) {
       table, thead, tbody, tr { display:block; }
       thead { display:none; }
@@ -1794,9 +1806,12 @@ async function handleLeadsList(request, env) {
   </style></head>
   <body>
     <a class="back" href="/admin">← Volver al panel</a>
-    <h1>Solicitudes de info (${results.length})</h1>
-    <p class="sub">El correo automático a hola@heytapp.com está activo por FormSubmit — esto es tu respaldo, revísalo si algún correo no llegó.</p>
-    ${results.length ? `<table><thead><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>Instagram</th><th>Interesado en</th><th>Fecha</th><th>Correo enviado</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Todavía no hay solicitudes.</div>'}
+    <h1>Solicitudes de info ${tableMissing ? '' : `(${results.length})`}</h1>
+    ${tableMissing
+      ? `<div class="warn-box"><b>Todavía falta un paso.</b><br>La tabla "leads" no existe en tu base de datos todavía. Entra a Cloudflare → tu base de datos D1 → pestaña <b>Console</b>, y pega esto:<br><br><code>CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT NOT NULL, instagram TEXT, business_type TEXT, emailed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));</code><br><br>Después de correr eso una sola vez, esta página va a funcionar y vas a poder ver aquí todas las solicitudes que lleguen.</div>`
+      : `<p class="sub">El correo automático a hola@heytapp.com está activo por FormSubmit — esto es tu respaldo, revísalo si algún correo no llegó.</p>
+        ${results.length ? `<table><thead><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>Instagram</th><th>Interesado en</th><th>Fecha</th><th>Correo enviado</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Todavía no hay solicitudes.</div>'}`
+    }
   </body></html>`;
 
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
@@ -2672,7 +2687,7 @@ function renderLandingPage() {
   /* ---------- hero: el sello que da vida a la pagina ---------- */
   .hero{position:relative;padding:150px 0 70px;overflow:hidden;text-align:center;}
   .hero-bg-mascot{position:absolute;z-index:0;width:600px;top:20px;left:66%;transform:translateX(-50%);opacity:.05;pointer-events:none;}
-  .hero-inner{position:relative;z-index:1;max-width:640px;margin:0 auto;}
+  .hero-inner{position:relative;z-index:1;max-width:640px;margin:0 auto;padding:0 22px;}
 
   .logo-stage{position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:30px;}
   .impact-ring{position:absolute;top:50%;left:50%;width:180px;height:60px;margin:-30px 0 0 -90px;border-radius:50%;border:3px solid var(--terracotta);opacity:0;animation:inkRipple .8s ease-out .58s both;}
@@ -3063,8 +3078,36 @@ function renderLandingPage() {
         return;
       }
       msg.textContent = 'Enviando...'; msg.className = 'form-msg';
+
+      const planLabel = payload.business_type === 'digital' ? 'Plan Fideliza Digital'
+        : payload.business_type === 'fisico' ? 'Plan Fideliza Físico' : 'No especificó';
+
+      // 1) el navegador le habla DIRECTO a FormSubmit (así reconoce que es un
+      // envío real desde heytapp.com, y no un servidor — esto es clave para
+      // que llegue el correo de activación la primera vez)
+      let emailedDirectly = false;
       try {
-        const res = await fetch('/contacto', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const fsRes = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            nombre: payload.name, celular: payload.phone, correo: payload.email,
+            instagram: payload.instagram || '—', interesado_en: planLabel,
+            _subject: 'Nueva solicitud de info — ' + payload.name,
+            _template: 'table',
+          }),
+        });
+        emailedDirectly = fsRes.ok;
+      } catch (err) { emailedDirectly = false; }
+
+      // 2) siempre se guarda en tu panel de Solicitudes como respaldo, y si el
+      // paso 1 falló (por ejemplo, un bloqueador de anuncios), el servidor
+      // intenta de nuevo por su cuenta
+      try {
+        const res = await fetch('/contacto', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ ...payload, emailed: emailedDirectly }),
+        });
         const data = await res.json();
         if (res.ok) {
           msg.textContent = '✅ ¡Listo! Te escribimos pronto a tu correo.'; msg.className = 'form-msg ok';
