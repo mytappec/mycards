@@ -2639,7 +2639,7 @@ function renderLandingPage() {
   .ink-dot{position:absolute;border-radius:50%;background:var(--terracotta);opacity:0;animation:dotBurst .7s ease-out .56s both;}
   .stage-logo{position:relative;width:320px;max-width:78vw;filter:drop-shadow(0 16px 22px rgba(66,40,27,.22));animation:stampSlam .85s var(--ease) both;}
 
-  .duo-stage{position:relative;display:flex;align-items:flex-end;justify-content:center;gap:0;margin:0 0 34px;animation:duoFloat 3.6s ease-in-out 2s infinite;}
+  .duo-stage{position:relative;display:flex;align-items:flex-end;justify-content:center;gap:0;margin:18px 0 46px;animation:duoFloat 3.6s ease-in-out 2s infinite;}
   .duo-card{position:relative;width:132px;background:var(--brown);border-radius:20px;padding:16px;box-shadow:var(--shadow-lg);transform:rotate(6deg) translateX(14px);z-index:1;opacity:0;animation:cardDropIn .6s var(--ease) 1.1s both;}
   .duo-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-family:'Baloo 2',sans-serif;font-size:10.5px;color:var(--pale-blue);}
   .duo-stamps{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:9px;}
@@ -2679,7 +2679,7 @@ function renderLandingPage() {
     .stage-logo{width:224px;}
     .logo-stage{height:112px;}
     .impact-ring{width:118px;height:40px;}
-    .duo-stage{height:118px;margin:6px 0 26px;}
+    .duo-stage{height:118px;margin:14px 0 36px;}
     .duo-card{width:104px;padding:12px;}
     .duo-mascot{width:118px;margin-left:-20px;}
     .duo-tap{bottom:44px;}
@@ -2688,7 +2688,7 @@ function renderLandingPage() {
   }
 
   /* ---------- separación curva entre secciones ---------- */
-  .wave-div{width:100%;line-height:0;}
+  .wave-div{width:100%;line-height:0;margin-bottom:-2px;position:relative;z-index:1;}
   .wave-div svg{display:block;width:100%;height:46px;}
 
   /* ---------- process (dark band) ---------- */
@@ -2763,7 +2763,12 @@ function renderLandingPage() {
   .form-msg{text-align:center;font-size:13.5px;margin-top:14px;min-height:18px;}
   .form-msg.ok{color:#215A34;font-weight:700;}
   .form-msg.err{color:#B23A3A;font-weight:700;}
-  @media (max-width:560px){ .field-row{grid-template-columns:1fr;} .contact-form{padding:30px 22px;} }
+  @media (max-width:560px){
+    .field-row{grid-template-columns:1fr;}
+    .contact-form{padding:30px 22px;}
+    .field label{font-size:15px;}
+    .field input,.field select{font-size:17px;padding:15px 16px;}
+  }
 
   /* ---------- footer ---------- */
   footer{background:var(--brown);color:rgba(253,251,242,.7);padding:56px 0 32px;}
@@ -2938,7 +2943,7 @@ function renderLandingPage() {
             <div class="field">
               <label for="lf_type">¿Cuál te interesa más?</label>
               <select id="lf_type">
-                <option value="">Todavía no sé</option>
+                <option value="">Elige tu tipo de negocio</option>
                 <option value="digital">Plan Fideliza Digital</option>
                 <option value="fisico">Plan Fideliza Físico</option>
               </select>
