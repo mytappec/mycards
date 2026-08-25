@@ -1636,8 +1636,8 @@ async function handleCreateLead(request, env) {
     // seguimos igual: la solicitud se manda por correo aunque no se haya podido guardar
   }
 
-  const planLabel = businessType === 'digital' ? 'Plan Emprende Digital'
-    : businessType === 'fisico' ? 'Plan Emprende Físico' : 'No especificó';
+  const planLabel = businessType === 'digital' ? 'Plan Fideliza Digital'
+    : businessType === 'fisico' ? 'Plan Fideliza Físico' : 'No especificó';
 
   // envío automático a hola@heytapp.com — tres formas posibles, de la más
   // simple a la más avanzada. No hace falta configurar las tres.
@@ -2573,6 +2573,7 @@ function renderLandingPage() {
     --cream:#FDFBF2; --paper:#FFFFFF; --brown:#42281B; --brown-soft:#6B5645;
     --blue:#BACCE7; --pale-blue:#DAE7F1; --mustard:#EBDA8B; --terracotta:#B0472E;
     --terracotta-deep:#8F3821;
+    --blue-deep:#93AECF;
     --shadow-sm:0 2px 10px rgba(66,40,27,.08);
     --shadow-md:0 10px 30px rgba(66,40,27,.12);
     --shadow-lg:0 20px 50px rgba(66,40,27,.18);
@@ -2592,8 +2593,8 @@ function renderLandingPage() {
   .eyebrow.on-dark::before,.eyebrow.on-dark::after{background:var(--mustard);}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;padding:15px 30px;border-radius:99px;text-decoration:none;border:none;cursor:pointer;transition:transform .18s var(--ease),box-shadow .18s var(--ease);}
   .btn:active{transform:translateY(1px) scale(.99);}
-  .btn-primary{background:var(--terracotta);color:var(--cream);box-shadow:0 8px 22px rgba(176,71,46,.32);}
-  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(176,71,46,.4);background:var(--terracotta-deep);}
+  .btn-primary{background:var(--blue);color:var(--brown);box-shadow:0 8px 22px rgba(186,204,231,.55);}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(186,204,231,.7);background:var(--blue-deep);}
   .btn-ghost{background:transparent;color:var(--brown);border:1.5px solid rgba(66,40,27,.25);}
   .btn-ghost:hover{border-color:var(--brown);background:rgba(66,40,27,.05);}
 
@@ -2601,8 +2602,8 @@ function renderLandingPage() {
   .nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 0;transition:background .3s var(--ease),box-shadow .3s var(--ease),padding .3s var(--ease);}
   .nav-inner{max-width:1120px;margin:0 auto;padding:0 28px;display:flex;align-items:center;justify-content:space-between;}
   .nav.scrolled{background:rgba(253,251,242,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 2px 18px rgba(66,40,27,.08);padding:10px 0;}
-  .nav-logo{height:34px;width:auto;transition:height .3s var(--ease);}
-  .nav.scrolled .nav-logo{height:28px;}
+  .nav-logo{height:44px;width:auto;transition:height .3s var(--ease);}
+  .nav.scrolled .nav-logo{height:36px;}
   .nav-links{display:flex;align-items:center;gap:6px;list-style:none;margin:0;padding:0;}
   .nav-links a{font-family:'Manrope',sans-serif;font-weight:700;font-size:14.5px;text-decoration:none;color:var(--brown);position:relative;padding:9px 16px;border-radius:99px;transition:color .25s var(--ease);}
   .nav-links a::before{content:'';position:absolute;inset:0;background:var(--pale-blue);border-radius:99px;transform:scale(.55);opacity:0;transition:transform .3s var(--ease),opacity .3s var(--ease);z-index:-1;}
@@ -2612,9 +2613,6 @@ function renderLandingPage() {
   .nav-links li.active a::before{transform:scale(1);opacity:1;}
   .nav-cta{display:flex;align-items:center;gap:20px;}
   .nav-cta .btn{padding:11px 22px;font-size:14px;}
-  .nav-stamps{display:flex;align-items:center;gap:7px;}
-  .nav-stamps i{width:8px;height:8px;border-radius:50%;background:rgba(66,40,27,.18);transition:background .35s var(--ease),transform .35s var(--ease);}
-  .nav-stamps i.filled{background:var(--terracotta);transform:scale(1.3);}
   .nav-burger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:8px;}
   .nav-burger span{width:22px;height:2px;background:var(--brown);border-radius:2px;transition:transform .25s var(--ease),opacity .25s var(--ease);}
   .nav-burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
@@ -2625,7 +2623,7 @@ function renderLandingPage() {
   .mobile-menu a{font-family:'Baloo 2',sans-serif;font-size:26px;text-decoration:none;color:var(--brown);}
   .mobile-menu .btn{margin-top:10px;}
   @media (max-width:860px){
-    .nav-links,.nav-stamps{display:none;}
+    .nav-links{display:none;}
     .nav-burger{display:flex;}
   }
 
@@ -2637,23 +2635,24 @@ function renderLandingPage() {
   .hero-bg-mascot{position:absolute;z-index:0;width:600px;top:20px;left:66%;transform:translateX(-50%);opacity:.05;pointer-events:none;}
   .hero-inner{position:relative;z-index:1;max-width:640px;margin:0 auto;}
 
-  .logo-stage{position:relative;height:150px;display:flex;align-items:center;justify-content:center;}
-  .impact-ring{position:absolute;width:180px;height:60px;border-radius:50%;border:3px solid var(--terracotta);opacity:0;animation:inkRipple .8s ease-out .58s both;}
+  .logo-stage{position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:30px;}
+  .impact-ring{position:absolute;top:50%;left:50%;width:180px;height:60px;margin:-30px 0 0 -90px;border-radius:50%;border:3px solid var(--terracotta);opacity:0;animation:inkRipple .8s ease-out .58s both;}
   .ink-dot{position:absolute;border-radius:50%;background:var(--terracotta);opacity:0;animation:dotBurst .7s ease-out .56s both;}
   .stage-logo{position:relative;width:320px;max-width:78vw;filter:drop-shadow(0 16px 22px rgba(66,40,27,.22));animation:stampSlam .85s var(--ease) both;}
 
-  .duo-stage{position:relative;display:flex;align-items:flex-end;justify-content:center;gap:0;height:150px;margin:10px 0 30px;}
-  .duo-card{position:relative;width:132px;background:var(--brown);border-radius:20px;padding:16px;box-shadow:var(--shadow-lg);transform:rotate(6deg) translateX(14px);z-index:1;opacity:0;animation:cardDropIn .6s var(--ease) 1.1s both,swayCard 4.4s ease-in-out 1.9s infinite;}
+  .duo-stage{position:relative;display:flex;align-items:flex-end;justify-content:center;gap:0;margin:0 0 34px;animation:duoFloat 3.6s ease-in-out 2s infinite;}
+  .duo-card{position:relative;width:132px;background:var(--brown);border-radius:20px;padding:16px;box-shadow:var(--shadow-lg);transform:rotate(6deg) translateX(14px);z-index:1;opacity:0;animation:cardDropIn .6s var(--ease) 1.1s both;}
   .duo-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-family:'Baloo 2',sans-serif;font-size:10.5px;color:var(--pale-blue);}
   .duo-stamps{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:9px;}
   .duo-stamps i{display:block;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.15);}
   .duo-stamps i.on{background:var(--mustard);}
   .duo-card-bar{height:5px;border-radius:99px;background:rgba(255,255,255,.16);overflow:hidden;}
   .duo-card-bar b{display:block;width:60%;height:100%;background:var(--terracotta);border-radius:99px;}
-  .duo-mascot{position:relative;width:150px;z-index:2;margin-left:-26px;opacity:0;filter:drop-shadow(0 12px 16px rgba(66,40,27,.22));animation:peekIn .65s var(--ease) 1.32s both,floatY 3.6s ease-in-out 2s infinite;}
+  .duo-mascot{position:relative;width:150px;z-index:2;margin-left:-26px;opacity:0;filter:drop-shadow(0 12px 16px rgba(66,40,27,.22));animation:peekIn .65s var(--ease) 1.32s both;}
   .duo-tap{position:absolute;width:12px;height:12px;left:calc(50% + 18px);bottom:56px;z-index:3;opacity:0;animation:tapAppear .4s ease-out 1.85s both;}
   .duo-tap i{position:absolute;inset:0;border-radius:50%;background:var(--terracotta);}
   .duo-tap b{position:absolute;inset:0;border-radius:50%;border:2px solid var(--terracotta);animation:tapRipple 1.8s ease-out 1.9s infinite;}
+  @keyframes duoFloat{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-8px) rotate(.6deg);}}
 
   @keyframes stampSlam{
     0%{transform:translateY(-120px) scale(1.35) rotate(-9deg);opacity:0;}
@@ -2667,7 +2666,6 @@ function renderLandingPage() {
   @keyframes cardDropIn{0%{transform:rotate(6deg) translateX(14px) translateY(-18px);opacity:0;}100%{transform:rotate(6deg) translateX(14px) translateY(0);opacity:1;}}
   @keyframes peekIn{0%{transform:translateY(24px) scale(.6);opacity:0;}65%{opacity:1;}100%{transform:translateY(0) scale(1);opacity:1;}}
   @keyframes floatY{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-9px) rotate(1deg);}}
-  @keyframes swayCard{0%,100%{transform:rotate(6deg) translateX(14px);}50%{transform:rotate(3deg) translateX(14px);}}
   @keyframes tapAppear{0%{opacity:0;transform:scale(.5);}100%{opacity:1;transform:scale(1);}}
   @keyframes tapRipple{0%{transform:scale(.6);opacity:.6;}100%{transform:scale(2.4);opacity:0;}}
 
@@ -2689,6 +2687,10 @@ function renderLandingPage() {
     .hero h1{margin-bottom:20px;}
     .hero-lead{margin-bottom:30px;}
   }
+
+  /* ---------- separación curva entre secciones ---------- */
+  .wave-div{width:100%;line-height:0;}
+  .wave-div svg{display:block;width:100%;height:46px;}
 
   /* ---------- process (dark band) ---------- */
   .process{background:var(--brown);color:var(--cream);padding:88px 0;position:relative;overflow:hidden;}
@@ -2791,9 +2793,6 @@ function renderLandingPage() {
         <li data-section="contacto"><a href="#contacto">Contacto</a></li>
       </ul>
       <div class="nav-cta">
-        <div class="nav-stamps" id="navStamps" aria-hidden="true">
-          <i data-for="beneficios"></i><i data-for="como-funciona"></i><i data-for="planes"></i><i data-for="contacto"></i>
-        </div>
         <a href="#contacto" class="btn btn-primary">Pide información</a>
       </div>
       <button class="nav-burger" id="burgerBtn" aria-label="Abrir menú"><span></span><span></span><span></span></button>
@@ -2841,6 +2840,7 @@ function renderLandingPage() {
     </div>
   </header>
 
+  <div class="wave-div" style="background:#FDFBF2;"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#42281B"></path></svg></div>
   <section class="process" id="como-funciona">
     <div class="wrap">
       <div class="eyebrow on-dark reveal">Así de simple</div>
@@ -2876,6 +2876,7 @@ function renderLandingPage() {
     </div>
   </section>
 
+  <div class="wave-div" style="background:#42281B;"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#FDFBF2"></path></svg></div>
   <section class="benefits" id="beneficios">
     <div class="wrap">
       <div class="eyebrow reveal">Todo incluido</div>
@@ -2885,6 +2886,7 @@ function renderLandingPage() {
     </div>
   </section>
 
+  <div class="wave-div" style="background:#FDFBF2;"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#DAE7F1"></path></svg></div>
   <section class="plans" id="planes">
     <div class="wrap">
       <div class="eyebrow reveal">Elige tu camino</div>
@@ -2894,14 +2896,14 @@ function renderLandingPage() {
         <div class="plan-card reveal">
           <div class="plan-icon">${icons.instagram}</div>
           <span class="plan-tag">Digital</span>
-          <h3>Plan Emprende Digital</h3>
+          <h3>Plan Fideliza Digital</h3>
           <p>Para marcas que venden por Instagram, WhatsApp o canales digitales.</p>
           <a href="#contacto" class="btn btn-primary">Pedir información</a>
         </div>
         <div class="plan-card reveal" style="--d:110ms">
           <div class="plan-icon">${icons.shop}</div>
           <span class="plan-tag">Físico</span>
-          <h3>Plan Emprende Físico</h3>
+          <h3>Plan Fideliza Físico</h3>
           <p>Para marcas con tienda, local o punto de venta. Incluye hablador con QR para tu mostrador.</p>
           <a href="#contacto" class="btn btn-primary">Pedir información</a>
         </div>
@@ -2909,6 +2911,7 @@ function renderLandingPage() {
     </div>
   </section>
 
+  <div class="wave-div" style="background:#DAE7F1;"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#FDFBF2"></path></svg></div>
   <section class="contact" id="contacto">
     <div class="wrap">
       <div class="eyebrow reveal">Hablemos</div>
@@ -2939,8 +2942,8 @@ function renderLandingPage() {
               <label for="lf_type">¿Cuál te interesa más?</label>
               <select id="lf_type">
                 <option value="">Todavía no sé</option>
-                <option value="digital">Plan Emprende Digital</option>
-                <option value="fisico">Plan Emprende Físico</option>
+                <option value="digital">Plan Fideliza Digital</option>
+                <option value="fisico">Plan Fideliza Físico</option>
               </select>
             </div>
             <button type="submit" class="btn btn-primary">Enviar</button>
@@ -2951,6 +2954,7 @@ function renderLandingPage() {
     </div>
   </section>
 
+  <div class="wave-div" style="background:#FDFBF2;"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#42281B"></path></svg></div>
   <footer>
     <div class="wrap">
       <img class="footer-logo" src="data:image/png;base64,${HEY_TAPP_LOGO_CREAM_BASE64}" alt="Hey Tapp">
@@ -2998,15 +3002,13 @@ function renderLandingPage() {
       });
     }
 
-    // sellos del menú: se van llenando según la sección donde estás (no es scroll normal ni marquee)
+    // resalta en el menú la sección donde estás mientras haces scroll
     const sections = ['beneficios', 'como-funciona', 'planes', 'contacto'].map(id => document.getElementById(id));
-    const navStampsEls = document.querySelectorAll('#navStamps i');
     const navLinkItems = document.querySelectorAll('.nav-links li');
     const sectionIO = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const id = entry.target.id;
         if (entry.isIntersecting) {
-          navStampsEls.forEach(i => { if (i.dataset.for === id) i.classList.add('filled'); });
           navLinkItems.forEach(li => li.classList.toggle('active', li.dataset.section === id));
         }
       });
