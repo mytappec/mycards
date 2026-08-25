@@ -2612,17 +2612,17 @@ function renderLandingPage() {
   }
 
   /* ---------- hero: el sello que da vida a la pagina ---------- */
-  .hero{position:relative;padding:150px 0 60px;overflow:hidden;text-align:center;}
+  .hero{position:relative;padding:150px 0 70px;overflow:hidden;text-align:center;}
   .hero-blob{position:absolute;border-radius:50%;filter:blur(2px);z-index:0;transition:transform .4s ease-out;}
   .hero-blob.b1{width:480px;height:480px;background:radial-gradient(circle at 30% 30%,var(--pale-blue),transparent 72%);top:-160px;right:-140px;}
   .hero-blob.b2{width:320px;height:320px;background:radial-gradient(circle at 60% 40%,var(--mustard),transparent 70%);opacity:.5;bottom:-60px;left:-100px;}
   .hero-bg-mascot{position:absolute;z-index:0;width:640px;top:40px;left:50%;transform:translateX(-50%);opacity:.05;pointer-events:none;}
   .hero-inner{position:relative;z-index:1;max-width:640px;margin:0 auto;}
 
-  .logo-stage{position:relative;height:170px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;}
+  .logo-stage{position:relative;height:150px;display:flex;align-items:center;justify-content:center;}
   .impact-ring{position:absolute;width:180px;height:60px;border-radius:50%;border:3px solid var(--terracotta);opacity:0;animation:inkRipple .8s ease-out .58s both;}
-  .stage-logo{position:relative;width:340px;max-width:80vw;filter:drop-shadow(0 16px 22px rgba(66,40,27,.22));animation:stampSlam .85s var(--ease) both;}
-  .mascot-peek{position:absolute;width:104px;right:calc(50% - 270px);bottom:-20px;z-index:2;filter:drop-shadow(0 10px 14px rgba(66,40,27,.22));opacity:0;animation:peekIn .65s var(--ease) 1.05s both,floatY 3.4s ease-in-out 1.7s infinite;}
+  .stage-logo{position:relative;width:320px;max-width:78vw;filter:drop-shadow(0 16px 22px rgba(66,40,27,.22));animation:stampSlam .85s var(--ease) both;}
+  .mascot-below{width:98px;margin:6px auto 26px;opacity:0;filter:drop-shadow(0 10px 14px rgba(66,40,27,.2));animation:peekIn .65s var(--ease) 1.05s both,floatY 3.4s ease-in-out 1.7s infinite;}
 
   @keyframes stampSlam{
     0%{transform:translateY(-120px) scale(1.35) rotate(-9deg);opacity:0;}
@@ -2632,24 +2632,27 @@ function renderLandingPage() {
     100%{transform:translateY(0) scale(1) rotate(0deg);}
   }
   @keyframes inkRipple{0%{transform:scale(.4);opacity:.5;}100%{transform:scale(2.1);opacity:0;}}
-  @keyframes peekIn{0%{transform:translateY(50px) scale(.6) rotate(-6deg);opacity:0;}65%{opacity:1;}100%{transform:translateY(0) scale(1) rotate(-3deg);opacity:1;}}
+  @keyframes peekIn{0%{transform:translateY(24px) scale(.6);opacity:0;}65%{opacity:1;}100%{transform:translateY(0) scale(1);opacity:1;}}
   @keyframes floatY{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-9px) rotate(1deg);}}
 
-  .hero h1{font-size:clamp(32px,4.6vw,48px);line-height:1.12;letter-spacing:-.4px;margin-bottom:18px;opacity:0;animation:riseIn .6s var(--ease) 1.15s both;}
-  .hero h1 .accent{color:var(--terracotta);}
-  .hero-lead{font-size:17px;line-height:1.6;color:var(--brown-soft);max-width:480px;margin:0 auto 30px;opacity:0;animation:riseIn .6s var(--ease) 1.28s both;}
+  .hero h1{font-size:clamp(30px,4.6vw,48px);line-height:1.22;letter-spacing:-.4px;margin:0 0 22px;opacity:0;animation:riseIn .6s var(--ease) 1.15s both;}
+  .hero h1 .accent{color:var(--terracotta);display:inline-block;margin-top:4px;}
+  .hero-lead{font-size:17px;line-height:1.6;color:var(--brown-soft);max-width:480px;margin:0 auto 34px;opacity:0;animation:riseIn .6s var(--ease) 1.28s both;}
   .hero-ctas{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;opacity:0;animation:riseIn .6s var(--ease) 1.4s both;}
   @keyframes riseIn{0%{opacity:0;transform:translateY(16px);}100%{opacity:1;transform:translateY(0);}}
 
   @media (max-width:640px){
-    .hero{padding:120px 0 50px;}
-    .stage-logo{width:250px;}
-    .logo-stage{height:130px;}
-    .impact-ring{width:130px;height:44px;}
-    .mascot-peek{width:78px;right:calc(50% - 195px);bottom:-14px;}
+    .hero{padding:126px 0 54px;}
+    .stage-logo{width:224px;}
+    .logo-stage{height:112px;}
+    .impact-ring{width:118px;height:40px;}
+    .mascot-below{width:80px;margin:8px auto 24px;}
+    .hero h1{margin-bottom:20px;}
+    .hero-lead{margin-bottom:30px;}
   }
 
-  /* ---------- process (dark band) ---------- */  .process{background:var(--brown);color:var(--cream);padding:88px 0;position:relative;overflow:hidden;}
+  /* ---------- process (dark band) ---------- */
+  .process{background:var(--brown);color:var(--cream);padding:88px 0;position:relative;overflow:hidden;}
   .process::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(253,251,242,.05) 1.4px, transparent 1.4px);background-size:26px 26px;opacity:.5;}
   .process .wrap{position:relative;}
   .process h2{color:var(--cream);text-align:center;font-size:clamp(26px,3.4vw,36px);margin-bottom:12px;}
@@ -2660,7 +2663,16 @@ function renderLandingPage() {
   .process-step h3{color:var(--cream);font-size:18.5px;margin-bottom:8px;}
   .process-step p{margin:0;color:rgba(253,251,242,.68);font-size:14.5px;line-height:1.55;}
   .process-arrow{position:absolute;top:50%;right:-24px;transform:translateY(-50%);color:rgba(253,251,242,.3);font-size:22px;}
-  @media (max-width:820px){ .process-steps{grid-template-columns:1fr;} .process-arrow{display:none;} }
+  .process-step{overflow:visible;}
+  .mini-card{position:absolute;top:-22px;right:-14px;width:132px;background:var(--cream);border-radius:14px;padding:11px 12px;box-shadow:var(--shadow-lg);transform:rotate(7deg);z-index:2;animation:swayCard 4.4s ease-in-out infinite;}
+  .mini-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-family:'Baloo 2',sans-serif;font-size:9.5px;color:var(--brown);}
+  .mini-stamps{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px;}
+  .mini-stamps i{display:block;aspect-ratio:1;border-radius:50%;background:var(--pale-blue);}
+  .mini-stamps i.on{background:var(--terracotta);}
+  .mini-card-bar{height:5px;border-radius:99px;background:var(--pale-blue);overflow:hidden;}
+  .mini-card-bar b{display:block;width:60%;height:100%;background:var(--terracotta);border-radius:99px;}
+  @keyframes swayCard{0%,100%{transform:rotate(7deg);}50%{transform:rotate(3deg);}}
+  @media (max-width:820px){ .process-steps{grid-template-columns:1fr;} .process-arrow{display:none;} .mini-card{top:-18px;right:6px;width:118px;} }
 
   /* ---------- benefits ---------- */
   .benefits{padding:96px 0;}
@@ -2762,9 +2774,9 @@ function renderLandingPage() {
       <div class="logo-stage">
         <div class="impact-ring"></div>
         <img class="stage-logo" src="data:image/png;base64,${HEY_TAPP_LOGO_TERRACOTTA_BASE64}" alt="Hey Tapp">
-        <img class="mascot-peek" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
       </div>
-      <h1>Dale a tus clientes una <span class="accent">razón para volver</span></h1>
+      <img class="mascot-below" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
+      <h1>Dale a tus clientes una<br><span class="accent">razón para volver</span></h1>
       <p class="hero-lead">Haz que esa primera compra no sea la última. Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca — con una tarjeta de sellos digital creada completamente para ti.</p>
       <div class="hero-ctas">
         <a href="#contacto" class="btn btn-primary">Quiero mi tarjeta digital</a>
@@ -2790,6 +2802,14 @@ function renderLandingPage() {
           <h3>Tus clientes juntan sellos</h3>
           <p>Escaneas su QR (o escribes su código) en cada compra, desde tu panel.</p>
           <span class="process-arrow">→</span>
+          <div class="mini-card">
+            <div class="mini-card-top"><span>¡Hello!</span><span>7/10</span></div>
+            <div class="mini-stamps">
+              <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
+              <i class="on"></i><i class="on"></i><i></i><i></i><i></i>
+            </div>
+            <div class="mini-card-bar"><b></b></div>
+          </div>
         </div>
         <div class="process-step reveal" style="--d:220ms">
           <div class="process-num">03</div>
