@@ -4378,14 +4378,16 @@ async function handleWalletRegister(request, env, deviceId, passTypeId, serial) 
   const authHeader = request.headers.get('Authorization') || '';
   const token = authHeader.replace('ApplePass ', '');
   const customer = await env.DB.prepare('SELECT * FROM customers WHERE wallet_auth_token = ?').bind(token).first();
-  if (!customer) return new Response(null, { status: 401 });
+  if (!customer) { console.error(`[wallet] registro rechazado: token de autenticación inválido para serial ${serial}`); return new Response(null, { status: 401 }); }
 
   const { pushToken } = await request.json();
   try {
     await env.DB.prepare(
       'INSERT OR REPLACE INTO wallet_registrations (device_library_identifier, pass_type_identifier, serial_number, push_token) VALUES (?, ?, ?, ?)'
     ).bind(deviceId, passTypeId, serial, pushToken).run();
+    console.log(`[wallet] dispositivo registrado OK para serial ${serial} (device ${deviceId.slice(0, 12)}...)`);
   } catch (e) {
+    console.error(`[wallet] FALLÓ el registro del dispositivo para serial ${serial}:`, e && e.message ? e.message : e);
     return new Response(null, { status: 500 });
   }
   return new Response(null, { status: 201 });
@@ -4498,9 +4500,19 @@ async function walletSendApnsPush(env, pushToken) {
       body: '{}',
     });
     if (resp.ok) return 'ok';
-    if (resp.status === 400 || resp.status === 410) return 'invalid'; // BadDeviceToken / Unregistered
+    // Apple manda el motivo real del error en el body (ej: {"reason":"BadDeviceToken"}).
+    // Lo logueamos siempre para poder diagnosticar sin adivinar.
+    const bodyText = await resp.text().catch(() => '');
+    console.error(`[wallet] APNs respondió ${resp.status} para token ${pushToken.slice(0, 12)}...: ${bodyText}`);
+    // Solo borramos el registro si Apple confirma que el token específico ya no sirve.
+    // Un 400 puede ser BadDeviceToken (sí hay que borrar) pero también BadTopic o
+    // InvalidProviderToken (error de configuración nuestro, NO hay que borrar el registro).
+    let reason = '';
+    try { reason = JSON.parse(bodyText).reason || ''; } catch (e) {}
+    if (resp.status === 410 || reason === 'BadDeviceToken' || reason === 'Unregistered') return 'invalid';
     return 'error';
   } catch (e) {
+    console.error('[wallet] error de red mandando push a APNs:', e && e.message ? e.message : e);
     return 'error';
   }
 }
@@ -4510,15 +4522,22 @@ async function walletSendApnsPush(env, pushToken) {
 // registrado para ese serial; si Apple confirma que un token ya no sirve, lo
 // borra de wallet_registrations para no seguir intentando en el futuro.
 async function walletNotifyDevices(env, slug, code) {
-  if (!env.WALLET_APNS_KEY || !env.WALLET_APNS_KEY_ID) return; // preparado para cuando esté configurado
+  if (!env.WALLET_APNS_KEY || !env.WALLET_APNS_KEY_ID) {
+    console.log('[wallet] walletNotifyDevices: faltan WALLET_APNS_KEY o WALLET_APNS_KEY_ID, no se manda push todavía');
+    return;
+  }
   const serial = `${slug}-${code}`;
   try {
     const { results } = await env.DB.prepare('SELECT push_token FROM wallet_registrations WHERE serial_number = ?').bind(serial).all();
+    console.log(`[wallet] walletNotifyDevices: ${results.length} dispositivo(s) registrados para el serial "${serial}"`);
     for (const row of results) {
       const outcome = await walletSendApnsPush(env, row.push_token);
+      console.log(`[wallet] push a ${serial} (token ${row.push_token.slice(0, 12)}...): ${outcome}`);
       if (outcome === 'invalid') {
         await env.DB.prepare('DELETE FROM wallet_registrations WHERE push_token = ?').bind(row.push_token).run();
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[wallet] error en walletNotifyDevices:', e && e.message ? e.message : e);
+  }
 }
