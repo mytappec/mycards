@@ -4256,11 +4256,11 @@ async function walletBuildStampStripImage(business, filled, total) {
   const topCount = Math.ceil(total / 2);
   const bottomCount = total - topCount;
   if (bottomCount > 0) {
-    const topCy = height*0.33, bottomCy = height*0.77; // más aire respecto al logo
+    const topCy = height*0.33, bottomCy = height*0.72; // más aire abajo también, para el nombre
     // FIX #1: el radio máximo se deriva del espacio real entre las dos filas (rowGap),
     // dejando ~15% de aire, en vez del height*0.30 fijo que causaba el encimado.
     const rowGap = bottomCy - topCy;
-    const maxRadius = rowGap * 0.41;
+    const maxRadius = rowGap * 0.39;
     walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, bgColor, maxRadius);
     walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, bgColor, maxRadius);
   } else {
