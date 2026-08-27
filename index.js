@@ -2780,7 +2780,7 @@ function renderLandingPage() {
   };
 
   const beneficios = [
-    [icons.palette, 'Tarjeta 100% personalizada', 'Con el branding, colores y logo de tu marca — no una plantilla genérica.'],
+    [icons.palette, 'Tarjeta 100% personalizada', 'Con el branding, colores y logo de tu marca. No una plantilla genérica.'],
     [icons.target, 'Tu negocio, tus reglas', 'Elige el premio y la cantidad de sellos que quieres ofrecer.'],
     [icons.scan, 'Registro fácil y rápido', 'Escaneando el QR del cliente o escribiendo su código a mano.'],
     [icons.key, 'Código único por cliente', 'Para llevar su progreso de forma individual, sin confusiones.'],
@@ -3022,6 +3022,9 @@ function renderLandingPage() {
   .footer-links{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;font-size:13.5px;font-weight:600;}
   .footer-links a{text-decoration:none;color:rgba(253,251,242,.75);}
   .footer-links a:hover{color:var(--mustard);}
+  .footer-social{display:inline-flex;align-items:center;gap:7px;text-decoration:none;color:rgba(253,251,242,.75);font-size:13.5px;font-weight:600;}
+  .footer-social svg{width:18px;height:18px;}
+  .footer-social:hover{color:var(--mustard);}
   .footer-credit{font-size:12.5px;color:rgba(253,251,242,.5);}
   .footer-credit a{font-weight:800;color:var(--mustard);text-decoration:none;}
 
@@ -3103,7 +3106,7 @@ function renderLandingPage() {
         <div class="process-step reveal" style="--d:110ms">
           <div class="process-num">02</div>
           <h3>Tus clientes juntan sellos</h3>
-          <p>Escaneas su QR (o escribes su código) en cada compra, desde tu panel — y si quieren, guardan su tarjeta en Apple Wallet, que se actualiza sola con cada sello.</p>
+          <p>Escaneas su QR (o escribes su código) en cada compra, desde tu panel. Si quieren, guardan su tarjeta en Apple Wallet, que se actualiza sola con cada sello.</p>
           <span class="process-arrow">→</span>
           <div class="mini-card">
             <div class="mini-card-top"><span>¡Hello!</span><span>7/10</span></div>
@@ -3117,7 +3120,7 @@ function renderLandingPage() {
         <div class="process-step reveal" style="--d:220ms">
           <div class="process-num">03</div>
           <h3>Vuelven por su premio</h3>
-          <p>Y siguen eligiendo tu marca — con datos reales de quién regresa.</p>
+          <p>Y siguen eligiendo tu marca, con datos reales de quién regresa.</p>
         </div>
       </div>
     </div>
@@ -3221,6 +3224,7 @@ function renderLandingPage() {
         <a href="#planes">Planes</a>
         <a href="#contacto">Contacto</a>
       </div>
+      <a class="footer-social" href="https://www.instagram.com/heytapp.ec" target="_blank" rel="noopener">${icons.instagram}<span>@heytapp.ec</span></a>
       <p class="footer-credit">Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
     </div>
   </footer>
