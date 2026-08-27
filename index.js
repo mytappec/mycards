@@ -2863,7 +2863,7 @@ function renderLandingPage() {
   .plans h2{text-align:center;font-size:clamp(26px,3.4vw,36px);margin-bottom:12px;}
   .plans-sub{text-align:center;color:var(--brown-soft);max-width:480px;margin:0 auto 56px;font-size:15.5px;line-height:1.55;}
   .plans-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:26px;max-width:1180px;margin:0 auto;}
-  .plan-card{background:var(--cream);border-radius:26px;padding:34px 30px;box-shadow:var(--shadow-md);position:relative;overflow:hidden;transition:transform .3s var(--ease),box-shadow .3s var(--ease);}
+  .plan-card{background:var(--cream);border-radius:26px;padding:34px 30px;box-shadow:var(--shadow-md);position:relative;overflow:hidden;transition:transform .3s var(--ease),box-shadow .3s var(--ease);display:flex;flex-direction:column;}
   .plan-card::after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(115deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-15deg);transition:left .7s var(--ease);pointer-events:none;}
   .plan-card:hover::after{left:130%;}
   .plan-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg);}
@@ -2871,8 +2871,8 @@ function renderLandingPage() {
   .plan-icon svg{width:24px;height:24px;}
   .plan-tag{display:inline-block;background:var(--mustard);color:var(--brown);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:4px 12px;border-radius:99px;margin-bottom:14px;}
   .plan-card h3{color:var(--terracotta);font-size:21px;margin-bottom:10px;}
-  .plan-card p{margin:0 0 22px;font-size:14.5px;line-height:1.55;color:var(--brown-soft);}
-  .plan-card .btn{width:100%;}
+  .plan-card p{margin:0 0 22px;font-size:14.5px;line-height:1.55;color:var(--brown-soft);flex:1;}
+  .plan-card .btn{width:100%;margin-top:auto;}
   @media (max-width:980px){ .plans-grid{grid-template-columns:1fr 1fr;max-width:820px;} }
   @media (max-width:640px){ .plans-grid{grid-template-columns:1fr;} }
 
@@ -3027,22 +3027,22 @@ function renderLandingPage() {
           <div class="plan-icon">${icons.instagram}</div>
           <span class="plan-tag">Digital</span>
           <h3>Plan Fideliza Digital</h3>
-          <p>Para marcas que venden por Instagram, WhatsApp o canales digitales. Creamos tu Hey Tapp desde cero con tu identidad, tus colores y el premio que tú decidas — nada de plantillas genéricas.</p>
-          <a href="#contacto" class="btn btn-primary">Pedir información</a>
+          <p>Para marcas que venden por Instagram, WhatsApp o canales digitales. Creamos tu Hey Tapp desde cero con tu branding, colores y el premio que tú decidas. ¡Tu cliente al alcance un clic!</p>
+          <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
         </div>
         <div class="plan-card reveal" style="--d:110ms">
           <div class="plan-icon">${icons.shop}</div>
           <span class="plan-tag">Físico</span>
           <h3>Plan Fideliza Físico</h3>
-          <p>Para marcas con tienda, local o punto de venta. Incluye un hablador físico con QR para tu mostrador, listo para que tus clientes escaneen, se registren y empiecen a acumular sellos al toque.</p>
-          <a href="#contacto" class="btn btn-primary">Pedir información</a>
+          <p>Para marcas con tienda, local o punto de venta. Incluye un hablador físico con QR para tu mostrador, listo para que tus clientes escaneen, se registren y empiecen a acumular sellos al instante.</p>
+          <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
         </div>
         <div class="plan-card reveal" style="--d:220ms">
           <div class="plan-icon">${icons.wallet}</div>
           <span class="plan-tag">Wallet</span>
           <h3>Plan Fideliza Wallet</h3>
-          <p>Lleva tu fidelización un paso más allá: tus clientes agregan su Hey Tapp directo a Apple Wallet y llevan siempre con ellos su tarjeta, sus sellos y el premio que están por alcanzar, actualizados automáticamente con cada compra.</p>
-          <a href="#contacto" class="btn btn-primary">Pedir información</a>
+          <p>Lleva tu fidelización un paso más allá. Tus clientes agregan su Hey Tapp directo a Apple Wallet y llevan siempre con ellos su tarjeta, sus sellos y el premio que están por alcanzar, actualizados automáticamente con cada compra.</p>
+          <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
         </div>
       </div>
     </div>
