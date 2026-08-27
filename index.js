@@ -1673,13 +1673,16 @@ async function handleUpdateAppearance(request, env) {
 async function handleCreateLead(request, env) {
   const body = await request.json().catch(() => ({}));
   const name = String(body.name || '').trim();
-  const phone = String(body.phone || '').trim();
+  const phone = String(body.phone || '').trim().replace(/\D/g, ''); // solo dígitos
   const email = String(body.email || '').trim();
   const instagram = String(body.instagram || '').trim();
-  const businessType = ['digital', 'fisico'].includes(body.business_type) ? body.business_type : null;
+  const businessType = ['digital', 'fisico', 'wallet'].includes(body.business_type) ? body.business_type : null;
 
   if (!name || !phone || !email) {
     return new Response(JSON.stringify({ error: 'Faltan datos: nombre, celular y correo son obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (!/^\d{7,10}$/.test(phone)) {
+    return new Response(JSON.stringify({ error: 'El celular debe tener solo números, entre 7 y 10 dígitos' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return new Response(JSON.stringify({ error: 'Ese correo no parece válido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -3064,7 +3067,7 @@ function renderLandingPage() {
             <div class="field-row">
               <div class="field">
                 <label for="lf_phone">Celular</label>
-                <input type="tel" id="lf_phone" required>
+                <input type="tel" id="lf_phone" inputmode="numeric" maxlength="10" placeholder="Ej. 0991234567" required>
               </div>
               <div class="field">
                 <label for="lf_email">Correo</label>
@@ -3144,6 +3147,11 @@ function renderLandingPage() {
     sections.forEach(s => { if (s) sectionIO.observe(s); });
 
     // formulario de contacto
+    // mientras escribe el celular, se le quita al vuelo cualquier cosa que no
+    // sea un dígito y se recorta a 10 — así ni siquiera puede teclear letras
+    document.getElementById('lf_phone').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+    });
     document.getElementById('leadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const msg = document.getElementById('formMsg');
@@ -3156,6 +3164,14 @@ function renderLandingPage() {
       };
       if (!payload.name || !payload.phone || !payload.email) {
         msg.textContent = 'Completa nombre, celular y correo'; msg.className = 'form-msg err';
+        return;
+      }
+      if (!/^\d{7,10}$/.test(payload.phone)) {
+        msg.textContent = 'El celular debe tener solo números, entre 7 y 10 dígitos'; msg.className = 'form-msg err';
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+        msg.textContent = 'Ingresa un correo válido (debe tener un @ y un dominio, ej. nombre@correo.com)'; msg.className = 'form-msg err';
         return;
       }
       msg.textContent = 'Enviando...'; msg.className = 'form-msg';
