@@ -17,6 +17,8 @@
 //   GET  /staff/:slug/logout   -> cierra sesión
 // ============================================================
 
+import { createSign, createHash } from 'node:crypto';
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -3960,7 +3962,6 @@ function walletExtractIssuerAndSerial(certDer) {
 
 // firma PKCS#7 "detached" del manifest.json — probada y verificada con openssl
 async function walletSignPkcs7(dataBytes, signerCertPem, signerKeyPem, wwdrCertPem) {
-  const { createSign, createHash } = await import('node:crypto');
   const signerCertDer = walletPemToDer(signerCertPem);
   const wwdrCertDer = walletPemToDer(wwdrCertPem);
   const issuerAndSerial = walletExtractIssuerAndSerial(signerCertDer);
@@ -4099,7 +4100,6 @@ async function walletGeneratePass(business, customer, env, origin) {
     return null;
   }
   const enc = new TextEncoder();
-  const { createHash } = await import('node:crypto');
 
   const passJson = enc.encode(JSON.stringify(walletBuildPassJSON(business, customer, env, origin)));
 
