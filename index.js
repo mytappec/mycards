@@ -1784,8 +1784,8 @@ async function handleCreateLead(request, env) {
   if (name.length > 80) {
     return new Response(JSON.stringify({ error: 'El nombre es demasiado largo (máximo 80 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  if (!/^\d{7,10}$/.test(phone)) {
-    return new Response(JSON.stringify({ error: 'El celular debe tener solo números, entre 7 y 10 dígitos' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!/^\d{10}$/.test(phone)) {
+    return new Response(JSON.stringify({ error: 'El celular debe tener exactamente 10 dígitos' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return new Response(JSON.stringify({ error: 'Ese correo no parece válido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -3282,8 +3282,8 @@ function renderLandingPage() {
         msg.textContent = 'Completa nombre, celular, correo e Instagram'; msg.className = 'form-msg err';
         return;
       }
-      if (!/^\d{7,10}$/.test(payload.phone)) {
-        msg.textContent = 'El celular debe tener solo números, entre 7 y 10 dígitos'; msg.className = 'form-msg err';
+      if (!/^\d{10}$/.test(payload.phone)) {
+        msg.textContent = 'El celular debe tener exactamente 10 dígitos'; msg.className = 'form-msg err';
         return;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
