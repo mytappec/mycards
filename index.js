@@ -1778,8 +1778,8 @@ async function handleCreateLead(request, env) {
   const instagram = String(body.instagram || '').trim();
   const businessType = ['digital', 'fisico', 'wallet'].includes(body.business_type) ? body.business_type : null;
 
-  if (!name || !phone || !email) {
-    return new Response(JSON.stringify({ error: 'Faltan datos: nombre, celular y correo son obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!name || !phone || !email || !instagram) {
+    return new Response(JSON.stringify({ error: 'Faltan datos: nombre, celular, correo e Instagram son obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (name.length > 80) {
     return new Response(JSON.stringify({ error: 'El nombre es demasiado largo (máximo 80 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -3191,8 +3191,8 @@ function renderLandingPage() {
               </div>
             </div>
             <div class="field">
-              <label for="lf_instagram">Instagram de tu negocio (opcional)</label>
-              <input type="text" id="lf_instagram" placeholder="@tunegocio">
+              <label for="lf_instagram">Instagram de tu negocio</label>
+              <input type="text" id="lf_instagram" placeholder="@tunegocio" required>
             </div>
             <div class="field">
               <label for="lf_type">¿Cuál te interesa más?</label>
@@ -3278,8 +3278,8 @@ function renderLandingPage() {
         instagram: document.getElementById('lf_instagram').value.trim(),
         business_type: document.getElementById('lf_type').value,
       };
-      if (!payload.name || !payload.phone || !payload.email) {
-        msg.textContent = 'Completa nombre, celular y correo'; msg.className = 'form-msg err';
+      if (!payload.name || !payload.phone || !payload.email || !payload.instagram) {
+        msg.textContent = 'Completa nombre, celular, correo e Instagram'; msg.className = 'form-msg err';
         return;
       }
       if (!/^\d{7,10}$/.test(payload.phone)) {
