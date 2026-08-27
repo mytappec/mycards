@@ -3182,10 +3182,12 @@ function renderLandingPage() {
               <div class="field">
                 <label for="lf_phone">Celular</label>
                 <input type="tel" id="lf_phone" inputmode="numeric" maxlength="10" placeholder="Ej. 0991234567" required>
+                <p style="margin:6px 0 0;font-size:11.5px;color:var(--brown-soft);">Solo números, sin espacios ni guiones</p>
               </div>
               <div class="field">
                 <label for="lf_email">Correo</label>
-                <input type="email" id="lf_email" required>
+                <input type="email" id="lf_email" placeholder="nombre@correo.com" required>
+                <p style="margin:6px 0 0;font-size:11.5px;color:var(--brown-soft);">Debe incluir @ y un dominio (ej. correo.com)</p>
               </div>
             </div>
             <div class="field">
