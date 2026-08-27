@@ -1104,6 +1104,11 @@ async function renderAdminDashboard(env, admin) {
           <label>Tu recordatorio de este PIN (solo tú lo ves, con tu contraseña)</label>
           <input type="text" id="pin_note" placeholder="Ej. mismo que arriba, o alguna nota para ti">
 
+          <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+            <input type="checkbox" id="wallet_enabled" checked style="width:auto;">
+            Incluye botón de Apple Wallet (según el plan del negocio)
+          </label>
+
           <button type="submit">Crear negocio</button>
         </form>
         <p class="msg" id="msg"></p>
@@ -1339,7 +1344,8 @@ async function renderAdminDashboard(env, admin) {
             instagram_handle: document.getElementById('instagram_handle').value,
             instagram_url: document.getElementById('instagram_url').value,
             pin: document.getElementById('pin').value,
-            pin_note: document.getElementById('pin_note').value
+            pin_note: document.getElementById('pin_note').value,
+            wallet_enabled: document.getElementById('wallet_enabled').checked
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
           const res = await fetch('/admin/businesses', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -1519,6 +1525,7 @@ async function handleCreateBusiness(request, env) {
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url), staff_pin_hash: pinHash,
     staff_pin_note: body.pin_note || null,
     instruction_text: body.instruction_text || 'Muestra este código en caja para sumar tu sello en tu compra.',
+    wallet_enabled: body.wallet_enabled === false ? 0 : 1,
   };
   // casillas de negrita/cursiva, por bloque
   const boldFields = { font_bold: 1, font_italic: 0, eyebrow_bold: 1, eyebrow_italic: 0, reward_bold: 1, reward_italic: 0 };
@@ -2014,6 +2021,11 @@ async function handleEditBusinessForm(request, env, slug) {
           <label>Instagram (link completo)</label>
           <input type="text" id="instagram_url" value="${escapeHtml(b.instagram_url || '')}">
 
+          <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+            <input type="checkbox" id="wallet_enabled" ${b.wallet_enabled ? 'checked' : ''} style="width:auto;">
+            Incluye botón de Apple Wallet (según el plan del negocio)
+          </label>
+
           <div style="display:flex;gap:8px;align-items:flex-end;">
             <button type="submit" style="flex:1;">Guardar cambios</button>
             <button type="button" id="undoBtn" class="undo-btn" style="flex:0 0 auto;width:auto;padding:14px 16px;" disabled title="Deshacer último cambio (Ctrl+Z)">↩️ Deshacer</button>
@@ -2092,7 +2104,8 @@ async function handleEditBusinessForm(request, env, slug) {
             reward_heading: document.getElementById('reward_heading').value,
             reward_text: document.getElementById('reward_text').value,
             instagram_handle: document.getElementById('instagram_handle').value,
-            instagram_url: document.getElementById('instagram_url').value
+            instagram_url: document.getElementById('instagram_url').value,
+            wallet_enabled: document.getElementById('wallet_enabled').checked
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
           const res = await fetch('/admin/business/${slug}/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -2235,6 +2248,7 @@ async function handleUpdateBusiness(request, env, slug) {
     greeting_eyebrow: body.greeting_eyebrow, reward_heading: body.reward_heading, reward_text: body.reward_text,
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url),
     instruction_text: body.instruction_text || business.instruction_text,
+    wallet_enabled: body.wallet_enabled === false ? 0 : 1,
   };
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
   for (const key of boldFieldNames) fixedFields[key] = body[key] ? 1 : 0;
@@ -2370,6 +2384,11 @@ async function handlePublicRegisterSubmit(request, env, slug) {
 async function handleCustomerCard(env, slug, code, origin) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
+
+  if (business.is_suspended) {
+    const platformName = await getPlatformName(env);
+    return new Response(renderSuspendedPage(business, platformName), { status: 402, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
 
   const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?')
     .bind(code, business.id).first();
@@ -2547,10 +2566,10 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
           <span>${escapeHtml(b.instagram_handle || '')}</span>
         </a>` : ''}
-        <a class="wallet-btn" href="${origin}/wallet/${slug}/${customer.code}">
+        ${b.wallet_enabled ? `<a class="wallet-btn" href="${origin}/wallet/${slug}/${customer.code}">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Zm2-4a2 2 0 0 0-2 2v1h16V6a2 2 0 0 0-2-2H6Z"/></svg>
           <span>Agregar a Apple Wallet</span>
-        </a>
+        </a>` : ''}
       </div>
       </div>
     </div>
@@ -4414,6 +4433,8 @@ async function walletGeneratePass(business, customer, env, origin) {
 async function handleWalletDownload(env, slug, code, origin) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
+  if (business.is_suspended) return new Response('Este negocio está suspendido.', { status: 402 });
+  if (!business.wallet_enabled) return new Response('Este negocio no tiene Apple Wallet incluido en su plan.', { status: 403 });
   const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?').bind(code, business.id).first();
   if (!customer) return new Response('Cliente no encontrado', { status: 404 });
 
@@ -4496,6 +4517,7 @@ async function handleWalletGetPass(env, passTypeId, serial, origin) {
   const code = codeParts.join('-');
   const business = await getBusiness(env, slug);
   if (!business) return new Response(null, { status: 404 });
+  if (business.is_suspended) return new Response(null, { status: 404 });
   const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?').bind(code, business.id).first();
   if (!customer) return new Response(null, { status: 404 });
 
