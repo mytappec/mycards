@@ -4172,6 +4172,8 @@ async function walletGeneratePass(business, customer, env, origin) {
     'icon@2x.png': logoBytes,
     'logo.png': logoBytes,
     'logo@2x.png': logoBytes,
+    'strip.png': logoBytes,
+    'strip@2x.png': logoBytes,
   };
 
   const manifest = {};
