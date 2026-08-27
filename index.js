@@ -4332,11 +4332,13 @@ function walletBuildPassJSON(business, customer, env, origin) {
         { key: 'reward_full', label: 'Tu premio', value: rewardFull },
         { key: 'info', label: 'Cómo funciona', value: business.instruction_text || 'Muestra este código en caja en cada compra para sumar un sello.' },
         { key: 'business', label: 'Negocio', value: business.name },
+        { key: 'powered_by', label: '', value: 'Powered by Hey Tapp' },
       ],
     },
     barcodes: [
-      // altText: Apple lo dibuja debajo del QR nativo (así se ve el "Powered by ..." de otras apps)
-      { message: `${origin}/${business.slug}/${customer.code}`, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1', altText: 'Powered by Hey Tapp' },
+      // altText: Apple lo dibuja debajo del QR nativo — aquí va el código único del cliente,
+      // para que el negocio lo pueda ingresar a mano si no hay internet o el QR no escanea
+      { message: `${origin}/${business.slug}/${customer.code}`, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1', altText: customer.code },
     ],
   };
 }
