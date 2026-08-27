@@ -89,7 +89,7 @@ export default {
         if (parts[1] === 'leads') return handleLeadsList(request, env);
         if (parts[1] === 'signup' && request.method === 'POST') return handleAdminSignup(request, env);
         if (parts[1] === 'login' && request.method === 'POST') return handleAdminLogin(request, env);
-        if (parts[1] === 'logout') return handleAdminLogout();
+        if (parts[1] === 'logout') return handleAdminLogout(request, env);
         if (parts[1] === 'recuperar' && request.method === 'POST') return handleAdminRecover(request, env);
         if (parts[1] === 'recuperar') { const pname = await getPlatformName(env); return new Response(renderAdminRecoverForm(pname), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } }); }
         if (parts[1] === 'cambiar-password' && request.method === 'POST') return handleAdminChangePassword(request, env);
@@ -117,7 +117,7 @@ export default {
         if (parts[2] === 'clientes') return handleClientesList(request, env, slug);
         if (parts[2] === 'cliente' && parts[3] && parts[4] === 'delete' && request.method === 'POST') return handleDeleteCustomer(request, env, slug, parts[3]);
         if (parts[2] === 'historial' && parts[3]) return handleHistorial(request, env, slug, parts[3]);
-        if (parts[2] === 'logout') return handleLogout(slug);
+        if (parts[2] === 'logout') return handleLogout(request, env, slug);
         return handleStaffPage(request, env, slug);
       }
 
@@ -134,11 +134,15 @@ export default {
 
       return new Response('No encontrado', { status: 404 });
     } catch (err) {
+      // el detalle real del error queda solo en tus logs de Cloudflare (Observability),
+      // nunca en la respuesta que ve el navegador — así no se filtran nombres de
+      // columnas, rutas internas, etc. a quien esté viendo la respuesta
+      console.error('[error no manejado]', err && err.stack ? err.stack : err);
       const wantsJson = (request.headers.get('Content-Type') || '').includes('json') || request.method === 'POST';
       if (wantsJson) {
-        return new Response(JSON.stringify({ error: 'Error del servidor: ' + err.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ error: 'Ocurrió un error del servidor. Intenta de nuevo en unos segundos.' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
       }
-      return new Response('Error del servidor: ' + err.message, { status: 500 });
+      return new Response('Ocurrió un error del servidor. Intenta de nuevo en unos segundos.', { status: 500 });
     }
   }
 };
@@ -575,12 +579,83 @@ function hexToBytes(hex) {
   return bytes;
 }
 
+// token de sesión: 32 bytes al azar (nada derivado de la contraseña ni del PIN),
+// para que cada login sea independiente y se pueda invalidar sin tener que
+// cambiar la contraseña/PIN de la cuenta.
+function generateSessionToken() {
+  return bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+}
+function sqliteDateInDays(days) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+}
+async function createAdminSession(env, adminId, days = 30) {
+  const token = generateSessionToken();
+  const tokenHash = await sha256Hex(token);
+  await env.DB.prepare('UPDATE admins SET session_token_hash = ?, session_expires_at = ? WHERE id = ?')
+    .bind(tokenHash, sqliteDateInDays(days), adminId).run();
+  return `${adminId}.${token}`;
+}
+async function invalidateAdminSession(env, adminId) {
+  await env.DB.prepare('UPDATE admins SET session_token_hash = NULL, session_expires_at = NULL WHERE id = ?').bind(adminId).run();
+}
+
+// ---------- sesiones del staff: tabla propia (no el hash del PIN) para que cada
+// dispositivo tenga su propio token, invalidable, sin que uno eche al otro ----------
+async function createStaffSession(env, businessId, hours = 12) {
+  const token = generateSessionToken();
+  const tokenHash = await sha256Hex(token);
+  const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+  await env.DB.prepare('INSERT INTO staff_sessions (business_id, token_hash, expires_at) VALUES (?, ?, ?)')
+    .bind(businessId, tokenHash, expiresAt).run();
+  // limpieza oportunista de sesiones vencidas de este negocio, para que la tabla no crezca sin control
+  await env.DB.prepare('DELETE FROM staff_sessions WHERE business_id = ? AND expires_at < datetime("now")').bind(businessId).run();
+  return token;
+}
+async function isValidStaffSession(env, businessId, cookieVal) {
+  if (!cookieVal) return false;
+  const tokenHash = await sha256Hex(cookieVal);
+  const row = await env.DB.prepare(
+    'SELECT id FROM staff_sessions WHERE business_id = ? AND token_hash = ? AND expires_at > datetime("now")'
+  ).bind(businessId, tokenHash).first();
+  return !!row;
+}
+async function invalidateStaffSession(env, businessId, cookieVal) {
+  if (!cookieVal) return;
+  const tokenHash = await sha256Hex(cookieVal);
+  await env.DB.prepare('DELETE FROM staff_sessions WHERE business_id = ? AND token_hash = ?').bind(businessId, tokenHash).run();
+}
+async function invalidateAllStaffSessions(env, businessId) {
+  await env.DB.prepare('DELETE FROM staff_sessions WHERE business_id = ?').bind(businessId).run();
+}
+
+// ---------- protección anti-spam simple para formularios públicos, por IP ----------
+async function checkRateLimit(env, request, route, maxPerHour) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  try {
+    const row = await env.DB.prepare(
+      'SELECT COUNT(*) as count FROM rate_limits WHERE ip = ? AND route = ? AND created_at > datetime("now", "-1 hour")'
+    ).bind(ip, route).first();
+    if ((row?.count || 0) >= maxPerHour) return { ok: false };
+    await env.DB.prepare('INSERT INTO rate_limits (ip, route) VALUES (?, ?)').bind(ip, route).run();
+    // limpieza ocasional (1 de cada ~20 veces) para no dejar crecer la tabla sin control,
+    // sin pagar el costo de un DELETE en cada solicitud
+    if (Math.random() < 0.05) {
+      await env.DB.prepare('DELETE FROM rate_limits WHERE created_at < datetime("now", "-1 day")').run();
+    }
+    return { ok: true };
+  } catch (e) {
+    // si la tabla todavía no existe (falta correr la migración) no se debe tumbar
+    // el formulario completo por esto — se deja pasar sin límite
+    return { ok: true };
+  }
+}
+
 // contraseñas reales: con salt único por persona + 100,000 vueltas de PBKDF2,
 // no un hash simple como el PIN (que es solo un candado corto, no una contraseña)
 async function hashPassword(password, existingSaltHex) {
   const salt = existingSaltHex ? hexToBytes(existingSaltHex) : crypto.getRandomValues(new Uint8Array(16));
   const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 5000, hash: 'SHA-256' }, keyMaterial, 256);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
   return `${bytesToHex(salt)}:${bytesToHex(new Uint8Array(bits))}`;
 }
 async function verifyPassword(password, stored) {
@@ -660,9 +735,14 @@ async function getAdminFromSession(env, cookieVal) {
   if (!cookieVal || !cookieVal.includes('.')) return null;
   const [idStr, token] = cookieVal.split('.');
   const admin = await env.DB.prepare('SELECT * FROM admins WHERE id = ?').bind(Number(idStr)).first();
-  if (!admin) return null;
-  const expected = await sha256Hex(admin.password_hash);
-  return token === expected ? admin : null;
+  if (!admin || !admin.session_token_hash || !admin.session_expires_at) return null;
+  if (new Date(admin.session_expires_at + 'Z') < new Date()) return null;
+  const tokenHash = await sha256Hex(token);
+  // comparación en tiempo constante para no filtrar por cuánto tarda la comparación
+  if (tokenHash.length !== admin.session_token_hash.length) return null;
+  let diff = 0;
+  for (let i = 0; i < tokenHash.length; i++) diff |= tokenHash.charCodeAt(i) ^ admin.session_token_hash.charCodeAt(i);
+  return diff === 0 ? admin : null;
 }
 
 // el nombre de la marca (ej. "Hey Tap") lo puede cambiar la administradora
@@ -1072,7 +1152,7 @@ async function renderAdminDashboard(env, admin) {
           </div>
 
           <label>Cuántos sellos para el premio</label>
-          <input type="number" id="total_stamps" value="10" min="3" max="30" required>
+          <input type="number" id="total_stamps" value="10" min="3" max="50" required>
 
           <label>Saludo (arriba del nombre)</label>
           <input type="text" id="greeting_eyebrow" value="¡Hello!">
@@ -1397,13 +1477,16 @@ async function handleAdminLogin(request, env) {
   if (!admin || !(await verifyPassword(password || '', admin.password_hash))) {
     return new Response(JSON.stringify({ error: 'Correo o contraseña incorrectos' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
-  const token = await sha256Hex(admin.password_hash);
+  const cookieToken = await createAdminSession(env, admin.id);
   const headers = new Headers({ 'Content-Type': 'application/json' });
-  headers.append('Set-Cookie', `admin_session=${admin.id}.${token}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`);
+  headers.append('Set-Cookie', `admin_session=${cookieToken}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`);
   return new Response(JSON.stringify({ ok: true }), { headers });
 }
 
-function handleAdminLogout() {
+async function handleAdminLogout(request, env) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (admin) await invalidateAdminSession(env, admin.id);
   const headers = new Headers({ 'Location': '/admin' });
   headers.append('Set-Cookie', `admin_session=; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
   return new Response(null, { status: 302, headers });
@@ -1468,6 +1551,7 @@ async function handleAdminRecover(request, env) {
   }
   const newHash = await hashPassword(password);
   await env.DB.prepare('UPDATE admins SET password_hash = ? WHERE id = ?').bind(newHash, admin.id).run();
+  await invalidateAdminSession(env, admin.id);
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 }
 
@@ -1485,7 +1569,12 @@ async function handleAdminChangePassword(request, env) {
   }
   const newHash = await hashPassword(newPassword);
   await env.DB.prepare('UPDATE admins SET password_hash = ? WHERE id = ?').bind(newHash, admin.id).run();
-  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+  // rota la sesión: cualquier otra sesión robada/vieja queda invalidada,
+  // y esta pestaña sigue con sesión activa gracias al cookie nuevo
+  const cookieToken = await createAdminSession(env, admin.id);
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  headers.append('Set-Cookie', `admin_session=${cookieToken}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`);
+  return new Response(JSON.stringify({ ok: true }), { headers });
 }
 
 async function handleCreateBusiness(request, env) {
@@ -1497,6 +1586,9 @@ async function handleCreateBusiness(request, env) {
   const slug = (body.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
   if (!slug || !body.name || !body.logo_base64 || !body.pin) {
     return new Response(JSON.stringify({ error: 'Faltan campos obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (!/^\d{4,6}$/.test(String(body.pin))) {
+    return new Response(JSON.stringify({ error: 'El PIN debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (['admin', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined'].includes(slug)) {
     return new Response(JSON.stringify({ error: 'Ese slug está reservado, usa otro' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -1631,6 +1723,9 @@ async function handleToggleSuspend(request, env, slug) {
 
   const newValue = business.is_suspended ? 0 : 1;
   await env.DB.prepare('UPDATE businesses SET is_suspended = ? WHERE id = ?').bind(newValue, business.id).run();
+  // al suspender, se cierra de inmediato cualquier sesión de staff que ya estuviera
+  // adentro, en vez de dejar que dure hasta 12h más por su cuenta
+  if (newValue === 1) await invalidateAllStaffSessions(env, business.id);
 
   return new Response(JSON.stringify({ ok: true, is_suspended: newValue }), { headers: { 'Content-Type': 'application/json' } });
 }
@@ -1671,6 +1766,11 @@ async function handleUpdateAppearance(request, env) {
 // formulario de contacto de la página de inicio (heytapp.com)
 // ------------------------------------------------------------
 async function handleCreateLead(request, env) {
+  const rl = await checkRateLimit(env, request, 'lead', 8);
+  if (!rl.ok) {
+    return new Response(JSON.stringify({ error: 'Demasiados intentos. Espera unos minutos e intenta de nuevo.' }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+  }
+
   const body = await request.json().catch(() => ({}));
   const name = String(body.name || '').trim();
   const phone = String(body.phone || '').trim().replace(/\D/g, ''); // solo dígitos
@@ -1680,6 +1780,9 @@ async function handleCreateLead(request, env) {
 
   if (!name || !phone || !email) {
     return new Response(JSON.stringify({ error: 'Faltan datos: nombre, celular y correo son obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (name.length > 80) {
+    return new Response(JSON.stringify({ error: 'El nombre es demasiado largo (máximo 80 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (!/^\d{7,10}$/.test(phone)) {
     return new Response(JSON.stringify({ error: 'El celular debe tener solo números, entre 7 y 10 dígitos' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -1999,7 +2102,7 @@ async function handleEditBusinessForm(request, env, slug) {
           ${colorGroupsHtml(b)}
 
           <label>Cuántos sellos para el premio</label>
-          <input type="number" id="total_stamps" value="${b.total_stamps}" min="3" max="30" required>
+          <input type="number" id="total_stamps" value="${b.total_stamps}" min="3" max="50" required>
 
           <label>Saludo (arriba del nombre)</label>
           <input type="text" id="greeting_eyebrow" value="${escapeHtml(b.greeting_eyebrow)}">
@@ -2366,6 +2469,14 @@ async function handlePublicRegisterForm(env, slug, origin) {
 async function handlePublicRegisterSubmit(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  if (business.is_suspended) {
+    return new Response(JSON.stringify({ error: 'Este negocio está suspendido' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const rl = await checkRateLimit(env, request, 'register', 15);
+  if (!rl.ok) {
+    return new Response(JSON.stringify({ error: 'Demasiados intentos. Espera unos minutos e intenta de nuevo.' }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+  }
 
   const { nombre, cedula } = await request.json();
   if (!nombre || !cedula) {
@@ -2373,6 +2484,9 @@ async function handlePublicRegisterSubmit(request, env, slug) {
   }
   if (!/^[0-9]{10}$/.test(String(cedula).trim())) {
     return new Response(JSON.stringify({ error: 'La cédula debe tener exactamente 10 números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (String(nombre).trim().length > 80) {
+    return new Response(JSON.stringify({ error: 'El nombre es demasiado largo (máximo 80 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
   const fullName = String(nombre).trim();
@@ -3287,7 +3401,7 @@ async function handleStaffPage(request, env, slug) {
   }
 
   const cookieVal = getCookie(request, 'staff_session');
-  const isLoggedIn = cookieVal === business.staff_pin_hash;
+  const isLoggedIn = await isValidStaffSession(env, business.id, cookieVal);
 
   const html = isLoggedIn ? renderStaffPanel(business, platformName) : renderStaffLogin(business, platformName);
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
@@ -3591,11 +3705,15 @@ async function handleLogin(request, env, slug) {
   await env.DB.prepare('UPDATE businesses SET staff_login_fails = 0, staff_login_locked_until = NULL WHERE id = ?').bind(business.id).run();
 
   const headers = new Headers({ 'Content-Type': 'application/json' });
-  headers.append('Set-Cookie', `staff_session=${hash}; Path=/staff/${slug}; HttpOnly; Secure; SameSite=Strict; Max-Age=43200`);
+  const staffToken = await createStaffSession(env, business.id);
+  headers.append('Set-Cookie', `staff_session=${staffToken}; Path=/staff/${slug}; HttpOnly; Secure; SameSite=Strict; Max-Age=43200`);
   return new Response(JSON.stringify({ ok: true }), { headers });
 }
 
-function handleLogout(slug) {
+async function handleLogout(request, env, slug) {
+  const business = await getBusiness(env, slug);
+  const cookieVal = getCookie(request, 'staff_session');
+  if (business && cookieVal) await invalidateStaffSession(env, business.id, cookieVal);
   const headers = new Headers({ 'Location': `/staff/${slug}` });
   headers.append('Set-Cookie', `staff_session=; Path=/staff/${slug}; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
   return new Response(null, { status: 302, headers });
@@ -3604,15 +3722,21 @@ function handleLogout(slug) {
 async function handleRegister(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  if (business.is_suspended) {
+    return new Response(JSON.stringify({ error: 'Este negocio está suspendido' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
 
   const cookieVal = getCookie(request, 'staff_session');
-  if (cookieVal !== business.staff_pin_hash) {
+  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
     return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a ingresar el PIN' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
   const { name, cedula } = await request.json();
   if (!name) {
     return new Response(JSON.stringify({ error: 'Falta el nombre del cliente' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (String(name).trim().length > 80) {
+    return new Response(JSON.stringify({ error: 'El nombre es demasiado largo (máximo 80 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
   const code = await generateUniqueCode(env, slug);
@@ -3627,9 +3751,13 @@ async function handleRegister(request, env, slug) {
 async function handleClientesList(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
+  if (business.is_suspended) {
+    const platformName = await getPlatformName(env);
+    return new Response(renderSuspendedPage(business, platformName), { status: 402, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
 
   const cookieVal = getCookie(request, 'staff_session');
-  if (cookieVal !== business.staff_pin_hash) {
+  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
     return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
   }
 
@@ -3751,9 +3879,12 @@ async function handleClientesList(request, env, slug) {
 async function handleDeleteCustomer(request, env, slug, code) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  if (business.is_suspended) {
+    return new Response(JSON.stringify({ error: 'Este negocio está suspendido' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
 
   const cookieVal = getCookie(request, 'staff_session');
-  if (cookieVal !== business.staff_pin_hash) {
+  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
     return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
@@ -3770,9 +3901,12 @@ async function handleDeleteCustomer(request, env, slug, code) {
 async function handleBulkDeleteCustomers(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  if (business.is_suspended) {
+    return new Response(JSON.stringify({ error: 'Este negocio está suspendido' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
 
   const cookieVal = getCookie(request, 'staff_session');
-  if (cookieVal !== business.staff_pin_hash) {
+  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
     return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
@@ -3799,9 +3933,13 @@ async function handleBulkDeleteCustomers(request, env, slug) {
 async function handleHistorial(request, env, slug, code) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
+  if (business.is_suspended) {
+    const platformName = await getPlatformName(env);
+    return new Response(renderSuspendedPage(business, platformName), { status: 402, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
 
   const cookieVal = getCookie(request, 'staff_session');
-  if (cookieVal !== business.staff_pin_hash) {
+  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
     return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
   }
 
@@ -3880,7 +4018,7 @@ async function handleStamp(request, env, slug) {
   }
 
   const cookieVal = getCookie(request, 'staff_session');
-  if (cookieVal !== business.staff_pin_hash) {
+  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
     return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a ingresar el PIN' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
