@@ -618,9 +618,11 @@ function sanitizeTotalStamps(value, fallback) {
 
 function generateCode(slug) {
   const prefix = slug.slice(0, 2).toUpperCase();
-  const rand = crypto.getRandomValues(new Uint8Array(4));
-  const suffix = [...rand].map(b => b.toString(16)).join('').toUpperCase().slice(0, 6);
-  return `${prefix}-${suffix}`;
+  // antes: 6 caracteres hexadecimales (mezcla de números y letras A-F) — tedioso de
+  // escribir a mano. Ahora: solo dígitos, mucho más fácil de dictar/teclear.
+  const rand = crypto.getRandomValues(new Uint8Array(6));
+  const suffix = [...rand].map(b => b % 10).join('');
+  return `${prefix}${suffix}`;
 }
 
 // el código es único en TODA la base de datos (no solo por negocio), así que antes de
@@ -3364,6 +3366,13 @@ function renderStaffPanel(b, platformName) {
       const codeInput = document.getElementById('code');
       const msg = document.getElementById('msg');
       const scanHint = document.getElementById('scanHint');
+      // deja ver siempre en mayúscula mientras escribe, para que coincida visualmente
+      // con el código impreso/mostrado (el servidor ya acepta minúscula de todas formas)
+      codeInput.addEventListener('input', () => {
+        const pos = codeInput.selectionStart;
+        codeInput.value = codeInput.value.toUpperCase();
+        codeInput.setSelectionRange(pos, pos);
+      });
       const videoEl = document.getElementById('preview');
       let qrScanner = null;
       let scanLocked = false;
@@ -3810,7 +3819,10 @@ async function handleStamp(request, env, slug) {
     return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a ingresar el PIN' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
-  const { code } = await request.json();
+  // normalizamos a mayúsculas: los códigos siempre se generan así, pero si el staff
+  // los escribe en minúscula (o con espacios de más) antes fallaba con "no existe"
+  const body = await request.json();
+  const code = (body.code || '').trim().toUpperCase();
   const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?')
     .bind(code, business.id).first();
   if (!customer) {
@@ -4256,11 +4268,11 @@ async function walletBuildStampStripImage(business, filled, total) {
   const topCount = Math.ceil(total / 2);
   const bottomCount = total - topCount;
   if (bottomCount > 0) {
-    const topCy = height*0.33, bottomCy = height*0.72; // más aire abajo también, para el nombre
+    const topCy = height*0.28, bottomCy = height*0.75; // aire respecto al logo y al nombre, sin sacrificar tamaño
     // FIX #1: el radio máximo se deriva del espacio real entre las dos filas (rowGap),
     // dejando ~15% de aire, en vez del height*0.30 fijo que causaba el encimado.
     const rowGap = bottomCy - topCy;
-    const maxRadius = rowGap * 0.39;
+    const maxRadius = rowGap * 0.42;
     walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, bgColor, maxRadius);
     walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, bgColor, maxRadius);
   } else {
