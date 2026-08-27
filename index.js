@@ -4308,6 +4308,12 @@ function walletBuildPassJSON(business, customer, env, origin) {
   const total = business.total_stamps;
   const serialNumber = `${business.slug}-${customer.code}`;
   const rewardFull = business.reward_text || 'Al completar tu tarjeta, recibes tu premio.';
+  // el código va pegado al final del mismo campo de premio (no es una columna nueva,
+  // así que la fila se queda en 2 campos totales — la misma que ya se veía bien con
+  // el nombre grande). El presupuesto de caracteres del premio se ajusta según cuánto
+  // ocupe el código, para que la suma total nunca pase de lo que ya sabemos que es seguro.
+  // el código va pegado a la PALABRA "TU PREMIO" (la etiqueta), no al texto del
+  // premio — así el premio se queda intacto, sin compartir espacio con el código
   const rewardFront = walletTruncateForFront(rewardFull, 34);
 
   return {
@@ -4331,26 +4337,27 @@ function walletBuildPassJSON(business, customer, env, origin) {
       headerFields: [
         { key: 'progress', label: 'SELLOS', value: `${filled}/${total}`, textAlignment: 'PKTextAlignmentRight' },
       ],
-      // un solo campo en esta fila = usa todo el ancho = letra grande y legible
+      // storeCard solo tiene UNA fila combinada para secondary+auxiliary (hasta 4
+      // columnas, confirmado con el Human Interface Guidelines de Apple) — un solo
+      // campo en cada una = usa todo el ancho posible = letra grande y legible
       secondaryFields: [
         { key: 'name', label: business.greeting_eyebrow || '¡HELLO!', value: customer.name },
       ],
-      // FIX #2: versión corta en el frente, siempre legible
+      // FIX #2: el código va incluido en el mismo campo de premio (ver rewardFront
+      // arriba), así que esta fila se queda en solo 2 campos totales, igual que antes
       auxiliaryFields: [
-        { key: 'reward', label: 'TU PREMIO', value: rewardFront },
+        { key: 'reward', label: `TU PREMIO - ${customer.code}`, value: rewardFront },
       ],
       backFields: [
         // FIX #2: el texto completo, sin recortar, siempre disponible al voltear la tarjeta
         { key: 'reward_full', label: 'Tu premio', value: rewardFull },
         { key: 'info', label: 'Cómo funciona', value: business.instruction_text || 'Muestra este código en caja en cada compra para sumar un sello.' },
         { key: 'business', label: 'Negocio', value: business.name },
-        { key: 'powered_by', label: '', value: 'Powered by Hey Tapp' },
       ],
     },
     barcodes: [
-      // altText: Apple lo dibuja debajo del QR nativo — aquí va el código único del cliente,
-      // para que el negocio lo pueda ingresar a mano si no hay internet o el QR no escanea
-      { message: `${origin}/${business.slug}/${customer.code}`, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1', altText: customer.code },
+      // ahora que el código ya se ve junto al premio, aquí sí cabe "Powered by Hey Tapp"
+      { message: `${origin}/${business.slug}/${customer.code}`, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1', altText: 'Powered by Hey Tapp' },
     ],
   };
 }
