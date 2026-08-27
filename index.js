@@ -4160,7 +4160,8 @@ function walletSetPixel(pixels, width, x, y, r, g, b, a) {
 function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, filled) {
   const [fr,fg,fb] = fillColor;
   const [br,bg,bb] = borderColor;
-  const borderW = Math.max(4, radius * 0.14);
+  // FIX #5: borde más delgado (antes: Math.max(4, radius * 0.14))
+  const borderW = Math.max(2.2, radius * 0.075);
   const AA = 1.0;
   for (let y = Math.floor(cy-radius-3); y <= Math.ceil(cy+radius+3); y++) {
     for (let x = Math.floor(cx-radius-3); x <= Math.ceil(cx+radius+3); x++) {
@@ -4179,10 +4180,12 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
     }
   }
 }
-function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor) {
+// FIX #1: ahora recibe maxRadius explícito, calculado por el caller según si hay 1 o 2 filas,
+// para que el radio nunca pueda ser mayor que la mitad del espacio vertical libre entre filas.
+function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor, maxRadius) {
   const availableWidth = width - marginX*2;
   const spacing = availableWidth / count;
-  const radius = Math.min(spacing*0.42, height*0.30);
+  const radius = Math.min(spacing*0.42, maxRadius);
   for (let i = 0; i < count; i++) {
     const cx = marginX + spacing*i + spacing/2;
     walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, i < filledCount);
@@ -4204,10 +4207,15 @@ async function walletBuildStampStripImage(business, filled, total) {
   const topCount = Math.ceil(total / 2);
   const bottomCount = total - topCount;
   if (bottomCount > 0) {
-    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), height*0.27, 60, fillColor, fillColor);
-    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), height*0.73, 60, fillColor, fillColor);
+    const topCy = height*0.27, bottomCy = height*0.73;
+    // FIX #1: el radio máximo se deriva del espacio real entre las dos filas (rowGap),
+    // dejando ~15% de aire, en vez del height*0.30 fijo que causaba el encimado.
+    const rowGap = bottomCy - topCy;
+    const maxRadius = rowGap * 0.425;
+    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, maxRadius);
+    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, maxRadius);
   } else {
-    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor);
+    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor, height*0.30);
   }
   return walletEncodePNG(width, height, pixels);
 }
@@ -4221,10 +4229,25 @@ function walletHexToRgb(hex) {
   return `rgb(${r},${g},${b})`;
 }
 
+// Trunca texto largo a un límite seguro para que quepa en una sola línea del campo
+// del frente sin que Apple Wallet lo encoja a un tamaño ilegible (PassKit no hace
+// wrap: si no cabe, achica la fuente en vez de cortar el texto). Corta en el último
+// espacio antes del límite para no partir palabras a la mitad.
+function walletTruncateForFront(text, maxLen = 34) {
+  const clean = String(text || '').trim();
+  if (clean.length <= maxLen) return clean;
+  const cut = clean.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  const safeCut = lastSpace > maxLen * 0.5 ? cut.slice(0, lastSpace) : cut;
+  return safeCut.trim() + '…';
+}
+
 function walletBuildPassJSON(business, customer, env, origin) {
   const filled = Math.min(customer.stamps, business.total_stamps);
   const total = business.total_stamps;
   const serialNumber = `${business.slug}-${customer.code}`;
+  const rewardFull = business.reward_text || 'Al completar tu tarjeta, recibes tu premio.';
+  const rewardFront = walletTruncateForFront(rewardFull, 34);
 
   return {
     formatVersion: 1,
@@ -4235,8 +4258,8 @@ function walletBuildPassJSON(business, customer, env, origin) {
     authenticationToken: customer.wallet_auth_token,
     organizationName: 'Hey Tapp',
     description: `Tarjeta de sellos — ${business.name}`,
-    // sin logoText: el logo del negocio ya suele traer su nombre incluido,
-    // así que no lo repetimos aparte (eso era lo que se veía duplicado)
+    // FIX #4: @usuario de Instagram junto al logo (si el negocio lo tiene cargado)
+    logoText: business.instagram_handle || undefined,
     backgroundColor: walletHexToRgb(business.color_card_bg),
     foregroundColor: walletHexToRgb(business.color_brown),
     labelColor: walletHexToRgb(business.color_brown_soft || business.color_brown),
@@ -4247,10 +4270,13 @@ function walletBuildPassJSON(business, customer, env, origin) {
       secondaryFields: [
         { key: 'name', label: business.greeting_eyebrow || '¡HELLO!', value: customer.name },
       ],
+      // FIX #2: versión corta en el frente, siempre legible
       auxiliaryFields: [
-        { key: 'reward', label: 'TU PREMIO', value: business.reward_text || 'Al completar tu tarjeta, recibes tu premio.' },
+        { key: 'reward', label: 'TU PREMIO', value: rewardFront },
       ],
       backFields: [
+        // FIX #2: el texto completo, sin recortar, siempre disponible al voltear la tarjeta
+        { key: 'reward_full', label: 'Tu premio', value: rewardFull },
         { key: 'info', label: 'Cómo funciona', value: business.instruction_text || 'Muestra este código en caja en cada compra para sumar un sello.' },
         { key: 'business', label: 'Negocio', value: business.name },
       ],
