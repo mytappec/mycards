@@ -3027,21 +3027,21 @@ function renderLandingPage() {
           <div class="plan-icon">${icons.instagram}</div>
           <span class="plan-tag">Digital</span>
           <h3>Plan Fideliza Digital</h3>
-          <p>Para marcas que venden por Instagram, WhatsApp o canales digitales.</p>
+          <p>Para marcas que venden por Instagram, WhatsApp o canales digitales. Creamos tu Hey Tapp desde cero con tu identidad, tus colores y el premio que tú decidas — nada de plantillas genéricas.</p>
           <a href="#contacto" class="btn btn-primary">Pedir información</a>
         </div>
         <div class="plan-card reveal" style="--d:110ms">
           <div class="plan-icon">${icons.shop}</div>
           <span class="plan-tag">Físico</span>
           <h3>Plan Fideliza Físico</h3>
-          <p>Para marcas con tienda, local o punto de venta. Incluye hablador con QR para tu mostrador.</p>
+          <p>Para marcas con tienda, local o punto de venta. Incluye un hablador físico con QR para tu mostrador, listo para que tus clientes escaneen, se registren y empiecen a acumular sellos al toque.</p>
           <a href="#contacto" class="btn btn-primary">Pedir información</a>
         </div>
         <div class="plan-card reveal" style="--d:220ms">
           <div class="plan-icon">${icons.wallet}</div>
           <span class="plan-tag">Wallet</span>
           <h3>Plan Fideliza Wallet</h3>
-          <p>Lleva tu fidelización un paso más allá: tus clientes agregan su Hey Tapp directo a Apple Wallet y llevan siempre con ellos su tarjeta, sus sellos y el premio que están por alcanzar. Se actualiza sola con cada compra, sin que tengan que abrir nada.</p>
+          <p>Lleva tu fidelización un paso más allá: tus clientes agregan su Hey Tapp directo a Apple Wallet y llevan siempre con ellos su tarjeta, sus sellos y el premio que están por alcanzar, actualizados automáticamente con cada compra.</p>
           <a href="#contacto" class="btn btn-primary">Pedir información</a>
         </div>
       </div>
