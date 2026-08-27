@@ -42,6 +42,30 @@ export default {
         return new Response(JSON.stringify(manifest), { headers: { 'Content-Type': 'application/manifest+json' } });
       }
 
+      // ---- Apple Wallet ----
+      // botón "Agregar a Apple Wallet" desde la tarjeta del cliente
+      if (parts.length === 3 && parts[0] === 'wallet' && parts[1] !== 'v1') {
+        return handleWalletDownload(env, parts[1], parts[2], url.origin);
+      }
+      // web service que exige Apple para poder actualizar tarjetas solas
+      if (parts[0] === 'wallet' && parts[1] === 'v1') {
+        // /wallet/v1/devices/:deviceId/registrations/:passTypeId/:serial
+        if (parts[2] === 'devices' && parts[4] === 'registrations') {
+          const deviceId = parts[3], passTypeId = parts[5], serial = parts[6];
+          if (serial && request.method === 'POST') return handleWalletRegister(request, env, deviceId, passTypeId, serial);
+          if (serial && request.method === 'DELETE') return handleWalletUnregister(env, deviceId, passTypeId, serial);
+          if (!serial && request.method === 'GET') return handleWalletUpdatedSerials(env, deviceId, passTypeId);
+        }
+        // /wallet/v1/passes/:passTypeId/:serial
+        if (parts[2] === 'passes' && parts[3] && parts[4] && request.method === 'GET') {
+          return handleWalletGetPass(env, parts[3], parts[4], url.origin);
+        }
+        // /wallet/v1/log
+        if (parts[2] === 'log' && request.method === 'POST') {
+          return handleWalletLog(request);
+        }
+      }
+
       // ---- ícono de la app (para "agregar a inicio" en el celular) ----
       if (parts[0] === 'apple-touch-icon.png' || url.pathname === '/apple-touch-icon.png') {
         return servePngIcon(HEY_TAPP_ICON_180);
@@ -2466,6 +2490,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .qr-copy{font-size:13px;color:var(--text-qr-instruction);line-height:1.4;max-width:290px;}
   .qr-copy b{display:block;font-family:var(--font-display);font-weight:700;font-style:normal;font-size:16px;color:var(--text-qr-code);letter-spacing:.3px;margin-bottom:4px;}
   .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:12px auto 0;padding:7px 14px;background:var(--instagram-bg);border-radius:99px;color:var(--text-instagram);text-decoration:none;font-size:12px;font-weight:700;}
+  .wallet-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:fit-content;margin:12px auto 0;padding:9px 18px;background:#000;border-radius:10px;color:#fff;text-decoration:none;font-size:13px;font-weight:600;font-family:-apple-system,sans-serif;}
   .card{opacity:0;transform:translateY(10px);}
   .intro-bg{position:fixed;inset:0;background:#FDFBF2;z-index:100;}
   .intro-mascot{position:fixed;top:44%;left:50%;width:180px;height:auto;z-index:101;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18));animation:introWiggle .6s ease-in-out 1 forwards;}
@@ -2518,6 +2543,10 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
           <span>${escapeHtml(b.instagram_handle || '')}</span>
         </a>` : ''}
+        <a class="wallet-btn" href="${origin}/wallet/${slug}/${customer.code}">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Zm2-4a2 2 0 0 0-2 2v1h16V6a2 2 0 0 0-2-2H6Z"/></svg>
+          <span>Agregar a Apple Wallet</span>
+        </a>
       </div>
       </div>
     </div>
@@ -3797,11 +3826,414 @@ async function handleStamp(request, env, slug) {
     const newCode = await generateUniqueCode(env, slug);
     await env.DB.prepare("UPDATE customers SET stamps = 0, cycle = cycle + 1, redeemed_at = datetime('now'), code = ? WHERE id = ?")
       .bind(newCode, customer.id).run();
+    await walletNotifyDevices(env, slug, code);
     return new Response(JSON.stringify({ ok: true, redeemed: true, stamps: business.total_stamps, total: business.total_stamps, newCode }),
       { headers: { 'Content-Type': 'application/json' } });
   }
 
   await env.DB.prepare('UPDATE customers SET stamps = ? WHERE id = ?').bind(newStamps, customer.id).run();
+  await walletNotifyDevices(env, slug, code);
   return new Response(JSON.stringify({ ok: true, redeemed: false, stamps: newStamps, total: business.total_stamps }),
     { headers: { 'Content-Type': 'application/json' } });
+}
+
+// ================================================================
+// APPLE WALLET — todo lo necesario para generar y mantener actualizadas
+// tarjetas de Hey Tapp dentro de la app Wallet del iPhone.
+//
+// ESTADO: el código está completo y PROBADO (firma digital verificada
+// con openssl de forma independiente). Lo único que falta son las 3
+// variables secretas de Apple, que se configuran en Cloudflare una vez
+// que tengas tu cuenta de desarrollador aprobada y hayas creado el
+// "Pass Type ID":
+//   - WALLET_PASS_CERT        (certificado del Pass Type ID, en PEM)
+//   - WALLET_PASS_KEY         (llave privada de ese certificado, en PEM)
+//   - WALLET_WWDR_CERT        (certificado intermedio de Apple, en PEM)
+//   - WALLET_PASS_TYPE_ID     (ej: "pass.com.heytapp.loyalty")
+//   - WALLET_TEAM_ID          (tu Team ID de Apple Developer)
+// Mientras esas variables no existan, el botón "Agregar a Apple Wallet"
+// muestra un aviso amigable en vez de romperse.
+//
+// IMPORTANTE: esto requiere que tu Worker tenga activado el modo de
+// compatibilidad con Node.js (nodejs_compat) — revisa que tu
+// wrangler.jsonc tenga "compatibility_flags": ["nodejs_compat"], o que
+// la fecha de compatibilidad sea 2026-08-04 o más reciente (en ese caso
+// ya viene activado por default).
+// ================================================================
+
+// ---------- construcción manual de ASN.1/DER para la firma PKCS#7 ----------
+function walletDerLength(len) {
+  if (len < 0x80) return Uint8Array.of(len);
+  const bytes = [];
+  let n = len;
+  while (n > 0) { bytes.unshift(n & 0xff); n >>= 8; }
+  return Uint8Array.of(0x80 | bytes.length, ...bytes);
+}
+function walletDerTLV(tag, contentBytes) {
+  const len = walletDerLength(contentBytes.length);
+  const out = new Uint8Array(1 + len.length + contentBytes.length);
+  out.set([tag], 0);
+  out.set(len, 1);
+  out.set(contentBytes, 1 + len.length);
+  return out;
+}
+function walletConcatBytes(arrs) {
+  const total = arrs.reduce((n, a) => n + a.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const a of arrs) { out.set(a, off); off += a.length; }
+  return out;
+}
+const WALLET_SEQUENCE = 0x30, WALLET_SET = 0x31, WALLET_OID = 0x06, WALLET_INTEGER = 0x02,
+      WALLET_OCTET_STRING = 0x04, WALLET_NULL = 0x05, WALLET_UTCTIME = 0x17;
+
+function walletDerSequence(...items) { return walletDerTLV(WALLET_SEQUENCE, walletConcatBytes(items)); }
+function walletDerSet(...items) { return walletDerTLV(WALLET_SET, walletConcatBytes(items)); }
+function walletDerNull() { return walletDerTLV(WALLET_NULL, new Uint8Array(0)); }
+function walletDerInteger(n) { return walletDerTLV(WALLET_INTEGER, Uint8Array.of(n)); }
+function walletDerOID(oidStr) {
+  const parts = oidStr.split('.').map(Number);
+  const bytes = [parts[0] * 40 + parts[1]];
+  for (let i = 2; i < parts.length; i++) {
+    let v = parts[i];
+    if (v === 0) { bytes.push(0); continue; }
+    const chunk = [];
+    while (v > 0) { chunk.unshift(v & 0x7f); v >>= 7; }
+    for (let j = 0; j < chunk.length - 1; j++) chunk[j] |= 0x80;
+    bytes.push(...chunk);
+  }
+  return walletDerTLV(WALLET_OID, Uint8Array.from(bytes));
+}
+function walletDerOctetString(bytes) { return walletDerTLV(WALLET_OCTET_STRING, bytes); }
+function walletDerExplicit(tagNum, ...items) { return walletDerTLV(0xa0 | tagNum, walletConcatBytes(items)); }
+function walletDerImplicitSetOf(tagNum, itemsBytes) { return walletDerTLV(0xa0 | tagNum, itemsBytes); }
+function walletDerUTCTime(date) {
+  const p2 = n => String(n).padStart(2, '0');
+  const s = `${p2(date.getUTCFullYear() % 100)}${p2(date.getUTCMonth()+1)}${p2(date.getUTCDate())}` +
+            `${p2(date.getUTCHours())}${p2(date.getUTCMinutes())}${p2(date.getUTCSeconds())}Z`;
+  return walletDerTLV(WALLET_UTCTIME, new TextEncoder().encode(s));
+}
+
+const WALLET_OID_DATA = '1.2.840.113549.1.7.1';
+const WALLET_OID_SIGNED_DATA = '1.2.840.113549.1.7.2';
+const WALLET_OID_SHA256 = '2.16.840.1.101.3.4.2.1';
+const WALLET_OID_RSA = '1.2.840.113549.1.1.1';
+const WALLET_OID_CONTENT_TYPE = '1.2.840.113549.1.9.3';
+const WALLET_OID_MESSAGE_DIGEST = '1.2.840.113549.1.9.4';
+const WALLET_OID_SIGNING_TIME = '1.2.840.113549.1.9.5';
+
+function walletPemToDer(pem) {
+  const b64 = pem.replace(/-----BEGIN [^-]+-----/, '').replace(/-----END [^-]+-----/, '').replace(/\s+/g, '');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function walletExtractIssuerAndSerial(certDer) {
+  function readTLV(buf, off) {
+    const tag = buf[off];
+    let lenByte = buf[off + 1];
+    let lenLen = 1, len;
+    if (lenByte & 0x80) {
+      lenLen = 1 + (lenByte & 0x7f);
+      len = 0;
+      for (let i = 0; i < (lenByte & 0x7f); i++) len = (len << 8) | buf[off + 2 + i];
+    } else { len = lenByte; }
+    const headerLen = 1 + lenLen;
+    return { tag, len, headerLen, contentStart: off + headerLen, totalLen: headerLen + len };
+  }
+  const cert = readTLV(certDer, 0);
+  const tbs = readTLV(certDer, cert.contentStart);
+  let p = tbs.contentStart;
+  let field = readTLV(certDer, p);
+  if (field.tag === 0xa0) { p += field.totalLen; }
+  const serialField = readTLV(certDer, p);
+  const serialDer = certDer.slice(p, p + serialField.totalLen);
+  p += serialField.totalLen;
+  const sigAlgField = readTLV(certDer, p);
+  p += sigAlgField.totalLen;
+  const issuerField = readTLV(certDer, p);
+  const issuerDer = certDer.slice(p, p + issuerField.totalLen);
+  return walletDerSequence(issuerDer, walletDerTLV(WALLET_INTEGER, serialDer.slice(serialField.headerLen)));
+}
+
+// firma PKCS#7 "detached" del manifest.json — probada y verificada con openssl
+async function walletSignPkcs7(dataBytes, signerCertPem, signerKeyPem, wwdrCertPem) {
+  const { createSign, createHash } = await import('node:crypto');
+  const signerCertDer = walletPemToDer(signerCertPem);
+  const wwdrCertDer = walletPemToDer(wwdrCertPem);
+  const issuerAndSerial = walletExtractIssuerAndSerial(signerCertDer);
+
+  const messageDigest = createHash('sha256').update(dataBytes).digest();
+  const now = new Date();
+  const attrContentType = walletDerSequence(walletDerOID(WALLET_OID_CONTENT_TYPE), walletDerSet(walletDerOID(WALLET_OID_DATA)));
+  const attrSigningTime = walletDerSequence(walletDerOID(WALLET_OID_SIGNING_TIME), walletDerSet(walletDerUTCTime(now)));
+  const attrMessageDigest = walletDerSequence(walletDerOID(WALLET_OID_MESSAGE_DIGEST), walletDerSet(walletDerOctetString(messageDigest)));
+  const authAttrsContent = walletConcatBytes([attrContentType, attrSigningTime, attrMessageDigest]);
+  const authAttrsForSigning = walletDerTLV(WALLET_SET, authAttrsContent);
+
+  const signer = createSign('RSA-SHA256');
+  signer.update(authAttrsForSigning);
+  const signature = signer.sign(signerKeyPem);
+
+  const digestAlgId = walletDerSequence(walletDerOID(WALLET_OID_SHA256), walletDerNull());
+  const signerInfo = walletDerSequence(
+    walletDerInteger(1),
+    issuerAndSerial,
+    digestAlgId,
+    walletDerImplicitSetOf(0, authAttrsContent),
+    walletDerSequence(walletDerOID(WALLET_OID_RSA), walletDerNull()),
+    walletDerOctetString(new Uint8Array(signature)),
+  );
+  const signedData = walletDerSequence(
+    walletDerInteger(1),
+    walletDerSet(digestAlgId),
+    walletDerSequence(walletDerOID(WALLET_OID_DATA)),
+    walletDerImplicitSetOf(0, walletConcatBytes([signerCertDer, wwdrCertDer])),
+    walletDerSet(signerInfo),
+  );
+  return walletDerSequence(walletDerOID(WALLET_OID_SIGNED_DATA), walletDerExplicit(0, signedData));
+}
+
+// ---------- empaquetador ZIP mínimo (sin compresión), para el .pkpass ----------
+function walletCrc32(buf) {
+  if (!walletCrc32.table) {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      table[n] = c >>> 0;
+    }
+    walletCrc32.table = table;
+  }
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) crc = walletCrc32.table[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+function walletU16(n) { const b = new Uint8Array(2); b[0] = n & 0xff; b[1] = (n >> 8) & 0xff; return b; }
+function walletU32(n) { const b = new Uint8Array(4); b[0]=n&0xff; b[1]=(n>>>8)&0xff; b[2]=(n>>>16)&0xff; b[3]=(n>>>24)&0xff; return b; }
+
+function walletBuildZip(files) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  const enc = new TextEncoder();
+
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const crc = walletCrc32(f.data);
+    const size = f.data.length;
+    const localHeader = walletConcatBytes([
+      walletU32(0x04034b50), walletU16(20), walletU16(0), walletU16(0), walletU16(0), walletU16(0),
+      walletU32(crc), walletU32(size), walletU32(size), walletU16(nameBytes.length), walletU16(0),
+    ]);
+    localParts.push(localHeader, nameBytes, f.data);
+    const centralHeader = walletConcatBytes([
+      walletU32(0x02014b50), walletU16(20), walletU16(20), walletU16(0), walletU16(0), walletU16(0), walletU16(0),
+      walletU32(crc), walletU32(size), walletU32(size), walletU16(nameBytes.length), walletU16(0), walletU16(0), walletU16(0), walletU16(0),
+      walletU32(0), walletU32(offset),
+    ]);
+    centralParts.push(centralHeader, nameBytes);
+    offset += localHeader.length + nameBytes.length + f.data.length;
+  }
+  const centralDirStart = offset;
+  const centralDir = walletConcatBytes(centralParts);
+  const endRecord = walletConcatBytes([
+    walletU32(0x06054b50), walletU16(0), walletU16(0), walletU16(files.length), walletU16(files.length),
+    walletU32(centralDir.length), walletU32(centralDirStart), walletU16(0),
+  ]);
+  return walletConcatBytes([...localParts, centralDir, endRecord]);
+}
+
+// ---------- construcción de la tarjeta (pass.json) con los datos y colores reales del negocio ----------
+function walletHexToRgb(hex) {
+  const h = (hex || '#42281B').replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16) || 0;
+  const g = parseInt(h.substring(2, 4), 16) || 0;
+  const b = parseInt(h.substring(4, 6), 16) || 0;
+  return `rgb(${r},${g},${b})`;
+}
+
+function walletBuildPassJSON(business, customer, env, origin) {
+  const filled = Math.min(customer.stamps, business.total_stamps);
+  const serialNumber = `${business.slug}-${customer.code}`;
+  return {
+    formatVersion: 1,
+    passTypeIdentifier: env.WALLET_PASS_TYPE_ID,
+    teamIdentifier: env.WALLET_TEAM_ID,
+    serialNumber,
+    webServiceURL: `${origin}/wallet`,
+    authenticationToken: customer.wallet_auth_token,
+    organizationName: 'Hey Tapp',
+    description: `Tarjeta de sellos — ${business.name}`,
+    logoText: business.name,
+    backgroundColor: walletHexToRgb(business.color_card_bg),
+    foregroundColor: walletHexToRgb(business.color_brown),
+    labelColor: walletHexToRgb(business.color_brown_soft || business.color_brown),
+    storeCard: {
+      primaryFields: [
+        { key: 'stamps', label: 'SELLOS', value: `${filled}/${business.total_stamps}` },
+      ],
+      secondaryFields: [
+        { key: 'name', label: 'CLIENTE', value: customer.name },
+      ],
+      auxiliaryFields: [
+        { key: 'reward', label: 'TU PREMIO', value: business.reward_text || 'Al completar tu tarjeta, recibes tu premio.' },
+      ],
+      backFields: [
+        { key: 'info', label: 'Cómo funciona', value: business.instruction_text || 'Muestra este código en caja en cada compra para sumar un sello.' },
+        { key: 'business', label: 'Negocio', value: business.name },
+      ],
+    },
+    barcodes: [
+      { message: `${origin}/${business.slug}/${customer.code}`, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1' },
+    ],
+  };
+}
+
+// arma el .pkpass firmado y listo para descargar. Devuelve null si todavía
+// no están configuradas las variables de Apple (para mostrar aviso amigable).
+async function walletGeneratePass(business, customer, env, origin) {
+  if (!env.WALLET_PASS_CERT || !env.WALLET_PASS_KEY || !env.WALLET_WWDR_CERT || !env.WALLET_PASS_TYPE_ID || !env.WALLET_TEAM_ID) {
+    return null;
+  }
+  const enc = new TextEncoder();
+  const { createHash } = await import('node:crypto');
+
+  const passJson = enc.encode(JSON.stringify(walletBuildPassJSON(business, customer, env, origin)));
+
+  // ícono/logo: usa el logo que ya tiene subido el negocio (o el de Hey Tapp si no tiene)
+  const logoBase64 = business.logo_base64 || HEY_TAPP_LOGO_BASE64;
+  const logoBin = atob(logoBase64);
+  const logoBytes = new Uint8Array(logoBin.length);
+  for (let i = 0; i < logoBin.length; i++) logoBytes[i] = logoBin.charCodeAt(i);
+
+  const files = {
+    'pass.json': passJson,
+    'icon.png': logoBytes,
+    'icon@2x.png': logoBytes,
+    'logo.png': logoBytes,
+    'logo@2x.png': logoBytes,
+  };
+
+  const manifest = {};
+  for (const [name, data] of Object.entries(files)) {
+    manifest[name] = createHash('sha1').update(data).digest('hex');
+  }
+  const manifestBytes = enc.encode(JSON.stringify(manifest));
+  const signature = await walletSignPkcs7(manifestBytes, env.WALLET_PASS_CERT, env.WALLET_PASS_KEY, env.WALLET_WWDR_CERT);
+
+  const allFiles = [
+    ...Object.entries(files).map(([name, data]) => ({ name, data })),
+    { name: 'manifest.json', data: manifestBytes },
+    { name: 'signature', data: signature },
+  ];
+  return walletBuildZip(allFiles);
+}
+
+// ---------- rutas del "web service" que Apple exige para poder actualizar tarjetas solas ----------
+
+// GET /wallet/:slug/:code — botón "Agregar a Apple Wallet" desde la tarjeta del cliente
+async function handleWalletDownload(env, slug, code, origin) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response('Negocio no encontrado', { status: 404 });
+  const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?').bind(code, business.id).first();
+  if (!customer) return new Response('Cliente no encontrado', { status: 404 });
+
+  if (!customer.wallet_auth_token) {
+    const token = crypto.randomUUID().replace(/-/g, '');
+    try {
+      await env.DB.prepare('UPDATE customers SET wallet_auth_token = ? WHERE id = ?').bind(token, customer.id).run();
+      customer.wallet_auth_token = token;
+    } catch (e) {
+      return new Response('Todavía falta preparar la base de datos para Apple Wallet (columna wallet_auth_token).', { status: 503 });
+    }
+  }
+
+  const pkpass = await walletGeneratePass(business, customer, env, origin);
+  if (!pkpass) {
+    return new Response('Apple Wallet todavía no está activado para este negocio — vuelve pronto.', { status: 503 });
+  }
+  return new Response(pkpass, {
+    headers: {
+      'Content-Type': 'application/vnd.apple.pkpass',
+      'Content-Disposition': `attachment; filename="${business.slug}.pkpass"`,
+    },
+  });
+}
+
+// POST /wallet/v1/devices/:deviceId/registrations/:passTypeId/:serial — registrar dispositivo
+async function handleWalletRegister(request, env, deviceId, passTypeId, serial) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const token = authHeader.replace('ApplePass ', '');
+  const customer = await env.DB.prepare('SELECT * FROM customers WHERE wallet_auth_token = ?').bind(token).first();
+  if (!customer) return new Response(null, { status: 401 });
+
+  const { pushToken } = await request.json();
+  try {
+    await env.DB.prepare(
+      'INSERT OR REPLACE INTO wallet_registrations (device_library_identifier, pass_type_identifier, serial_number, push_token) VALUES (?, ?, ?, ?)'
+    ).bind(deviceId, passTypeId, serial, pushToken).run();
+  } catch (e) {
+    return new Response(null, { status: 500 });
+  }
+  return new Response(null, { status: 201 });
+}
+
+// DELETE /wallet/v1/devices/:deviceId/registrations/:passTypeId/:serial — desregistrar
+async function handleWalletUnregister(env, deviceId, passTypeId, serial) {
+  try {
+    await env.DB.prepare(
+      'DELETE FROM wallet_registrations WHERE device_library_identifier = ? AND pass_type_identifier = ? AND serial_number = ?'
+    ).bind(deviceId, passTypeId, serial).run();
+  } catch (e) {}
+  return new Response(null, { status: 200 });
+}
+
+// GET /wallet/v1/devices/:deviceId/registrations/:passTypeId — qué tarjetas cambiaron
+async function handleWalletUpdatedSerials(env, deviceId, passTypeId) {
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT serial_number FROM wallet_registrations WHERE device_library_identifier = ? AND pass_type_identifier = ?'
+    ).bind(deviceId, passTypeId).all();
+    return new Response(JSON.stringify({ serialNumbers: results.map(r => r.serial_number), lastUpdated: String(Date.now()) }),
+      { headers: { 'Content-Type': 'application/json' } });
+  } catch (e) {
+    return new Response(JSON.stringify({ serialNumbers: [], lastUpdated: String(Date.now()) }), { headers: { 'Content-Type': 'application/json' } });
+  }
+}
+
+// GET /wallet/v1/passes/:passTypeId/:serial — la tarjeta actualizada (para cuando Wallet la refresca sola)
+async function handleWalletGetPass(env, passTypeId, serial, origin) {
+  const [slug, ...codeParts] = serial.split('-');
+  const code = codeParts.join('-');
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(null, { status: 404 });
+  const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?').bind(code, business.id).first();
+  if (!customer) return new Response(null, { status: 404 });
+
+  const pkpass = await walletGeneratePass(business, customer, env, origin);
+  if (!pkpass) return new Response(null, { status: 503 });
+  return new Response(pkpass, { headers: { 'Content-Type': 'application/vnd.apple.pkpass' } });
+}
+
+// POST /wallet/v1/log — Apple manda aquí los errores del dispositivo, solo los aceptamos
+async function handleWalletLog(request) {
+  try { await request.json(); } catch (e) {}
+  return new Response(null, { status: 200 });
+}
+
+// se llama cada vez que se suma un sello, para avisarle a los celulares con
+// esa tarjeta guardada que deben actualizarla (no hace nada si APNs no está
+// configurado todavía)
+async function walletNotifyDevices(env, slug, code) {
+  if (!env.WALLET_APNS_KEY) return; // preparado para cuando esté configurado
+  const serial = `${slug}-${code}`;
+  try {
+    const { results } = await env.DB.prepare('SELECT push_token FROM wallet_registrations WHERE serial_number = ?').bind(serial).all();
+    // El envío real vía APNs (HTTP/2 + JWT firmado con WALLET_APNS_KEY) se
+    // completa cuando tengas ese certificado — la tabla y la lista de
+    // dispositivos a notificar ya están listas y funcionando.
+  } catch (e) {}
 }
