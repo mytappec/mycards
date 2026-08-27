@@ -3103,7 +3103,7 @@ function renderLandingPage() {
         <div class="process-step reveal" style="--d:110ms">
           <div class="process-num">02</div>
           <h3>Tus clientes juntan sellos</h3>
-          <p>Escaneas su QR (o escribes su código) en cada compra, desde tu panel.</p>
+          <p>Escaneas su QR (o escribes su código) en cada compra, desde tu panel — y si quieren, guardan su tarjeta en Apple Wallet, que se actualiza sola con cada sello.</p>
           <span class="process-arrow">→</span>
           <div class="mini-card">
             <div class="mini-card-top"><span>¡Hello!</span><span>7/10</span></div>
