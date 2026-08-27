@@ -4092,6 +4092,121 @@ function walletBuildZip(files) {
   return walletConcatBytes([...localParts, centralDir, endRecord]);
 }
 
+// ---------- generador de PNG puro (sin librerías), para dibujar la fila de sellos como imagen real ----------
+function walletPngCrc32(buf) {
+  if (!walletPngCrc32.table) {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      table[n] = c >>> 0;
+    }
+    walletPngCrc32.table = table;
+  }
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) crc = walletPngCrc32.table[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+function walletPngU32(n) { return Uint8Array.of((n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255); }
+function walletPngConcat(arrs) {
+  const total = arrs.reduce((s,a)=>s+a.length,0);
+  const out = new Uint8Array(total);
+  let off=0; for (const a of arrs) { out.set(a,off); off+=a.length; }
+  return out;
+}
+function walletPngChunk(type, data) {
+  const typeBytes = new TextEncoder().encode(type);
+  const crcInput = walletPngConcat([typeBytes, data]);
+  return walletPngConcat([walletPngU32(data.length), typeBytes, data, walletPngU32(walletPngCrc32(crcInput))]);
+}
+async function walletEncodePNG(width, height, pixels) {
+  const sig = Uint8Array.of(137,80,78,71,13,10,26,10);
+  const ihdr = walletPngConcat([walletPngU32(width), walletPngU32(height), Uint8Array.of(8,6,0,0,0)]);
+  const stride = width*4;
+  const raw = new Uint8Array(height*(stride+1));
+  for (let y=0;y<height;y++) {
+    raw[y*(stride+1)] = 0;
+    raw.set(pixels.subarray(y*stride,(y+1)*stride), y*(stride+1)+1);
+  }
+  const cs = new CompressionStream('deflate');
+  const writer = cs.writable.getWriter();
+  writer.write(raw);
+  writer.close();
+  const chunks = [];
+  const reader = cs.readable.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const compressed = walletPngConcat(chunks);
+  return walletPngConcat([sig, walletPngChunk('IHDR', ihdr), walletPngChunk('IDAT', compressed), walletPngChunk('IEND', new Uint8Array(0))]);
+}
+
+// ---------- dibuja la fila de sellos (círculos llenos/vacíos) sobre un fondo del color de la tarjeta ----------
+function walletSetPixel(pixels, width, x, y, r, g, b, a) {
+  if (x < 0 || y < 0 || x >= width) return;
+  const i = (y*width + x) * 4;
+  if (i < 0 || i >= pixels.length) return;
+  const existingA = pixels[i+3] / 255;
+  const newA = a / 255;
+  const outA = newA + existingA * (1 - newA);
+  if (outA === 0) return;
+  pixels[i]   = (r*newA + pixels[i]  *existingA*(1-newA)) / outA;
+  pixels[i+1] = (g*newA + pixels[i+1]*existingA*(1-newA)) / outA;
+  pixels[i+2] = (b*newA + pixels[i+2]*existingA*(1-newA)) / outA;
+  pixels[i+3] = outA * 255;
+}
+function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, filled) {
+  const [fr,fg,fb] = fillColor;
+  const [br,bg,bb] = borderColor;
+  const borderW = Math.max(2.5, radius * 0.1);
+  for (let y = Math.floor(cy-radius-2); y <= Math.ceil(cy+radius+2); y++) {
+    for (let x = Math.floor(cx-radius-2); x <= Math.ceil(cx+radius+2); x++) {
+      const d = Math.hypot(x-cx, y-cy);
+      if (d > radius + 1) continue;
+      const edgeAlpha = Math.max(0, Math.min(1, radius + 0.5 - d));
+      if (d >= radius - borderW) {
+        walletSetPixel(pixels, width, x, y, br, bg, bb, 255*edgeAlpha);
+      } else if (filled) {
+        walletSetPixel(pixels, width, x, y, fr, fg, fb, 255*edgeAlpha);
+      }
+    }
+  }
+}
+function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor) {
+  const availableWidth = width - marginX*2;
+  const spacing = availableWidth / count;
+  const radius = Math.min(spacing*0.21, height*0.26);
+  for (let i = 0; i < count; i++) {
+    const cx = marginX + spacing*i + spacing/2;
+    walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, i < filledCount);
+  }
+}
+async function walletBuildStampStripImage(business, filled, total) {
+  const width = 750, height = 246;
+  const pixels = new Uint8Array(width*height*4);
+  const [br, bg2, bb] = [
+    parseInt((business.color_card_bg || '#42281B').replace('#','').substring(0,2),16) || 0,
+    parseInt((business.color_card_bg || '#42281B').replace('#','').substring(2,4),16) || 0,
+    parseInt((business.color_card_bg || '#42281B').replace('#','').substring(4,6),16) || 0,
+  ];
+  for (let i=0;i<width*height;i++) { pixels[i*4]=br; pixels[i*4+1]=bg2; pixels[i*4+2]=bb; pixels[i*4+3]=255; }
+
+  const stampHex = (business.color_brown || '#42281B').replace('#','');
+  const fillColor = [parseInt(stampHex.substring(0,2),16)||0, parseInt(stampHex.substring(2,4),16)||0, parseInt(stampHex.substring(4,6),16)||0];
+
+  const topCount = Math.ceil(total / 2);
+  const bottomCount = total - topCount;
+  if (bottomCount > 0) {
+    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), height*0.28, 40, fillColor, fillColor);
+    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), height*0.76, 40, fillColor, fillColor);
+  } else {
+    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 40, fillColor, fillColor);
+  }
+  return walletEncodePNG(width, height, pixels);
+}
+
 // ---------- construcción de la tarjeta (pass.json) con los datos y colores reales del negocio ----------
 function walletHexToRgb(hex) {
   const h = (hex || '#42281B').replace('#', '');
@@ -4105,14 +4220,6 @@ function walletBuildPassJSON(business, customer, env, origin) {
   const filled = Math.min(customer.stamps, business.total_stamps);
   const total = business.total_stamps;
   const serialNumber = `${business.slug}-${customer.code}`;
-
-  // representa los sellos como círculos de verdad (● llenos, ○ vacíos), en
-  // vez de solo un número — así se parece más a la tarjeta web. Si hay
-  // demasiados sellos configurados (más de 20), los círculos se verían
-  // amontonados en la pantalla de Wallet, así que ahí usamos números.
-  const stampCircles = total <= 20
-    ? '●'.repeat(filled) + '○'.repeat(Math.max(0, total - filled))
-    : `${filled} / ${total}`;
 
   return {
     formatVersion: 1,
@@ -4129,12 +4236,11 @@ function walletBuildPassJSON(business, customer, env, origin) {
     foregroundColor: walletHexToRgb(business.color_brown),
     labelColor: walletHexToRgb(business.color_brown_soft || business.color_brown),
     storeCard: {
-      primaryFields: [
-        { key: 'stamps', label: 'SELLOS', value: stampCircles, textAlignment: 'PKTextAlignmentCenter' },
+      headerFields: [
+        { key: 'progress', label: 'SELLOS', value: `${filled}/${total}`, textAlignment: 'PKTextAlignmentRight' },
       ],
       secondaryFields: [
         { key: 'name', label: 'CLIENTE', value: customer.name, textAlignment: 'PKTextAlignmentLeft' },
-        { key: 'progress', label: 'PROGRESO', value: `${filled} de ${total}`, textAlignment: 'PKTextAlignmentRight' },
       ],
       auxiliaryFields: [
         { key: 'reward', label: 'TU PREMIO', value: business.reward_text || 'Al completar tu tarjeta, recibes tu premio.', textAlignment: 'PKTextAlignmentLeft' },
@@ -4166,14 +4272,19 @@ async function walletGeneratePass(business, customer, env, origin) {
   const logoBytes = new Uint8Array(logoBin.length);
   for (let i = 0; i < logoBin.length; i++) logoBytes[i] = logoBin.charCodeAt(i);
 
+  // la fila de sellos ahora es una imagen DE VERDAD (círculos dibujados),
+  // no texto — con los colores exactos del negocio y el progreso real del cliente
+  const filled = Math.min(customer.stamps, business.total_stamps);
+  const stripBytes = await walletBuildStampStripImage(business, filled, business.total_stamps);
+
   const files = {
     'pass.json': passJson,
     'icon.png': logoBytes,
     'icon@2x.png': logoBytes,
     'logo.png': logoBytes,
     'logo@2x.png': logoBytes,
-    'strip.png': logoBytes,
-    'strip@2x.png': logoBytes,
+    'strip.png': stripBytes,
+    'strip@2x.png': stripBytes,
   };
 
   const manifest = {};
