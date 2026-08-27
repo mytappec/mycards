@@ -4103,7 +4103,17 @@ function walletHexToRgb(hex) {
 
 function walletBuildPassJSON(business, customer, env, origin) {
   const filled = Math.min(customer.stamps, business.total_stamps);
+  const total = business.total_stamps;
   const serialNumber = `${business.slug}-${customer.code}`;
+
+  // representa los sellos como círculos de verdad (● llenos, ○ vacíos), en
+  // vez de solo un número — así se parece más a la tarjeta web. Si hay
+  // demasiados sellos configurados (más de 20), los círculos se verían
+  // amontonados en la pantalla de Wallet, así que ahí usamos números.
+  const stampCircles = total <= 20
+    ? '●'.repeat(filled) + '○'.repeat(Math.max(0, total - filled))
+    : `${filled} / ${total}`;
+
   return {
     formatVersion: 1,
     passTypeIdentifier: env.WALLET_PASS_TYPE_ID,
@@ -4113,19 +4123,21 @@ function walletBuildPassJSON(business, customer, env, origin) {
     authenticationToken: customer.wallet_auth_token,
     organizationName: 'Hey Tapp',
     description: `Tarjeta de sellos — ${business.name}`,
-    logoText: business.name,
+    // sin logoText: el logo del negocio ya suele traer su nombre incluido,
+    // así que no lo repetimos aparte (eso era lo que se veía duplicado)
     backgroundColor: walletHexToRgb(business.color_card_bg),
     foregroundColor: walletHexToRgb(business.color_brown),
     labelColor: walletHexToRgb(business.color_brown_soft || business.color_brown),
     storeCard: {
       primaryFields: [
-        { key: 'stamps', label: 'SELLOS', value: `${filled}/${business.total_stamps}` },
+        { key: 'stamps', label: 'SELLOS', value: stampCircles, textAlignment: 'PKTextAlignmentCenter' },
       ],
       secondaryFields: [
-        { key: 'name', label: 'CLIENTE', value: customer.name },
+        { key: 'name', label: 'CLIENTE', value: customer.name, textAlignment: 'PKTextAlignmentLeft' },
+        { key: 'progress', label: 'PROGRESO', value: `${filled} de ${total}`, textAlignment: 'PKTextAlignmentRight' },
       ],
       auxiliaryFields: [
-        { key: 'reward', label: 'TU PREMIO', value: business.reward_text || 'Al completar tu tarjeta, recibes tu premio.' },
+        { key: 'reward', label: 'TU PREMIO', value: business.reward_text || 'Al completar tu tarjeta, recibes tu premio.', textAlignment: 'PKTextAlignmentLeft' },
       ],
       backFields: [
         { key: 'info', label: 'Cómo funciona', value: business.instruction_text || 'Muestra este código en caja en cada compra para sumar un sello.' },
