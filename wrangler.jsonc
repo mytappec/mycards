@@ -2,6 +2,7 @@
   "name": "tarjetas-sellos",
   "main": "index.js",
   "compatibility_date": "2026-08-01",
+ "compatibility_flags": ["nodejs_compat"],
   "d1_databases": [
     {
       "binding": "DB",
