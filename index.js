@@ -124,7 +124,7 @@ export default {
       // ---- auto-registro público del cliente: /:slug/nuevo ----
       if (parts.length === 2 && parts[1] === 'nuevo') {
         if (request.method === 'POST') return handlePublicRegisterSubmit(request, env, parts[0]);
-        return handlePublicRegisterForm(env, parts[0]);
+        return handlePublicRegisterForm(env, parts[0], url.origin);
       }
 
       // ---- tarjeta del cliente: /:slug/:code ----
@@ -1699,7 +1699,8 @@ async function handleCreateLead(request, env) {
   }
 
   const planLabel = businessType === 'digital' ? 'Plan Fideliza Digital'
-    : businessType === 'fisico' ? 'Plan Fideliza Físico' : 'No especificó';
+    : businessType === 'fisico' ? 'Plan Fideliza Físico'
+    : businessType === 'wallet' ? 'Plan Fideliza Wallet' : 'No especificó';
 
   // si el navegador de la persona ya logró mandarlo directo a FormSubmit
   // (la forma más confiable, porque así FormSubmit lo reconoce como un
@@ -2273,15 +2274,27 @@ async function handleUpdateBusiness(request, env, slug) {
   return new Response(JSON.stringify({ ok: true, slug: newSlug }), { headers: { 'Content-Type': 'application/json' } });
 }
 
-async function handlePublicRegisterForm(env, slug) {
+async function handlePublicRegisterForm(env, slug, origin) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
 
   const font = getFontConfig(business.font_family);
   const btnColors = getContrastButtonColors(business);
+  const ogDescription = `Tarjeta de sellos digital de ${business.name}. Powered by Hey Tapp.`;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
   <title>Bienvenido · ${escapeHtml(business.name)}</title>
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" href="/apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Bienvenido · ${escapeHtml(business.name)}">
+  <meta property="og:description" content="${escapeHtml(ogDescription)}">
+  <meta property="og:image" content="${origin}/icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Bienvenido · ${escapeHtml(business.name)}">
+  <meta name="twitter:description" content="${escapeHtml(ogDescription)}">
+  <meta name="twitter:image" content="${origin}/icon-512.png">
+  <meta name="description" content="${escapeHtml(ogDescription)}">
   <link href="https://fonts.googleapis.com/css2?family=${font.google}&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;}
@@ -2443,6 +2456,12 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
 <link rel="manifest" href="/${slug}/${customer.code}/manifest.json">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${escapeHtml(b.name)} — Tarjeta de sellos">
+<meta property="og:description" content="Tarjeta de sellos digital de ${escapeHtml(b.name)}. Powered by Hey Tapp.">
+<meta property="og:image" content="${origin}/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="${origin}/icon-512.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="${escapeHtml(b.name)}">
@@ -2640,6 +2659,7 @@ function renderLandingPage() {
     instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
     cap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m2.5 9.5 9.5-4 9.5 4-9.5 4-9.5-4Z"/><path d="M6.5 11.5v4c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-4M21 9.5v6"/></svg>',
     shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5 4h14l1 5.5"/><path d="M4 9.5a2.3 2.3 0 0 0 4.4 1 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4-1"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-5h5v5"/></svg>',
+    wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3.2"/><path d="M3 10.5h18"/><path d="M7 15h4.5"/></svg>',
   };
 
   const beneficios = [
@@ -2842,7 +2862,7 @@ function renderLandingPage() {
   .plans .wrap{position:relative;}
   .plans h2{text-align:center;font-size:clamp(26px,3.4vw,36px);margin-bottom:12px;}
   .plans-sub{text-align:center;color:var(--brown-soft);max-width:480px;margin:0 auto 56px;font-size:15.5px;line-height:1.55;}
-  .plans-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;max-width:820px;margin:0 auto;}
+  .plans-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:26px;max-width:1180px;margin:0 auto;}
   .plan-card{background:var(--cream);border-radius:26px;padding:34px 30px;box-shadow:var(--shadow-md);position:relative;overflow:hidden;transition:transform .3s var(--ease),box-shadow .3s var(--ease);}
   .plan-card::after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(115deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-15deg);transition:left .7s var(--ease);pointer-events:none;}
   .plan-card:hover::after{left:130%;}
@@ -2853,7 +2873,8 @@ function renderLandingPage() {
   .plan-card h3{color:var(--terracotta);font-size:21px;margin-bottom:10px;}
   .plan-card p{margin:0 0 22px;font-size:14.5px;line-height:1.55;color:var(--brown-soft);}
   .plan-card .btn{width:100%;}
-  @media (max-width:760px){ .plans-grid{grid-template-columns:1fr;} }
+  @media (max-width:980px){ .plans-grid{grid-template-columns:1fr 1fr;max-width:820px;} }
+  @media (max-width:640px){ .plans-grid{grid-template-columns:1fr;} }
 
   /* ---------- contact ---------- */
   .contact{padding:96px 0 110px;position:relative;}
@@ -3016,6 +3037,13 @@ function renderLandingPage() {
           <p>Para marcas con tienda, local o punto de venta. Incluye hablador con QR para tu mostrador.</p>
           <a href="#contacto" class="btn btn-primary">Pedir información</a>
         </div>
+        <div class="plan-card reveal" style="--d:220ms">
+          <div class="plan-icon">${icons.wallet}</div>
+          <span class="plan-tag">Wallet</span>
+          <h3>Plan Fideliza Wallet</h3>
+          <p>Lleva tu fidelización un paso más allá: tus clientes agregan su Hey Tapp directo a Apple Wallet y llevan siempre con ellos su tarjeta, sus sellos y el premio que están por alcanzar. Se actualiza sola con cada compra, sin que tengan que abrir nada.</p>
+          <a href="#contacto" class="btn btn-primary">Pedir información</a>
+        </div>
       </div>
     </div>
   </section>
@@ -3053,6 +3081,7 @@ function renderLandingPage() {
                 <option value="">Elige tu tipo de negocio</option>
                 <option value="digital">Plan Fideliza Digital</option>
                 <option value="fisico">Plan Fideliza Físico</option>
+                <option value="wallet">Plan Fideliza Wallet</option>
               </select>
             </div>
             <button type="submit" class="btn btn-primary">Enviar</button>
@@ -3132,7 +3161,8 @@ function renderLandingPage() {
       msg.textContent = 'Enviando...'; msg.className = 'form-msg';
 
       const planLabel = payload.business_type === 'digital' ? 'Plan Fideliza Digital'
-        : payload.business_type === 'fisico' ? 'Plan Fideliza Físico' : 'No especificó';
+        : payload.business_type === 'fisico' ? 'Plan Fideliza Físico'
+        : payload.business_type === 'wallet' ? 'Plan Fideliza Wallet' : 'No especificó';
 
       // 1) el navegador le habla DIRECTO a FormSubmit (así reconoce que es un
       // envío real desde heytapp.com, y no un servidor — esto es clave para
