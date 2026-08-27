@@ -4160,16 +4160,21 @@ function walletSetPixel(pixels, width, x, y, r, g, b, a) {
 function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, filled) {
   const [fr,fg,fb] = fillColor;
   const [br,bg,bb] = borderColor;
-  const borderW = Math.max(2.5, radius * 0.1);
-  for (let y = Math.floor(cy-radius-2); y <= Math.ceil(cy+radius+2); y++) {
-    for (let x = Math.floor(cx-radius-2); x <= Math.ceil(cx+radius+2); x++) {
+  const borderW = Math.max(4, radius * 0.14);
+  const AA = 1.0;
+  for (let y = Math.floor(cy-radius-3); y <= Math.ceil(cy+radius+3); y++) {
+    for (let x = Math.floor(cx-radius-3); x <= Math.ceil(cx+radius+3); x++) {
       const d = Math.hypot(x-cx, y-cy);
-      if (d > radius + 1) continue;
-      const edgeAlpha = Math.max(0, Math.min(1, radius + 0.5 - d));
-      if (d >= radius - borderW) {
-        walletSetPixel(pixels, width, x, y, br, bg, bb, 255*edgeAlpha);
-      } else if (filled) {
-        walletSetPixel(pixels, width, x, y, fr, fg, fb, 255*edgeAlpha);
+      if (d > radius + AA) continue;
+      const outerAlpha = Math.max(0, Math.min(1, (radius + AA - d) / AA));
+      if (filled) {
+        walletSetPixel(pixels, width, x, y, fr, fg, fb, 255*outerAlpha);
+      } else {
+        const innerEdge = radius - borderW;
+        let ringAlpha = outerAlpha;
+        if (d < innerEdge - AA) { ringAlpha = 0; }
+        else if (d < innerEdge + AA) { ringAlpha *= Math.max(0, Math.min(1, (d - innerEdge + AA) / (AA*2))); }
+        if (ringAlpha > 0) walletSetPixel(pixels, width, x, y, br, bg, bb, 255*ringAlpha);
       }
     }
   }
@@ -4177,7 +4182,7 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
 function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor) {
   const availableWidth = width - marginX*2;
   const spacing = availableWidth / count;
-  const radius = Math.min(spacing*0.21, height*0.26);
+  const radius = Math.min(spacing*0.30, height*0.30);
   for (let i = 0; i < count; i++) {
     const cx = marginX + spacing*i + spacing/2;
     walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, i < filledCount);
@@ -4199,10 +4204,10 @@ async function walletBuildStampStripImage(business, filled, total) {
   const topCount = Math.ceil(total / 2);
   const bottomCount = total - topCount;
   if (bottomCount > 0) {
-    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), height*0.28, 40, fillColor, fillColor);
-    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), height*0.76, 40, fillColor, fillColor);
+    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), height*0.27, 24, fillColor, fillColor);
+    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), height*0.73, 24, fillColor, fillColor);
   } else {
-    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 40, fillColor, fillColor);
+    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 24, fillColor, fillColor);
   }
   return walletEncodePNG(width, height, pixels);
 }
@@ -4239,10 +4244,10 @@ function walletBuildPassJSON(business, customer, env, origin) {
       headerFields: [
         { key: 'progress', label: 'SELLOS', value: `${filled}/${total}`, textAlignment: 'PKTextAlignmentRight' },
       ],
-      primaryFields: [
+      secondaryFields: [
         { key: 'name', label: business.greeting_eyebrow || '¡HELLO!', value: customer.name },
       ],
-      secondaryFields: [
+      auxiliaryFields: [
         { key: 'reward', label: 'TU PREMIO', value: business.reward_text || 'Al completar tu tarjeta, recibes tu premio.' },
       ],
       backFields: [
