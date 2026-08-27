@@ -4453,8 +4453,22 @@ function walletBase64UrlFromString(str) {
   return walletBase64UrlFromBytes(new TextEncoder().encode(str));
 }
 function walletPemToArrayBuffer(pem) {
-  const b64 = pem.replace(/-----BEGIN [^-]+-----/, '').replace(/-----END [^-]+-----/, '').replace(/\s+/g, '');
-  const binary = atob(b64);
+  const clean = String(pem || '')
+    // por si al copiar/pegar el secret de Cloudflare los saltos de línea reales
+    // quedaron como el texto literal "\n" (pasa seguido al pegar desde Terminal)
+    .replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n')
+    .replace(/-----BEGIN [^-]+-----/g, '')
+    .replace(/-----END [^-]+-----/g, '')
+    .replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9+/]+=*$/.test(clean)) {
+    throw new Error(
+      'WALLET_APNS_KEY no parece un archivo .p8 válido (quedaron caracteres fuera de base64 ' +
+      'después de quitar BEGIN/END y saltos de línea). Vuelve a copiar el .p8 completo — en Mac, ' +
+      'lo más seguro es "pbcopy < AuthKey_XXXX.p8" en Terminal y pegarlo directo en Cloudflare, ' +
+      'para evitar que el copiado manual introduzca caracteres extra.'
+    );
+  }
+  const binary = atob(clean);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes.buffer;
