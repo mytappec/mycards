@@ -4151,7 +4151,15 @@ async function handleWalletDownload(env, slug, code, origin) {
     }
   }
 
-  const pkpass = await walletGeneratePass(business, customer, env, origin);
+  let pkpass;
+  try {
+    pkpass = await walletGeneratePass(business, customer, env, origin);
+  } catch (err) {
+    return new Response(
+      'ERROR REAL AL GENERAR LA TARJETA:\n\n' + (err && err.stack ? err.stack : String(err)),
+      { status: 500, headers: { 'Content-Type': 'text/plain; charset=UTF-8' } }
+    );
+  }
   if (!pkpass) {
     return new Response('Apple Wallet todavía no está activado para este negocio — vuelve pronto.', { status: 503 });
   }
