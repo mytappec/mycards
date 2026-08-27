@@ -3984,17 +3984,22 @@ async function walletSignPkcs7(dataBytes, signerCertPem, signerKeyPem, wwdrCertP
   const wwdrCertDer = walletPemToDer(wwdrCertPem);
   const issuerAndSerial = walletExtractIssuerAndSerial(signerCertDer);
 
-  // limpia la llave privada tambien, por si se coló texto extra al copiarla
-  const keyMatch = signerKeyPem.match(/-----BEGIN [^-]+-----[\s\S]+?-----END [^-]+-----/);
-  const cleanKeyPem = keyMatch ? keyMatch[0] : signerKeyPem;
-  if (!keyMatch) {
-    // no exponemos el contenido de la llave (es sensible), solo datos seguros
+  // reconstruye la llave con saltos de línea REALES, sin importar si el
+  // campo de Cloudflare los convirtió en espacios al pegar (esto es lo que
+  // pasó: el texto llegaba en una sola línea y node:crypto lo rechazaba)
+  const keyHeaderMatch = signerKeyPem.match(/-----BEGIN ([^-]+)-----/);
+  const keyBodyMatch = signerKeyPem.match(/-----BEGIN [^-]+-----([\s\S]+?)-----END [^-]+-----/);
+  if (!keyHeaderMatch || !keyBodyMatch) {
     throw new Error(
       `WALLET_PASS_KEY: no se encontró el bloque -----BEGIN...-----END----- en el valor guardado. ` +
       `Longitud recibida: ${signerKeyPem.length} caracteres. ` +
       `Revisa que hayas pegado el CONTENIDO del archivo (con "cat pass_key.pem"), no el nombre del archivo ni algo vacío.`
     );
   }
+  const keyType = keyHeaderMatch[1].trim();
+  const keyB64 = keyBodyMatch[1].replace(/\s+/g, '');
+  const keyLines = keyB64.match(/.{1,64}/g) || [];
+  const cleanKeyPem = `-----BEGIN ${keyType}-----\n${keyLines.join('\n')}\n-----END ${keyType}-----\n`;
 
   const messageDigest = createHash('sha256').update(dataBytes).digest();
   const now = new Date();
