@@ -4239,11 +4239,11 @@ function walletBuildPassJSON(business, customer, env, origin) {
       headerFields: [
         { key: 'progress', label: 'SELLOS', value: `${filled}/${total}`, textAlignment: 'PKTextAlignmentRight' },
       ],
-      secondaryFields: [
-        { key: 'name', label: 'CLIENTE', value: customer.name, textAlignment: 'PKTextAlignmentLeft' },
+      primaryFields: [
+        { key: 'name', label: business.greeting_eyebrow || '¡HELLO!', value: customer.name },
       ],
-      auxiliaryFields: [
-        { key: 'reward', label: 'TU PREMIO', value: business.reward_text || 'Al completar tu tarjeta, recibes tu premio.', textAlignment: 'PKTextAlignmentLeft' },
+      secondaryFields: [
+        { key: 'reward', label: 'TU PREMIO', value: business.reward_text || 'Al completar tu tarjeta, recibes tu premio.' },
       ],
       backFields: [
         { key: 'info', label: 'Cómo funciona', value: business.instruction_text || 'Muestra este código en caja en cada compra para sumar un sello.' },
