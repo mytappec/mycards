@@ -4282,7 +4282,8 @@ function walletBuildPassJSON(business, customer, env, origin) {
       ],
     },
     barcodes: [
-      { message: `${origin}/${business.slug}/${customer.code}`, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1' },
+      // altText: Apple lo dibuja debajo del QR nativo (así se ve el "Powered by ..." de otras apps)
+      { message: `${origin}/${business.slug}/${customer.code}`, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1', altText: 'Powered by Hey Tapp' },
     ],
   };
 }
@@ -4433,16 +4434,91 @@ async function handleWalletLog(request) {
   return new Response(null, { status: 200 });
 }
 
-// se llama cada vez que se suma un sello, para avisarle a los celulares con
-// esa tarjeta guardada que deben actualizarla (no hace nada si APNs no está
-// configurado todavía)
+// ---------- push real a APNs para que la tarjeta se actualice sola en el teléfono ----------
+// Requiere dos variables nuevas en Cloudflare (además de las 5 que ya tienes):
+//   - WALLET_APNS_KEY     el contenido completo del archivo .p8 (Apple Developer →
+//                         Certificates, IDs & Profiles → Keys → crear una llave con
+//                         "Apple Push Notifications service (APNs)" marcado)
+//   - WALLET_APNS_KEY_ID  el "Key ID" de 10 caracteres que Apple te muestra al crear esa llave
+// (el WALLET_TEAM_ID y el WALLET_PASS_TYPE_ID que ya tienes configurados se reutilizan aquí)
+
+function walletBase64UrlFromBytes(bytes) {
+  let str = '';
+  for (const b of bytes) str += String.fromCharCode(b);
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function walletBase64UrlFromString(str) {
+  return walletBase64UrlFromBytes(new TextEncoder().encode(str));
+}
+function walletPemToArrayBuffer(pem) {
+  const b64 = pem.replace(/-----BEGIN [^-]+-----/, '').replace(/-----END [^-]+-----/, '').replace(/\s+/g, '');
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+// arma y firma el JWT (ES256) que APNs exige como token de autorización.
+// Apple pide reusar el mismo token ~1 hora en vez de crear uno por cada push,
+// así que se cachea con la Cache API de Cloudflare (walletGetApnsJwt).
+async function walletBuildApnsJwt(env) {
+  const header = { alg: 'ES256', kid: env.WALLET_APNS_KEY_ID };
+  const payload = { iss: env.WALLET_TEAM_ID, iat: Math.floor(Date.now() / 1000) };
+  const signingInput = `${walletBase64UrlFromString(JSON.stringify(header))}.${walletBase64UrlFromString(JSON.stringify(payload))}`;
+  const keyData = walletPemToArrayBuffer(env.WALLET_APNS_KEY);
+  const cryptoKey = await crypto.subtle.importKey('pkcs8', keyData, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, cryptoKey, new TextEncoder().encode(signingInput));
+  return `${signingInput}.${walletBase64UrlFromBytes(new Uint8Array(signature))}`;
+}
+async function walletGetApnsJwt(env) {
+  const cache = caches.default;
+  const cacheKey = new Request(`https://internal.heytapp.cache/apns-jwt/${env.WALLET_PASS_TYPE_ID}`);
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const data = await cached.json();
+    if (data.exp > Date.now() + 60000) return data.token;
+  }
+  const token = await walletBuildApnsJwt(env);
+  const resp = new Response(JSON.stringify({ token, exp: Date.now() + 50 * 60 * 1000 }), {
+    headers: { 'Cache-Control': 'max-age=3000' },
+  });
+  await cache.put(cacheKey, resp.clone());
+  return token;
+}
+// manda el push silencio (payload vacío, como exige Apple) a un solo token.
+// Devuelve 'ok', 'invalid' (token muerto, hay que borrarlo) o 'error' (reintentar después).
+async function walletSendApnsPush(env, pushToken) {
+  const jwt = await walletGetApnsJwt(env);
+  try {
+    const resp = await fetch(`https://api.push.apple.com/3/device/${pushToken}`, {
+      method: 'POST',
+      headers: {
+        'authorization': `bearer ${jwt}`,
+        'apns-topic': env.WALLET_PASS_TYPE_ID,
+      },
+      body: '{}',
+    });
+    if (resp.ok) return 'ok';
+    if (resp.status === 400 || resp.status === 410) return 'invalid'; // BadDeviceToken / Unregistered
+    return 'error';
+  } catch (e) {
+    return 'error';
+  }
+}
+
+// se llama cada vez que se suma un sello, para avisarle a los celulares con esa
+// tarjeta guardada que deben actualizarla. Manda un push por cada dispositivo
+// registrado para ese serial; si Apple confirma que un token ya no sirve, lo
+// borra de wallet_registrations para no seguir intentando en el futuro.
 async function walletNotifyDevices(env, slug, code) {
-  if (!env.WALLET_APNS_KEY) return; // preparado para cuando esté configurado
+  if (!env.WALLET_APNS_KEY || !env.WALLET_APNS_KEY_ID) return; // preparado para cuando esté configurado
   const serial = `${slug}-${code}`;
   try {
     const { results } = await env.DB.prepare('SELECT push_token FROM wallet_registrations WHERE serial_number = ?').bind(serial).all();
-    // El envío real vía APNs (HTTP/2 + JWT firmado con WALLET_APNS_KEY) se
-    // completa cuando tengas ese certificado — la tabla y la lista de
-    // dispositivos a notificar ya están listas y funcionando.
+    for (const row of results) {
+      const outcome = await walletSendApnsPush(env, row.push_token);
+      if (outcome === 'invalid') {
+        await env.DB.prepare('DELETE FROM wallet_registrations WHERE push_token = ?').bind(row.push_token).run();
+      }
+    }
   } catch (e) {}
 }
