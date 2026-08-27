@@ -2787,11 +2787,12 @@ function renderLandingPage() {
     [icons.staff, 'Panel exclusivo para tu staff', 'Desde donde podrán registrar y gestionar los sellos.'],
     [icons.chart, 'Registro de clientes y compras', 'Para identificar quiénes compran y quiénes están regresando.'],
     [icons.instagram, 'Botón directo a tu Instagram', 'Para llevar más clientes a tu perfil y mantenerlos conectados.'],
+    [icons.wallet, 'Tarjeta en Apple Wallet', 'Tus clientes la guardan en su iPhone y se actualiza sola con cada sello, sin abrir ninguna app.'],
     [icons.cap, 'Capacitación + mejoras incluidas', 'Te enseñamos a usarla y recibes actualizaciones sin costo extra.'],
   ];
 
   const beneficiosHtml = beneficios.map(([icon, titulo, texto], i) => `
-        <div class="benefit reveal" style="--d:${(i % 4) * 70}ms">
+        <div class="benefit reveal" style="--d:${(i % 3) * 70}ms">
           <div class="benefit-icon">${icon}</div>
           <h3>${titulo}</h3>
           <p>${texto}</p>
@@ -2962,7 +2963,7 @@ function renderLandingPage() {
   .benefits{padding:96px 0;}
   .benefits h2{text-align:center;font-size:clamp(26px,3.4vw,36px);margin-bottom:12px;}
   .benefits-sub{text-align:center;color:var(--brown-soft);max-width:480px;margin:0 auto 60px;font-size:15.5px;line-height:1.55;}
-  .benefits-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;}
+  .benefits-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
   .benefit{background:var(--paper);border:1px solid rgba(66,40,27,.07);border-radius:20px;padding:26px 22px;transition:transform .3s var(--ease),box-shadow .3s var(--ease);}
   .benefit:hover{transform:translateY(-5px);box-shadow:var(--shadow-md);}
   .benefit-icon{width:46px;height:46px;border-radius:14px;background:var(--pale-blue);color:var(--terracotta);display:flex;align-items:center;justify-content:center;margin-bottom:16px;transition:transform .3s var(--ease),background .3s var(--ease);}
