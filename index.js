@@ -3930,7 +3930,21 @@ function walletPemToDer(pem) {
   // "subject=", "issuer=" que a veces vienen pegadas si se copia con "cat")
   const match = pem.match(/-----BEGIN [^-]+-----([\s\S]+?)-----END [^-]+-----/);
   const b64 = (match ? match[1] : pem).replace(/\s+/g, '');
-  const bin = atob(b64);
+  let bin;
+  try {
+    bin = atob(b64);
+  } catch (e) {
+    const preview = b64.slice(0, 60);
+    const badChars = [...b64].filter(c => !/[A-Za-z0-9+/=]/.test(c));
+    throw new Error(
+      `walletPemToDer: no se pudo decodificar. ` +
+      `¿Encontró BEGIN/END? ${match ? 'SÍ' : 'NO (usó el texto completo)'}. ` +
+      `Longitud del texto recibido: ${pem.length} caracteres. ` +
+      `Longitud ya limpiado: ${b64.length}. ` +
+      `Primeros 60 caracteres limpios: "${preview}". ` +
+      `Caracteres inválidos encontrados: ${JSON.stringify([...new Set(badChars)])}`
+    );
+  }
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
