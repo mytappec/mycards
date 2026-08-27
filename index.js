@@ -3925,7 +3925,11 @@ const WALLET_OID_MESSAGE_DIGEST = '1.2.840.113549.1.9.4';
 const WALLET_OID_SIGNING_TIME = '1.2.840.113549.1.9.5';
 
 function walletPemToDer(pem) {
-  const b64 = pem.replace(/-----BEGIN [^-]+-----/, '').replace(/-----END [^-]+-----/, '').replace(/\s+/g, '');
+  // extrae SOLO lo que está entre BEGIN y END, ignorando cualquier texto
+  // extra que se haya colado antes o después (como líneas de "Bag Attributes",
+  // "subject=", "issuer=" que a veces vienen pegadas si se copia con "cat")
+  const match = pem.match(/-----BEGIN [^-]+-----([\s\S]+?)-----END [^-]+-----/);
+  const b64 = (match ? match[1] : pem).replace(/\s+/g, '');
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -3966,6 +3970,10 @@ async function walletSignPkcs7(dataBytes, signerCertPem, signerKeyPem, wwdrCertP
   const wwdrCertDer = walletPemToDer(wwdrCertPem);
   const issuerAndSerial = walletExtractIssuerAndSerial(signerCertDer);
 
+  // limpia la llave privada tambien, por si se coló texto extra al copiarla
+  const keyMatch = signerKeyPem.match(/-----BEGIN [^-]+-----[\s\S]+?-----END [^-]+-----/);
+  const cleanKeyPem = keyMatch ? keyMatch[0] : signerKeyPem;
+
   const messageDigest = createHash('sha256').update(dataBytes).digest();
   const now = new Date();
   const attrContentType = walletDerSequence(walletDerOID(WALLET_OID_CONTENT_TYPE), walletDerSet(walletDerOID(WALLET_OID_DATA)));
@@ -3976,7 +3984,7 @@ async function walletSignPkcs7(dataBytes, signerCertPem, signerKeyPem, wwdrCertP
 
   const signer = createSign('RSA-SHA256');
   signer.update(authAttrsForSigning);
-  const signature = signer.sign(signerKeyPem);
+  const signature = signer.sign(cleanKeyPem);
 
   const digestAlgId = walletDerSequence(walletDerOID(WALLET_OID_SHA256), walletDerNull());
   const signerInfo = walletDerSequence(
