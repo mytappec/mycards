@@ -652,16 +652,29 @@ async function checkRateLimit(env, request, route, maxPerHour) {
 
 // contraseñas reales: con salt único por persona + 100,000 vueltas de PBKDF2,
 // no un hash simple como el PIN (que es solo un candado corto, no una contraseña)
-async function hashPassword(password, existingSaltHex) {
+async function hashPassword(password, existingSaltHex, iterations = 100000) {
   const salt = existingSaltHex ? hexToBytes(existingSaltHex) : crypto.getRandomValues(new Uint8Array(16));
   const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
-  return `${bytesToHex(salt)}:${bytesToHex(new Uint8Array(bits))}`;
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, keyMaterial, 256);
+  // el número de iteraciones queda guardado dentro del propio hash, para poder subirlo
+  // en el futuro sin romper las contraseñas que ya existen (como pasó esta vez)
+  return `${iterations}:${bytesToHex(salt)}:${bytesToHex(new Uint8Array(bits))}`;
 }
 async function verifyPassword(password, stored) {
-  const [saltHex] = stored.split(':');
-  const recomputed = await hashPassword(password, saltHex);
-  return recomputed === stored;
+  const parts = stored.split(':');
+  let iterations, saltHex, expectedHash;
+  if (parts.length === 3) {
+    [iterations, saltHex, expectedHash] = parts;
+    iterations = parseInt(iterations, 10);
+  } else {
+    // formato viejo: contraseñas creadas antes de subir a 100,000 iteraciones no
+    // guardaban ese número, así que se asume el valor original con el que se crearon
+    [saltHex, expectedHash] = parts;
+    iterations = 5000;
+  }
+  const recomputed = await hashPassword(password, saltHex, iterations);
+  const recomputedHash = recomputed.split(':')[2];
+  return recomputedHash === expectedHash;
 }
 
 // nunca deja que el número de sellos quede en 0, negativo, o algo absurdo
@@ -1476,6 +1489,12 @@ async function handleAdminLogin(request, env) {
   const admin = await env.DB.prepare('SELECT * FROM admins WHERE email = ?').bind((email || '').trim().toLowerCase()).first();
   if (!admin || !(await verifyPassword(password || '', admin.password_hash))) {
     return new Response(JSON.stringify({ error: 'Correo o contraseña incorrectos' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+  // si la contraseña todavía está en el formato viejo (5,000 iteraciones), se
+  // sube sola al formato fuerte ahora que sabemos que la contraseña es correcta
+  if (admin.password_hash.split(':').length !== 3) {
+    const upgradedHash = await hashPassword(password);
+    await env.DB.prepare('UPDATE admins SET password_hash = ? WHERE id = ?').bind(upgradedHash, admin.id).run();
   }
   const cookieToken = await createAdminSession(env, admin.id);
   const headers = new Headers({ 'Content-Type': 'application/json' });
@@ -2767,7 +2786,7 @@ function escapeHtml(str) {
 // ------------------------------------------------------------
 function renderLandingPage() {
   const icons = {
-    palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.2-1.9-.3-.6-.1-1.3.5-1.6.4-.2.9-.2 1.3 0 1.6.8 3.4-.4 3.9-2.1.6-2-.2-4.1-1.8-5.5A9 9 0 0 0 12 3Z"/><circle cx="7.5" cy="10.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10.5" cy="7" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg>',
+    palette: '<svg viewBox="0 0 24 24" fill="currentColor"><g transform="rotate(45 12 12)"><path d="M11 24.4C14.36 21.04 13.8 17.4 11 16C8.2 17.4 6.64 21.04 11 24.4Z"/><rect x="8" y="12" width="6" height="4" rx="0.8"/><rect x="9.2" y="1" width="3.6" height="11.5" rx="1.8"/></g></svg>',
     target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
     scan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>',
     key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15.5" r="4"/><path d="m11 12.5 8.5-8.5M16.5 6 19 8.5M14 8.5 16 10.5"/></svg>',
