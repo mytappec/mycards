@@ -3987,6 +3987,14 @@ async function walletSignPkcs7(dataBytes, signerCertPem, signerKeyPem, wwdrCertP
   // limpia la llave privada tambien, por si se coló texto extra al copiarla
   const keyMatch = signerKeyPem.match(/-----BEGIN [^-]+-----[\s\S]+?-----END [^-]+-----/);
   const cleanKeyPem = keyMatch ? keyMatch[0] : signerKeyPem;
+  if (!keyMatch) {
+    // no exponemos el contenido de la llave (es sensible), solo datos seguros
+    throw new Error(
+      `WALLET_PASS_KEY: no se encontró el bloque -----BEGIN...-----END----- en el valor guardado. ` +
+      `Longitud recibida: ${signerKeyPem.length} caracteres. ` +
+      `Revisa que hayas pegado el CONTENIDO del archivo (con "cat pass_key.pem"), no el nombre del archivo ni algo vacío.`
+    );
+  }
 
   const messageDigest = createHash('sha256').update(dataBytes).digest();
   const now = new Date();
@@ -3998,7 +4006,17 @@ async function walletSignPkcs7(dataBytes, signerCertPem, signerKeyPem, wwdrCertP
 
   const signer = createSign('RSA-SHA256');
   signer.update(authAttrsForSigning);
-  const signature = signer.sign(cleanKeyPem);
+  let signature;
+  try {
+    signature = signer.sign(cleanKeyPem);
+  } catch (e) {
+    throw new Error(
+      `WALLET_PASS_KEY: se encontró el bloque BEGIN/END pero node:crypto no pudo leerlo como llave privada válida. ` +
+      `Longitud del bloque encontrado: ${cleanKeyPem.length} caracteres. ` +
+      `Primera línea: "${cleanKeyPem.split('\\n')[0]}". ` +
+      `Error original: ${e.message}`
+    );
+  }
 
   const digestAlgId = walletDerSequence(walletDerOID(WALLET_OID_SHA256), walletDerNull());
   const signerInfo = walletDerSequence(
