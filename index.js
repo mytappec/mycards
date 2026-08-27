@@ -4224,8 +4224,8 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
   }
   // estrellita recortada en el color de fondo de la tarjeta, adentro de cada sello completado
   if (filled) {
-    const outerR = radius * 0.46;
-    walletDrawStar(pixels, width, cx, cy, outerR, outerR * 0.42, bgColor);
+    const outerR = radius * 0.40;
+    walletDrawStar(pixels, width, cx, cy, outerR, outerR * 0.52, bgColor);
   }
 }
 // FIX #1: ahora recibe maxRadius explícito, calculado por el caller según si hay 1 o 2 filas,
@@ -4297,8 +4297,6 @@ function walletBuildPassJSON(business, customer, env, origin) {
   const serialNumber = `${business.slug}-${customer.code}`;
   const rewardFull = business.reward_text || 'Al completar tu tarjeta, recibes tu premio.';
   const rewardFront = walletTruncateForFront(rewardFull, 34);
-  const remaining = total - filled;
-  const remainingText = remaining <= 0 ? '¡Ya la ganaste! 🎉' : `${remaining} sello${remaining === 1 ? '' : 's'}`;
 
   return {
     formatVersion: 1,
@@ -4321,10 +4319,9 @@ function walletBuildPassJSON(business, customer, env, origin) {
       headerFields: [
         { key: 'progress', label: 'SELLOS', value: `${filled}/${total}`, textAlignment: 'PKTextAlignmentRight' },
       ],
+      // un solo campo en esta fila = usa todo el ancho = letra grande y legible
       secondaryFields: [
         { key: 'name', label: business.greeting_eyebrow || '¡HELLO!', value: customer.name },
-        // dato motivacional, siempre corto (nunca depende de texto libre del negocio)
-        { key: 'remaining', label: 'FALTAN', value: remainingText, textAlignment: 'PKTextAlignmentRight' },
       ],
       // FIX #2: versión corta en el frente, siempre legible
       auxiliaryFields: [
