@@ -4182,7 +4182,7 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
 function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor) {
   const availableWidth = width - marginX*2;
   const spacing = availableWidth / count;
-  const radius = Math.min(spacing*0.30, height*0.30);
+  const radius = Math.min(spacing*0.42, height*0.30);
   for (let i = 0; i < count; i++) {
     const cx = marginX + spacing*i + spacing/2;
     walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, i < filledCount);
@@ -4204,10 +4204,10 @@ async function walletBuildStampStripImage(business, filled, total) {
   const topCount = Math.ceil(total / 2);
   const bottomCount = total - topCount;
   if (bottomCount > 0) {
-    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), height*0.27, 24, fillColor, fillColor);
-    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), height*0.73, 24, fillColor, fillColor);
+    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), height*0.27, 60, fillColor, fillColor);
+    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), height*0.73, 60, fillColor, fillColor);
   } else {
-    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 24, fillColor, fillColor);
+    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor);
   }
   return walletEncodePNG(width, height, pixels);
 }
