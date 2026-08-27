@@ -4157,19 +4157,62 @@ function walletSetPixel(pixels, width, x, y, r, g, b, a) {
   pixels[i+2] = (b*newA + pixels[i+2]*existingA*(1-newA)) / outA;
   pixels[i+3] = outA * 255;
 }
-function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, filled) {
-  const [fr,fg,fb] = fillColor;
-  const [br,bg,bb] = borderColor;
+function walletLighten([r, g, b], amt) {
+  return [r + (255 - r) * amt, g + (255 - g) * amt, b + (255 - b) * amt];
+}
+// estrella de 5 puntas apuntando hacia arriba, usada adentro de los sellos completados
+function walletStarVertices(cx, cy, outerR, innerR) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? outerR : innerR;
+    const angle = -Math.PI / 2 + i * Math.PI / 5;
+    pts.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+  }
+  return pts;
+}
+function walletPointInPolygon(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    const intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+function walletDrawStar(pixels, width, cx, cy, outerR, innerR, color) {
+  const poly = walletStarVertices(cx, cy, outerR, innerR);
+  const [r, g, b] = color;
+  const SS = 3; // supersampleo 3x3 por pixel para que el borde de la estrella no se vea dentado
+  for (let y = Math.floor(cy - outerR - 1); y <= Math.ceil(cy + outerR + 1); y++) {
+    for (let x = Math.floor(cx - outerR - 1); x <= Math.ceil(cx + outerR + 1); x++) {
+      let hits = 0;
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const px = x + (sx + 0.5) / SS, py = y + (sy + 0.5) / SS;
+          if (walletPointInPolygon(px, py, poly)) hits++;
+        }
+      }
+      if (hits > 0) walletSetPixel(pixels, width, x, y, r, g, b, 255 * (hits / (SS * SS)));
+    }
+  }
+}
+function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, filled) {
+  const [fr, fg, fb] = fillColor;
+  const [br, bg, bb] = borderColor;
   // FIX #5: borde más delgado (antes: Math.max(4, radius * 0.14))
   const borderW = Math.max(2.2, radius * 0.075);
   const AA = 1.0;
+  const highlight = walletLighten(fillColor, 0.22);
   for (let y = Math.floor(cy-radius-3); y <= Math.ceil(cy+radius+3); y++) {
     for (let x = Math.floor(cx-radius-3); x <= Math.ceil(cx+radius+3); x++) {
       const d = Math.hypot(x-cx, y-cy);
       if (d > radius + AA) continue;
       const outerAlpha = Math.max(0, Math.min(1, (radius + AA - d) / AA));
       if (filled) {
-        walletSetPixel(pixels, width, x, y, fr, fg, fb, 255*outerAlpha);
+        // degradado sutil (más claro arriba-izquierda) en vez de color plano
+        const t = Math.max(0, Math.min(1, ((y - (cy - radius)) / (2 * radius) + (x - (cx - radius)) / (2 * radius)) / 2));
+        const gr = highlight[0] + (fr - highlight[0]) * t, gg = highlight[1] + (fg - highlight[1]) * t, gb = highlight[2] + (fb - highlight[2]) * t;
+        walletSetPixel(pixels, width, x, y, gr, gg, gb, 255*outerAlpha);
       } else {
         const innerEdge = radius - borderW;
         let ringAlpha = outerAlpha;
@@ -4179,16 +4222,21 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
       }
     }
   }
+  // estrellita recortada en el color de fondo de la tarjeta, adentro de cada sello completado
+  if (filled) {
+    const outerR = radius * 0.46;
+    walletDrawStar(pixels, width, cx, cy, outerR, outerR * 0.42, bgColor);
+  }
 }
 // FIX #1: ahora recibe maxRadius explícito, calculado por el caller según si hay 1 o 2 filas,
 // para que el radio nunca pueda ser mayor que la mitad del espacio vertical libre entre filas.
-function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor, maxRadius) {
+function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor, bgColor, maxRadius) {
   const availableWidth = width - marginX*2;
   const spacing = availableWidth / count;
   const radius = Math.min(spacing*0.42, maxRadius);
   for (let i = 0; i < count; i++) {
     const cx = marginX + spacing*i + spacing/2;
-    walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, i < filledCount);
+    walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, i < filledCount);
   }
 }
 async function walletBuildStampStripImage(business, filled, total) {
@@ -4200,6 +4248,7 @@ async function walletBuildStampStripImage(business, filled, total) {
     parseInt((business.color_card_bg || '#42281B').replace('#','').substring(4,6),16) || 0,
   ];
   for (let i=0;i<width*height;i++) { pixels[i*4]=br; pixels[i*4+1]=bg2; pixels[i*4+2]=bb; pixels[i*4+3]=255; }
+  const bgColor = [br, bg2, bb];
 
   const stampHex = (business.color_brown || '#42281B').replace('#','');
   const fillColor = [parseInt(stampHex.substring(0,2),16)||0, parseInt(stampHex.substring(2,4),16)||0, parseInt(stampHex.substring(4,6),16)||0];
@@ -4212,10 +4261,10 @@ async function walletBuildStampStripImage(business, filled, total) {
     // dejando ~15% de aire, en vez del height*0.30 fijo que causaba el encimado.
     const rowGap = bottomCy - topCy;
     const maxRadius = rowGap * 0.425;
-    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, maxRadius);
-    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, maxRadius);
+    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, bgColor, maxRadius);
+    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, bgColor, maxRadius);
   } else {
-    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor, height*0.30);
+    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor, bgColor, height*0.30);
   }
   return walletEncodePNG(width, height, pixels);
 }
@@ -4248,6 +4297,8 @@ function walletBuildPassJSON(business, customer, env, origin) {
   const serialNumber = `${business.slug}-${customer.code}`;
   const rewardFull = business.reward_text || 'Al completar tu tarjeta, recibes tu premio.';
   const rewardFront = walletTruncateForFront(rewardFull, 34);
+  const remaining = total - filled;
+  const remainingText = remaining <= 0 ? '¡Ya la ganaste! 🎉' : `${remaining} sello${remaining === 1 ? '' : 's'}`;
 
   return {
     formatVersion: 1,
@@ -4260,6 +4311,9 @@ function walletBuildPassJSON(business, customer, env, origin) {
     description: `Tarjeta de sellos — ${business.name}`,
     // FIX #4: @usuario de Instagram junto al logo (si el negocio lo tiene cargado)
     logoText: business.instagram_handle || undefined,
+    // apaga el brillo/reflejo por default que Apple pone sobre la imagen strip —
+    // campo documentado, look más plano y actual
+    suppressStripShine: true,
     backgroundColor: walletHexToRgb(business.color_card_bg),
     foregroundColor: walletHexToRgb(business.color_brown),
     labelColor: walletHexToRgb(business.color_brown_soft || business.color_brown),
@@ -4269,6 +4323,8 @@ function walletBuildPassJSON(business, customer, env, origin) {
       ],
       secondaryFields: [
         { key: 'name', label: business.greeting_eyebrow || '¡HELLO!', value: customer.name },
+        // dato motivacional, siempre corto (nunca depende de texto libre del negocio)
+        { key: 'remaining', label: 'FALTAN', value: remainingText, textAlignment: 'PKTextAlignmentRight' },
       ],
       // FIX #2: versión corta en el frente, siempre legible
       auxiliaryFields: [
