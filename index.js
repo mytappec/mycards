@@ -3318,7 +3318,7 @@ function renderLandingPage() {
       // número llegó pegado o autocompletado por el navegador sin pasar por ese filtro
       payload.phone = payload.phone.replace(/\D/g, '');
       if (!/^\d{10}$/.test(payload.phone)) {
-        msg.textContent = `El celular debe tener exactamente 10 dígitos (recibí "${payload.phone}", ${payload.phone.length} caracteres)`; msg.className = 'form-msg err';
+        msg.textContent = 'El celular debe tener exactamente 10 dígitos (recibí "' + payload.phone + '", ' + payload.phone.length + ' caracteres)'; msg.className = 'form-msg err';
         return;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
