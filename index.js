@@ -3314,8 +3314,11 @@ function renderLandingPage() {
         msg.textContent = 'Completa nombre, celular, correo e Instagram'; msg.className = 'form-msg err';
         return;
       }
+      // se vuelve a limpiar aquí (no solo en el filtro mientras escribe), por si el
+      // número llegó pegado o autocompletado por el navegador sin pasar por ese filtro
+      payload.phone = payload.phone.replace(/\D/g, '');
       if (!/^\d{10}$/.test(payload.phone)) {
-        msg.textContent = 'El celular debe tener exactamente 10 dígitos'; msg.className = 'form-msg err';
+        msg.textContent = `El celular debe tener exactamente 10 dígitos (recibí "${payload.phone}", ${payload.phone.length} caracteres)`; msg.className = 'form-msg err';
         return;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
