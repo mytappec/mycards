@@ -1803,8 +1803,8 @@ async function handleCreateLead(request, env) {
   if (name.length > 80) {
     return new Response(JSON.stringify({ error: 'El nombre es demasiado largo (máximo 80 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  if (!/^\d{10}$/.test(phone)) {
-    return new Response(JSON.stringify({ error: 'El celular debe tener exactamente 10 dígitos' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!/^\d+$/.test(phone)) {
+    return new Response(JSON.stringify({ error: 'El celular debe tener solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return new Response(JSON.stringify({ error: 'Ese correo no parece válido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -3205,7 +3205,7 @@ function renderLandingPage() {
             <div class="field-row">
               <div class="field">
                 <label for="lf_phone">Celular</label>
-                <input type="tel" id="lf_phone" inputmode="numeric" maxlength="10" placeholder="Ej. 0991234567" required>
+                <input type="tel" id="lf_phone" inputmode="numeric" placeholder="Ej. 0991234567" required>
                 <p style="margin:6px 0 0;font-size:11.5px;color:var(--brown-soft);">Solo números, sin espacios ni guiones</p>
               </div>
               <div class="field">
@@ -3291,9 +3291,9 @@ function renderLandingPage() {
     // mientras escribe el celular, se le quita al vuelo cualquier cosa que no
     // sea un dígito y se recorta a 10 — así ni siquiera puede teclear letras
     document.getElementById('lf_phone').addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+      e.target.value = e.target.value.replace(/\D/g, '');
     });
-    // si ya se había mostrado un error (ej. "faltan 10 dígitos"), se borra apenas
+    // si ya se había mostrado un error (ej. "solo números"), se borra apenas
     // la persona vuelve a escribir en cualquier campo, para que no se quede
     // pegado en pantalla un mensaje viejo que ya no aplica
     document.getElementById('leadForm').addEventListener('input', () => {
@@ -3317,8 +3317,8 @@ function renderLandingPage() {
       // se vuelve a limpiar aquí (no solo en el filtro mientras escribe), por si el
       // número llegó pegado o autocompletado por el navegador sin pasar por ese filtro
       payload.phone = payload.phone.replace(/\D/g, '');
-      if (!/^\d{10}$/.test(payload.phone)) {
-        msg.textContent = 'El celular debe tener exactamente 10 dígitos (recibí "' + payload.phone + '", ' + payload.phone.length + ' caracteres)'; msg.className = 'form-msg err';
+      if (!/^\d+$/.test(payload.phone)) {
+        msg.textContent = 'El celular debe tener solo números'; msg.className = 'form-msg err';
         return;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
