@@ -1925,7 +1925,8 @@ async function handleLeadsList(request, env) {
 
   const rows = results.map(l => {
     const planLabel = l.business_type === 'digital' ? 'Emprende Digital'
-      : l.business_type === 'fisico' ? 'Emprende Físico' : '—';
+      : l.business_type === 'fisico' ? 'Emprende Físico'
+      : l.business_type === 'wallet' ? 'Plan Fideliza Wallet' : '—';
     return `
     <tr>
       <td data-label="Nombre">${escapeHtml(l.name)}</td>
