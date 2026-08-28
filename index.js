@@ -1792,7 +1792,7 @@ async function handleCreateLead(request, env) {
 
   const body = await request.json().catch(() => ({}));
   const name = String(body.name || '').trim();
-  const phone = String(body.phone || '').trim().replace(/\D/g, ''); // solo dígitos
+  const phone = digitsOnly(body.phone); // solo dígitos, sin regex
   const email = String(body.email || '').trim();
   const instagram = String(body.instagram || '').trim();
   const businessType = ['digital', 'fisico', 'wallet'].includes(body.business_type) ? body.business_type : null;
@@ -1803,10 +1803,10 @@ async function handleCreateLead(request, env) {
   if (name.length > 80) {
     return new Response(JSON.stringify({ error: 'El nombre es demasiado largo (máximo 80 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  if (!/^\d+$/.test(phone)) {
+  if (phone.length === 0) {
     return new Response(JSON.stringify({ error: 'El celular debe tener solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!looksLikeEmail(email)) {
     return new Response(JSON.stringify({ error: 'Ese correo no parece válido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
@@ -2781,6 +2781,32 @@ function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// deja solo los dígitos de un texto, sin usar expresiones regulares — carácter
+// por carácter, para blindarlo contra símbolos que se puedan dañar al copiar
+// o subir el archivo (ya pasó más de una vez con \d, \D, etc.)
+function digitsOnly(str) {
+  let out = '';
+  const s = String(str || '');
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    if (code >= 48 && code <= 57) out += s[i];
+  }
+  return out;
+}
+
+// valida un correo sin expresiones regulares, por la misma razón — un solo @
+// (ni al principio ni al final) y un punto después, con texto a los dos lados
+function looksLikeEmail(str) {
+  const s = String(str || '');
+  const atPos = s.indexOf('@');
+  const lastAtPos = s.lastIndexOf('@');
+  if (atPos <= 0 || atPos !== lastAtPos) return false;
+  if (s.indexOf(' ') !== -1) return false;
+  const afterAt = s.slice(atPos + 1);
+  const dotPos = afterAt.lastIndexOf('.');
+  return dotPos > 0 && dotPos < afterAt.length - 1;
+}
+
 // ------------------------------------------------------------
 // página de inicio de heytapp.com — presentación de la marca,
 // sin precios, con formulario para pedir información
@@ -3289,9 +3315,15 @@ function renderLandingPage() {
 
     // formulario de contacto
     // mientras escribe el celular, se le quita al vuelo cualquier cosa que no
-    // sea un dígito y se recorta a 10 — así ni siquiera puede teclear letras
+    // sea un dígito — sin usar símbolos de expresión regular, carácter por
+    // carácter, para que no se pueda dañar al copiar o subir el archivo
     document.getElementById('lf_phone').addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/\D/g, '');
+      let onlyDigits = '';
+      for (let i = 0; i < e.target.value.length; i++) {
+        const code = e.target.value.charCodeAt(i);
+        if (code >= 48 && code <= 57) onlyDigits += e.target.value[i];
+      }
+      e.target.value = onlyDigits;
     });
     // si ya se había mostrado un error (ej. "solo números"), se borra apenas
     // la persona vuelve a escribir en cualquier campo, para que no se quede
@@ -3315,13 +3347,29 @@ function renderLandingPage() {
         return;
       }
       // se vuelve a limpiar aquí (no solo en el filtro mientras escribe), por si el
-      // número llegó pegado o autocompletado por el navegador sin pasar por ese filtro
-      payload.phone = payload.phone.replace(/\D/g, '');
-      if (!/^\d+$/.test(payload.phone)) {
+      // número llegó pegado o autocompletado por el navegador sin pasar por ese filtro.
+      // Sin expresiones regulares — carácter por carácter, para que este chequeo
+      // no se pueda romper por un símbolo dañado al copiar o subir el archivo.
+      let phoneDigitsOnly = '';
+      for (let i = 0; i < payload.phone.length; i++) {
+        const code = payload.phone.charCodeAt(i);
+        if (code >= 48 && code <= 57) phoneDigitsOnly += payload.phone[i];
+      }
+      payload.phone = phoneDigitsOnly;
+      if (payload.phone.length === 0) {
         msg.textContent = 'El celular debe tener solo números'; msg.className = 'form-msg err';
         return;
       }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      // correo: se revisa sin expresión regular, por la misma razón de arriba —
+      // debe tener un solo @ (ni al principio ni al final) y un punto después,
+      // con texto a los dos lados
+      const atPos = payload.email.indexOf('@');
+      const lastAtPos = payload.email.lastIndexOf('@');
+      const afterAt = atPos > -1 ? payload.email.slice(atPos + 1) : '';
+      const dotPos = afterAt.lastIndexOf('.');
+      const emailLooksValid = atPos > 0 && atPos === lastAtPos && payload.email.indexOf(' ') === -1
+        && dotPos > 0 && dotPos < afterAt.length - 1;
+      if (!emailLooksValid) {
         msg.textContent = 'Ingresa un correo válido (debe tener un @ y un dominio, ej. nombre@correo.com)'; msg.className = 'form-msg err';
         return;
       }
