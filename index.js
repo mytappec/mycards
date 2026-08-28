@@ -3293,6 +3293,13 @@ function renderLandingPage() {
     document.getElementById('lf_phone').addEventListener('input', (e) => {
       e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
     });
+    // si ya se había mostrado un error (ej. "faltan 10 dígitos"), se borra apenas
+    // la persona vuelve a escribir en cualquier campo, para que no se quede
+    // pegado en pantalla un mensaje viejo que ya no aplica
+    document.getElementById('leadForm').addEventListener('input', () => {
+      const msg = document.getElementById('formMsg');
+      if (msg.classList.contains('err')) { msg.textContent = ''; msg.className = 'form-msg'; }
+    });
     document.getElementById('leadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const msg = document.getElementById('formMsg');
