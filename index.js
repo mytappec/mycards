@@ -3304,6 +3304,8 @@ function renderLandingPage() {
     shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5 4h14l1 5.5"/><path d="M4 9.5a2.3 2.3 0 0 0 4.4 1 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4-1"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-5h5v5"/></svg>',
     wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3.2"/><path d="M3 10.5h18"/><path d="M7 15h4.5"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 9.5 17 19 7"/></svg>',
+    gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9.5" width="17" height="10.5" rx="1.5"/><path d="M3.5 9.5h17M12 9.5v10.5"/><path d="M12 9.5c0-3-2-5-4-5-1.4 0-2.3 1-2.3 2.2C5.7 8.3 7.2 9.5 9 9.5H12ZM12 9.5c0-3 2-5 4-5 1.4 0 2.3 1 2.3 2.2 0 1.6-1.5 2.8-3.3 2.8H12Z"/></svg>',
+    layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3.5 8.5 4.8L12 13.1 3.5 8.3 12 3.5Z"/><path d="m3.5 12.5 8.5 4.8 8.5-4.8"/><path d="m3.5 16.7 8.5 4.8 8.5-4.8"/></svg>',
   };
 
   const beneficios = [
@@ -3539,11 +3541,11 @@ function renderLandingPage() {
   .plan-panel.active{display:block;animation:planFadeIn .45s var(--ease);}
   @keyframes planFadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
   .plan-panel-inner{background:var(--cream);border-radius:28px;padding:40px;box-shadow:var(--shadow-lg);display:grid;grid-template-columns:1fr 1fr;gap:36px;}
-  .plan-tag{display:inline-block;background:var(--mustard);color:var(--brown);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:4px 12px;border-radius:99px;margin-bottom:16px;}
+  .plan-tag{display:inline-block;background:var(--mustard);color:var(--brown);font-size:15px;font-weight:800;letter-spacing:.2px;padding:6px 16px;border-radius:99px;margin-bottom:18px;}
   .plan-panel-main h3{color:var(--terracotta);font-size:22px;line-height:1.3;margin-bottom:14px;}
   .plan-panel-main p{font-size:14.5px;line-height:1.6;color:var(--brown-soft);margin:0 0 24px;}
-  .plan-panel-main .btn{width:100%;}
-  .plan-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(176,71,46,.1);color:var(--terracotta);font-size:12.5px;font-weight:800;padding:7px 14px;border-radius:99px;margin-bottom:18px;}
+  .plan-panel-side .btn{width:100%;margin-top:22px;}
+  .plan-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(176,71,46,.1);color:var(--terracotta);font-size:12.5px;font-weight:800;padding:7px 14px;border-radius:99px;margin:0 0 6px -14px;}
   .plan-badge svg{width:13px;height:13px;margin-right:1px;}
   .plan-benefits{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:13px;}
   .plan-benefits li{display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.5;color:var(--brown);}
@@ -3731,16 +3733,17 @@ function renderLandingPage() {
               <span class="plan-tag">Plan Fideliza Digital</span>
               <h3>Para marcas que venden por Instagram, WhatsApp o canales digitales</h3>
               <p>Tu Hey Tapp no es una tarjeta genérica: la creamos y configuramos especialmente para tu negocio, desde cero.</p>
-              <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
             <div class="plan-panel-side">
               <span class="plan-badge">${icons.check} Pago único de creación</span>
               <ul class="plan-benefits">
-                <li>${icons.check}<span>Tu identidad, tus colores y el sistema de sellos que tú decidas</span></li>
-                <li>${icons.check}<span>Tú eliges el premio que reciben tus clientes</span></li>
-                <li>${icons.check}<span>Capacitación incluida para ti y tu equipo</span></li>
-                <li>${icons.check}<span>Tu primer mes de servicio ya viene incluido</span></li>
+                <li>${icons.palette}<span>Tu identidad, tus colores y el sistema de sellos que tú decidas</span></li>
+                <li>${icons.target}<span>Tú eliges el premio que reciben tus clientes</span></li>
+                <li>${icons.cap}<span>Capacitación incluida para ti y tu equipo</span></li>
+                <li>${icons.gift}<span>Tu primer mes de servicio ya viene incluido</span></li>
+                <li>${icons.key}<span>Acceso a tu propio espacio de gestión</span></li>
               </ul>
+              <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
           </div>
         </div>
@@ -3750,16 +3753,17 @@ function renderLandingPage() {
               <span class="plan-tag">Plan Fideliza Físico</span>
               <h3>Para marcas con tienda, local o punto de venta físico</h3>
               <p>Todo lo del plan Digital, más un hablador físico con QR para tu mostrador, listo para que tus clientes escaneen, se registren y empiecen a sellar al instante.</p>
-              <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
             <div class="plan-panel-side">
               <span class="plan-badge">${icons.check} Pago único de creación</span>
               <ul class="plan-benefits">
-                <li>${icons.check}<span>Todo lo incluido en el Plan Digital</span></li>
-                <li>${icons.check}<span>Hablador físico personalizado con QR para tu punto de venta</span></li>
-                <li>${icons.check}<span>Tus clientes se registran y suman su primer sello al instante</span></li>
-                <li>${icons.check}<span>Capacitación + tu primer mes de servicio incluidos</span></li>
+                <li>${icons.layers}<span>Todo lo incluido en el Plan Digital</span></li>
+                <li>${icons.scan}<span>Hablador físico personalizado con QR para tu punto de venta</span></li>
+                <li>${icons.cap}<span>Capacitación incluida para ti y tu equipo</span></li>
+                <li>${icons.gift}<span>Tu primer mes de servicio ya viene incluido</span></li>
+                <li>${icons.key}<span>Acceso a tu propio espacio de gestión</span></li>
               </ul>
+              <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
           </div>
         </div>
@@ -3768,17 +3772,18 @@ function renderLandingPage() {
             <div class="plan-panel-main">
               <span class="plan-tag">Plan Fideliza Wallet</span>
               <h3>Para marcas que quieren llevar su fidelización un paso más allá</h3>
-              <p>Todo lo del plan Físico, más la integración con Apple Wallet: tu marca directo en el bolsillo de tus clientes.</p>
-              <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
+              <p>Todo lo del plan Físico y Digital, más la integración con Apple Wallet: tu marca directo en el bolsillo de tus clientes.</p>
             </div>
             <div class="plan-panel-side">
               <span class="plan-badge">${icons.check} Pago único de creación</span>
               <ul class="plan-benefits">
-                <li>${icons.check}<span>Todo lo incluido en el Plan Físico</span></li>
-                <li>${icons.check}<span>Tarjeta, sellos y premio directo en Apple Wallet</span></li>
-                <li>${icons.check}<span>Se actualiza sola con cada sello, sin abrir ninguna app</span></li>
-                <li>${icons.check}<span>Progreso y código de cliente visibles desde la pantalla de bloqueo</span></li>
+                <li>${icons.layers}<span>Todo lo incluido en los planes Físico y Digital</span></li>
+                <li>${icons.wallet}<span>Tarjeta, sellos y premio directo en Apple Wallet, actualizados solos con cada sello</span></li>
+                <li>${icons.cap}<span>Capacitación incluida para ti y tu equipo</span></li>
+                <li>${icons.gift}<span>Tu primer mes de servicio ya viene incluido</span></li>
+                <li>${icons.key}<span>Acceso a tu propio espacio de gestión</span></li>
               </ul>
+              <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
           </div>
         </div>
