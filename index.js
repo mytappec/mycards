@@ -4838,26 +4838,11 @@ async function walletBuildStampStripImage(business, filled, total) {
     parseInt((business.color_card_bg || '#42281B').replace('#','').substring(2,4),16) || 0,
     parseInt((business.color_card_bg || '#42281B').replace('#','').substring(4,6),16) || 0,
   ];
+  for (let i=0;i<width*height;i++) { pixels[i*4]=br; pixels[i*4+1]=bg2; pixels[i*4+2]=bb; pixels[i*4+3]=255; }
   const bgColor = [br, bg2, bb];
 
   const stampHex = (business.color_brown || '#42281B').replace('#','');
   const fillColor = [parseInt(stampHex.substring(0,2),16)||0, parseInt(stampHex.substring(2,4),16)||0, parseInt(stampHex.substring(4,6),16)||0];
-
-  // fondo con degradado suave (de un tono claro del color de la tarjeta a un
-  // tinte del color de marca) en vez de color plano, tipo "banner" — de
-  // izquierda a derecha, para que combine con cualquier paleta de negocio
-  const gradFrom = walletLighten(bgColor, 0.15);
-  const gradTo = walletLighten(fillColor, 0.75);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const t = x / width;
-      const r = gradFrom[0] + (gradTo[0] - gradFrom[0]) * t;
-      const g = gradFrom[1] + (gradTo[1] - gradFrom[1]) * t;
-      const b = gradFrom[2] + (gradTo[2] - gradFrom[2]) * t;
-      const i = (y * width + x) * 4;
-      pixels[i] = r; pixels[i+1] = g; pixels[i+2] = b; pixels[i+3] = 255;
-    }
-  }
 
   const topCount = Math.ceil(total / 2);
   const bottomCount = total - topCount;
