@@ -5690,6 +5690,14 @@ async function walletGeneratePass(business, customer, env, origin) {
   const logoBytes = new Uint8Array(logoBin.length);
   for (let i = 0; i < logoBin.length; i++) logoBytes[i] = logoBin.charCodeAt(i);
 
+  // el "icon.png" es lo que Apple usa en la notificación de ubicación y en el
+  // reloj — ahí siempre va el ícono de Hey Tapp (para que se vea como una app
+  // reconocible, no un logo pequeño desconocido), mientras que "logo.png" es
+  // lo que se ve DENTRO de la tarjeta ya abierta, y ese sí sigue siendo del negocio
+  const heyTappIconBin = atob(HEY_TAPP_ICON_512);
+  const heyTappIconBytes = new Uint8Array(heyTappIconBin.length);
+  for (let i = 0; i < heyTappIconBin.length; i++) heyTappIconBytes[i] = heyTappIconBin.charCodeAt(i);
+
   // la fila de sellos ahora es una imagen DE VERDAD (círculos dibujados),
   // no texto — con los colores exactos del negocio y el progreso real del cliente
   const filled = Math.min(customer.stamps, business.total_stamps);
@@ -5697,8 +5705,8 @@ async function walletGeneratePass(business, customer, env, origin) {
 
   const files = {
     'pass.json': passJson,
-    'icon.png': logoBytes,
-    'icon@2x.png': logoBytes,
+    'icon.png': heyTappIconBytes,
+    'icon@2x.png': heyTappIconBytes,
     'logo.png': logoBytes,
     'logo@2x.png': logoBytes,
     'strip.png': stripBytes,
