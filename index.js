@@ -1429,6 +1429,10 @@ async function renderAdminDashboard(env, admin) {
             Incluye botón de Apple Wallet (según el plan del negocio)
           </label>
 
+          <label>Ubicación del local (opcional)</label>
+          <input type="text" id="wallet_location_link" placeholder="Pega aquí el link de Google Maps">
+          <p class="hint">Si la pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca del local. Acepta links largos o cortos (maps.app.goo.gl).</p>
+
           <button type="submit">Crear negocio</button>
         </form>
         <p class="msg" id="msg"></p>
@@ -1722,7 +1726,8 @@ async function renderAdminDashboard(env, admin) {
             instagram_url: document.getElementById('instagram_url').value,
             pin: document.getElementById('pin').value,
             pin_note: document.getElementById('pin_note').value,
-            wallet_enabled: document.getElementById('wallet_enabled').checked
+            wallet_enabled: document.getElementById('wallet_enabled').checked,
+            wallet_location_link: document.getElementById('wallet_location_link').value.trim()
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
           const res = await fetch('/brandpanel/businesses', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -1910,6 +1915,16 @@ async function handleCreateBusiness(request, env) {
   const sello4 = body.sello_4_base64 || sello3;
   const fontFamily = FONTS[body.font_family] ? body.font_family : 'Baloo 2';
 
+  // ubicación (opcional, para el geotargeting de Apple Wallet): si mandaron
+  // un link de Google Maps, lo intentamos leer aquí mismo, una sola vez —
+  // si no se pudo leer (link raro, o caído), simplemente se guarda sin
+  // ubicación, no se bloquea la creación del negocio por esto
+  let walletLat = null, walletLng = null;
+  if (body.wallet_location_link && body.wallet_location_link.trim() !== '') {
+    const coords = await walletResolveMapsLink(body.wallet_location_link.trim());
+    if (coords) { walletLat = coords.lat; walletLng = coords.lng; }
+  }
+
   // columnas con valor fijo/calculado
   const fixedFields = {
     slug, name: body.name, logo_base64: body.logo_base64,
@@ -1924,6 +1939,9 @@ async function handleCreateBusiness(request, env) {
     strip_bg_base64: body.strip_bg_base64 || null,
     strip_bg_scope: ['both', 'wallet', 'web'].includes(body.strip_bg_scope) ? body.strip_bg_scope : 'both',
     client_type: ['cliente', 'influencer'].includes(body.client_type) ? body.client_type : 'cliente',
+    wallet_location_link: (body.wallet_location_link && body.wallet_location_link.trim()) || null,
+    wallet_location_lat: walletLat,
+    wallet_location_lng: walletLng,
   };
   // casillas de negrita/cursiva, por bloque
   const boldFields = { font_bold: 1, font_italic: 0, eyebrow_bold: 1, eyebrow_italic: 0, reward_bold: 1, reward_italic: 0 };
@@ -2574,6 +2592,11 @@ async function handleEditBusinessForm(request, env, slug) {
                 <input type="checkbox" id="wallet_enabled" ${b.wallet_enabled ? 'checked' : ''} style="width:auto;">
                 Incluye botón de Apple Wallet (según el plan del negocio)
               </label>
+
+              <label>Ubicación del local (opcional)</label>
+              <input type="text" id="wallet_location_link" placeholder="Pega aquí el link de Google Maps">
+              <p class="hint">${(b.wallet_location_lat != null && b.wallet_location_lng != null) ? `Ubicación guardada: ${b.wallet_location_lat.toFixed(5)}, ${b.wallet_location_lng.toFixed(5)}. Deja vacío para mantenerla.` : 'Si la pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca del local. Acepta links largos o cortos (maps.app.goo.gl).'}</p>
+              ${(b.wallet_location_lat != null) ? `<label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="removeWalletLocation" style="width:auto;"> Quitar esta ubicación</label>` : ''}
             </div>
           </div>
 
@@ -2710,6 +2733,7 @@ async function handleEditBusinessForm(request, env, slug) {
           const s4 = document.getElementById('sello4').files[0];
           const stripBgFile = document.getElementById('stripBg').files[0];
           const removeStripBgEl = document.getElementById('removeStripBg');
+          const removeWalletLocationEl = document.getElementById('removeWalletLocation');
           const payload = {
             name: document.getElementById('name').value.trim(),
             slug: document.getElementById('slug').value.trim(),
@@ -2721,6 +2745,8 @@ async function handleEditBusinessForm(request, env, slug) {
             sello_4_base64: s4 ? await fileToBase64(s4) : null,
             strip_bg_base64: stripBgFile ? await fileToStripBgBase64(stripBgFile) : null,
             remove_strip_bg: removeStripBgEl ? removeStripBgEl.checked : false,
+            wallet_location_link: document.getElementById('wallet_location_link').value.trim(),
+            remove_wallet_location: removeWalletLocationEl ? removeWalletLocationEl.checked : false,
             new_pin: document.getElementById('new_pin').value.trim(),
             confirm_password: document.getElementById('confirm_password_pin').value,
             strip_bg_scope: document.getElementById('stripBgScope').value,
@@ -2913,6 +2939,18 @@ async function handleUpdateBusiness(request, env, slug) {
   ];
   for (const key of colorFieldNames) fixedFields[key] = sanitizeColor(body[key], business[key]);
 
+  // ubicación (opcional): solo se toca si mandaron un link nuevo o pidieron
+  // quitarla explícitamente — si no, se queda exactamente como estaba
+  let walletLocationClause = null;
+  let walletLocationValues = [];
+  if (body.remove_wallet_location) {
+    walletLocationClause = 'wallet_location_link = NULL, wallet_location_lat = NULL, wallet_location_lng = NULL';
+  } else if (body.wallet_location_link && body.wallet_location_link.trim() !== '') {
+    const coords = await walletResolveMapsLink(body.wallet_location_link.trim());
+    walletLocationClause = 'wallet_location_link = ?, wallet_location_lat = ?, wallet_location_lng = ?';
+    walletLocationValues = [body.wallet_location_link.trim(), coords ? coords.lat : null, coords ? coords.lng : null];
+  }
+
   const setClauses = Object.keys(imageFields).map(c => `${c} = COALESCE(?, ${c})`)
     .concat(Object.keys(fixedFields).map(c => `${c} = ?`));
   const values = [...Object.values(imageFields), ...Object.values(fixedFields)];
@@ -2922,6 +2960,10 @@ async function handleUpdateBusiness(request, env, slug) {
   // se pidió borrarla y volver al color plano
   if (body.remove_strip_bg) {
     setClauses.push('strip_bg_base64 = NULL');
+  }
+  if (walletLocationClause) {
+    setClauses.push(walletLocationClause);
+    values.push(...walletLocationValues);
   }
 
   await env.DB.prepare(`UPDATE businesses SET ${setClauses.join(', ')} WHERE id = ?`)
@@ -5475,6 +5517,76 @@ function walletHexToRgb(hex) {
   return `rgb(${r},${g},${b})`;
 }
 
+// ---------- ubicación del negocio, a partir de un link de Google Maps
+// (para el geotargeting de Apple Wallet) — probado contra varios formatos
+// reales de link, sin usar expresiones regulares para evitar que se dañe
+// al subir el archivo a GitHub ----------
+function walletReadNumberAt(text, start) {
+  let i = start;
+  let str = '';
+  if (text[i] === '-') { str += '-'; i++; }
+  let sawDigit = false;
+  while (i < text.length) {
+    const c = text[i];
+    if (c >= '0' && c <= '9') { str += c; sawDigit = true; i++; }
+    else if (c === '.' && str.indexOf('.') === -1) { str += c; i++; }
+    else break;
+  }
+  if (!sawDigit) return null;
+  const n = parseFloat(str);
+  return isNaN(n) ? null : n;
+}
+function walletIsValidLat(n) { return typeof n === 'number' && n >= -90 && n <= 90; }
+function walletIsValidLng(n) { return typeof n === 'number' && n >= -180 && n <= 180; }
+function walletExtractAfterMarker(url, marker) {
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  const start = idx + marker.length;
+  const lat = walletReadNumberAt(url, start);
+  if (lat === null) return null;
+  let i = start;
+  if (url[i] === '-') i++;
+  while (i < url.length && ((url[i] >= '0' && url[i] <= '9') || url[i] === '.')) i++;
+  if (url[i] !== ',') return null;
+  i++;
+  const lng = walletReadNumberAt(url, i);
+  if (lng === null) return null;
+  if (!walletIsValidLat(lat) || !walletIsValidLng(lng)) return null;
+  return { lat, lng };
+}
+function walletExtractFromBangFormat(url) {
+  const i3 = url.indexOf('!3d');
+  const i4 = url.indexOf('!4d');
+  if (i3 === -1 || i4 === -1) return null;
+  const lat = walletReadNumberAt(url, i3 + 3);
+  const lng = walletReadNumberAt(url, i4 + 3);
+  if (lat === null || lng === null) return null;
+  if (!walletIsValidLat(lat) || !walletIsValidLng(lng)) return null;
+  return { lat, lng };
+}
+function walletExtractLatLngFromMapsUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  return walletExtractFromBangFormat(url)
+    || walletExtractAfterMarker(url, 'q=')
+    || walletExtractAfterMarker(url, 'll=')
+    || walletExtractAfterMarker(url, '@');
+}
+// intenta leer las coordenadas directo del link; si es un link corto
+// (maps.app.goo.gl, goo.gl/maps) que no las trae escritas, lo abre una vez
+// para ver a dónde redirecciona y saca las coordenadas de esa URL final
+async function walletResolveMapsLink(url) {
+  if (!url || typeof url !== 'string' || url.trim() === '') return null;
+  const direct = walletExtractLatLngFromMapsUrl(url);
+  if (direct) return direct;
+  try {
+    const res = await fetch(url, { redirect: 'follow' });
+    return walletExtractLatLngFromMapsUrl(res.url);
+  } catch (e) {
+    return null;
+  }
+}
+
+
 // Trunca texto largo a un límite seguro para que quepa en una sola línea del campo
 // del frente sin que Apple Wallet lo encoja a un tamaño ilegible (PassKit no hace
 // wrap: si no cabe, achica la fuente en vez de cortar el texto). Corta en el último
@@ -5501,7 +5613,7 @@ function walletBuildPassJSON(business, customer, env, origin) {
   // premio — así el premio se queda intacto, sin compartir espacio con el código
   const rewardFront = walletTruncateForFront(rewardFull, 34);
 
-  return {
+  const passObj = {
     formatVersion: 1,
     passTypeIdentifier: env.WALLET_PASS_TYPE_ID,
     teamIdentifier: env.WALLET_TEAM_ID,
@@ -5545,6 +5657,21 @@ function walletBuildPassJSON(business, customer, env, origin) {
       { message: `${origin}/${business.slug}/${customer.code}`, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1', altText: 'Powered by Hey Tapp' },
     ],
   };
+
+  // geotargeting (opcional): si el negocio tiene una ubicación guardada, la
+  // tarjeta le aparece sola al cliente en la pantalla de bloqueo cuando esté
+  // cerca — esto lo maneja Apple, no nosotros; solo le pasamos el punto
+  if (business.wallet_location_lat != null && business.wallet_location_lng != null) {
+    passObj.locations = [
+      {
+        latitude: business.wallet_location_lat,
+        longitude: business.wallet_location_lng,
+        relevantText: `Estás cerca de ${business.name} — toca para ver tu tarjeta`,
+      },
+    ];
+  }
+
+  return passObj;
 }
 
 // arma el .pkpass firmado y listo para descargar. Devuelve null si todavía
