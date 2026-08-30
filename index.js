@@ -2345,6 +2345,13 @@ async function handleEditBusinessForm(request, env, slug) {
     button:active{transform:translateY(1px);}
     .undo-btn{box-shadow:none!important;}
     .quick-palette{background:#FBF2D8!important;border:1.6px dashed #C9A227!important;border-radius:18px!important;}
+    .accordion-section{border:1.5px solid #EDE4D3;border-radius:16px;margin-top:12px;overflow:hidden;}
+    .accordion-header{width:100%;text-align:left;background:#FBF7EE;border:none;margin:0;padding:15px 18px;font-family:'Baloo 2',sans-serif;font-size:15px;font-weight:800;color:var(--brown);cursor:pointer;display:flex;justify-content:space-between;align-items:center;box-shadow:none!important;border-radius:0!important;transform:none!important;}
+    .accordion-header:hover{background:#F5EEDD;transform:none!important;}
+    .accordion-header .chevron{transition:transform .2s ease;font-size:13px;color:var(--terracotta);flex-shrink:0;margin-left:10px;}
+    .accordion-header.open .chevron{transform:rotate(180deg);}
+    .accordion-body{padding:0 18px;max-height:0;overflow:hidden;transition:max-height .25s ease, padding .25s ease;}
+    .accordion-body.open{padding:16px 18px 4px;max-height:none;}
   </style></head>
   <body>
     <div class="wrap">
@@ -2353,106 +2360,140 @@ async function handleEditBusinessForm(request, env, slug) {
       <h1>Editar ${escapeHtml(b.name)}</h1>
       <div class="card">
         <form id="editForm">
-          <label>Nombre del negocio</label>
-          <input type="text" id="name" value="${escapeHtml(b.name)}" required>
+          <div class="accordion-section">
+            <button type="button" class="accordion-header open">📝 Información de la marca <span class="chevron">▾</span></button>
+            <div class="accordion-body open">
+              <label>Nombre del negocio</label>
+              <input type="text" id="name" value="${escapeHtml(b.name)}" required>
 
-          <p class="hint">El slug (${escapeHtml(b.slug)}) es la parte del link que va después de tu dominio.</p>
-          <input type="text" id="slug" value="${escapeHtml(b.slug)}" required pattern="[a-z0-9-]+">
-          <p class="hint" style="color:#B23A3A;">⚠️ Si lo cambias, los links y códigos QR que tus clientes ya tienen guardados (con el slug anterior) van a dejar de funcionar. Solo cámbialo si sabes lo que haces.</p>
-
-          <label>Logo actual</label>
-          <img class="current-img" src="data:image/png;base64,${b.logo_base64}">
-          <input type="file" id="logo" accept="image/*">
-          <p class="hint">Deja vacío para mantener el logo actual.</p>
-
-          <label>Sellos actuales</label>
-          <div class="sellos">
-            <div><img class="current-img" src="data:image/png;base64,${b.sello_1_base64}"><input type="file" id="sello1" accept="image/*"></div>
-            <div><img class="current-img" src="data:image/png;base64,${b.sello_2_base64}"><input type="file" id="sello2" accept="image/*"></div>
-            <div><img class="current-img" src="data:image/png;base64,${b.sello_3_base64}"><input type="file" id="sello3" accept="image/*"></div>
-            <div><img class="current-img" src="data:image/png;base64,${b.sello_4_base64}"><input type="file" id="sello4" accept="image/*"></div>
-          </div>
-          <p class="hint">Deja vacíos los que no quieras cambiar. El primer sello también se usa dentro de Apple Wallet, adentro de cada círculo.</p>
-
-          <label>Imagen de fondo para Apple Wallet (opcional)</label>
-          ${b.strip_bg_base64 ? `<img class="current-img" src="data:image/png;base64,${b.strip_bg_base64}">` : ''}
-          <input type="file" id="stripBg" accept="image/*">
-          <p class="hint">Se recorta sola para llenar la franja (750x246). Deja vacío para mantener la actual${b.strip_bg_base64 ? '' : ' (por ahora usa color plano)'}.</p>
-          ${b.strip_bg_base64 ? `<label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="removeStripBg" style="width:auto;"> Quitar esta imagen y volver al color plano</label>` : ''}
-          <label>¿Dónde se aplica esa imagen de fondo?</label>
-          <select id="stripBgScope">
-            <option value="both" ${(!b.strip_bg_scope || b.strip_bg_scope === 'both') ? 'selected' : ''}>En Wallet y en la tarjeta web</option>
-            <option value="wallet" ${b.strip_bg_scope === 'wallet' ? 'selected' : ''}>Solo en Wallet</option>
-            <option value="web" ${b.strip_bg_scope === 'web' ? 'selected' : ''}>Solo en la tarjeta web</option>
-          </select>
-
-          <label>Tipografía</label>
-          <select id="font_family">${fontOptions}</select>
-
-          <label>Estilo del saludo (ej. "¡Hello!")</label>
-          <div style="display:flex;gap:16px;margin-top:4px;">
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_bold" ${b.eyebrow_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_italic" ${b.eyebrow_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+              <p class="hint">El slug (${escapeHtml(b.slug)}) es la parte del link que va después de tu dominio.</p>
+              <input type="text" id="slug" value="${escapeHtml(b.slug)}" required pattern="[a-z0-9-]+">
+              <p class="hint" style="color:#B23A3A;">⚠️ Si lo cambias, los links y códigos QR que tus clientes ya tienen guardados (con el slug anterior) van a dejar de funcionar. Solo cámbialo si sabes lo que haces.</p>
+            </div>
           </div>
 
-          <label>Estilo del nombre del cliente</label>
-          <div style="display:flex;gap:16px;margin-top:4px;">
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" ${b.font_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" ${b.font_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+          <div class="accordion-section">
+            <button type="button" class="accordion-header">🎨 Apariencia <span class="chevron">▾</span></button>
+            <div class="accordion-body">
+              <label>Logo actual</label>
+              <img class="current-img" src="data:image/png;base64,${b.logo_base64}">
+              <input type="file" id="logo" accept="image/*">
+              <p class="hint">Deja vacío para mantener el logo actual.</p>
+
+              <label>Sellos actuales</label>
+              <div class="sellos">
+                <div><img class="current-img" src="data:image/png;base64,${b.sello_1_base64}"><input type="file" id="sello1" accept="image/*"></div>
+                <div><img class="current-img" src="data:image/png;base64,${b.sello_2_base64}"><input type="file" id="sello2" accept="image/*"></div>
+                <div><img class="current-img" src="data:image/png;base64,${b.sello_3_base64}"><input type="file" id="sello3" accept="image/*"></div>
+                <div><img class="current-img" src="data:image/png;base64,${b.sello_4_base64}"><input type="file" id="sello4" accept="image/*"></div>
+              </div>
+              <p class="hint">Deja vacíos los que no quieras cambiar. El primer sello también se usa dentro de Apple Wallet, adentro de cada círculo.</p>
+
+              <label>Imagen de fondo para Apple Wallet (opcional)</label>
+              ${b.strip_bg_base64 ? `<img class="current-img" src="data:image/png;base64,${b.strip_bg_base64}">` : ''}
+              <input type="file" id="stripBg" accept="image/*">
+              <p class="hint">Se recorta sola para llenar la franja (750x246). Deja vacío para mantener la actual${b.strip_bg_base64 ? '' : ' (por ahora usa color plano)'}.</p>
+              ${b.strip_bg_base64 ? `<label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="removeStripBg" style="width:auto;"> Quitar esta imagen y volver al color plano</label>` : ''}
+              <label>¿Dónde se aplica esa imagen de fondo?</label>
+              <select id="stripBgScope">
+                <option value="both" ${(!b.strip_bg_scope || b.strip_bg_scope === 'both') ? 'selected' : ''}>En Wallet y en la tarjeta web</option>
+                <option value="wallet" ${b.strip_bg_scope === 'wallet' ? 'selected' : ''}>Solo en Wallet</option>
+                <option value="web" ${b.strip_bg_scope === 'web' ? 'selected' : ''}>Solo en la tarjeta web</option>
+              </select>
+
+              <label>Tipografía</label>
+              <select id="font_family">${fontOptions}</select>
+
+              <label>Estilo del saludo (ej. "¡Hello!")</label>
+              <div style="display:flex;gap:16px;margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_bold" ${b.eyebrow_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_italic" ${b.eyebrow_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+              </div>
+
+              <label>Estilo del nombre del cliente</label>
+              <div style="display:flex;gap:16px;margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" ${b.font_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" ${b.font_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+              </div>
+
+              <label>Estilo del bloque "Tu premio"</label>
+              <div style="display:flex;gap:16px;margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_bold" ${b.reward_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_italic" ${b.reward_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+              </div>
+
+              <label>Colores de marca</label>
+              ${colorGroupsHtml(b)}
+            </div>
           </div>
 
-          <label>Estilo del bloque "Tu premio"</label>
-          <div style="display:flex;gap:16px;margin-top:4px;">
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_bold" ${b.reward_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_italic" ${b.reward_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+          <div class="accordion-section">
+            <button type="button" class="accordion-header">🗂️ Datos de la tarjeta <span class="chevron">▾</span></button>
+            <div class="accordion-body">
+              <label>Cuántos sellos para el premio</label>
+              <input type="number" id="total_stamps" value="${b.total_stamps}" min="3" max="50" required>
+
+              <label>Saludo (arriba del nombre)</label>
+              <input type="text" id="greeting_eyebrow" value="${escapeHtml(b.greeting_eyebrow)}">
+
+              <label>Título del premio</label>
+              <input type="text" id="reward_heading" value="${escapeHtml(b.reward_heading)}">
+
+              <label>Texto del premio</label>
+              <input type="text" id="reward_text" value="${escapeHtml(b.reward_text)}" required>
+
+              <label>Instrucción para sumar sellos</label>
+              <select id="instruction_text">
+                <option value="Muestra este código en caja para sumar tu sello en tu compra."${b.instruction_text === 'Muestra este código en caja para sumar tu sello en tu compra.' ? ' selected' : ''}>Negocio físico: mostrar en caja</option>
+                <option value="Muestra este código al momento de pagar para sumar tu sello."${b.instruction_text === 'Muestra este código al momento de pagar para sumar tu sello.' ? ' selected' : ''}>Negocio físico: mostrar al pagar</option>
+                <option value="Envía este código al confirmar tu pedido para sumar tu sello."${b.instruction_text === 'Envía este código al confirmar tu pedido para sumar tu sello.' ? ' selected' : ''}>Negocio digital: al confirmar pedido</option>
+                <option value="Pega este código en el chat al hacer tu compra."${b.instruction_text === 'Pega este código en el chat al hacer tu compra.' ? ' selected' : ''}>Negocio digital: pegar en el chat</option>
+                <option value="Envía una captura de este código junto a tu comprobante de pago."${b.instruction_text === 'Envía una captura de este código junto a tu comprobante de pago.' ? ' selected' : ''}>Negocio digital: junto al comprobante</option>
+              </select>
+
+              <label>Instagram (usuario)</label>
+              <input type="text" id="instagram_handle" value="${escapeHtml(b.instagram_handle || '')}">
+
+              <label>Instagram (link completo)</label>
+              <input type="text" id="instagram_url" value="${escapeHtml(b.instagram_url || '')}">
+            </div>
           </div>
 
-          <label>Colores de marca</label>
-          ${colorGroupsHtml(b)}
+          <div class="accordion-section">
+            <button type="button" class="accordion-header">💳 Tipo de plan <span class="chevron">▾</span></button>
+            <div class="accordion-body">
+              <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                <input type="checkbox" id="wallet_enabled" ${b.wallet_enabled ? 'checked' : ''} style="width:auto;">
+                Incluye botón de Apple Wallet (según el plan del negocio)
+              </label>
+            </div>
+          </div>
 
-          <label>Cuántos sellos para el premio</label>
-          <input type="number" id="total_stamps" value="${b.total_stamps}" min="3" max="50" required>
-
-          <label>Saludo (arriba del nombre)</label>
-          <input type="text" id="greeting_eyebrow" value="${escapeHtml(b.greeting_eyebrow)}">
-
-          <label>Título del premio</label>
-          <input type="text" id="reward_heading" value="${escapeHtml(b.reward_heading)}">
-
-          <label>Texto del premio</label>
-          <input type="text" id="reward_text" value="${escapeHtml(b.reward_text)}" required>
-
-          <label>Instrucción para sumar sellos</label>
-          <select id="instruction_text">
-            <option value="Muestra este código en caja para sumar tu sello en tu compra."${b.instruction_text === 'Muestra este código en caja para sumar tu sello en tu compra.' ? ' selected' : ''}>Negocio físico: mostrar en caja</option>
-            <option value="Muestra este código al momento de pagar para sumar tu sello."${b.instruction_text === 'Muestra este código al momento de pagar para sumar tu sello.' ? ' selected' : ''}>Negocio físico: mostrar al pagar</option>
-            <option value="Envía este código al confirmar tu pedido para sumar tu sello."${b.instruction_text === 'Envía este código al confirmar tu pedido para sumar tu sello.' ? ' selected' : ''}>Negocio digital: al confirmar pedido</option>
-            <option value="Pega este código en el chat al hacer tu compra."${b.instruction_text === 'Pega este código en el chat al hacer tu compra.' ? ' selected' : ''}>Negocio digital: pegar en el chat</option>
-            <option value="Envía una captura de este código junto a tu comprobante de pago."${b.instruction_text === 'Envía una captura de este código junto a tu comprobante de pago.' ? ' selected' : ''}>Negocio digital: junto al comprobante</option>
-          </select>
-
-          <label>Instagram (usuario)</label>
-          <input type="text" id="instagram_handle" value="${escapeHtml(b.instagram_handle || '')}">
-
-          <label>Instagram (link completo)</label>
-          <input type="text" id="instagram_url" value="${escapeHtml(b.instagram_url || '')}">
-
-          <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-            <input type="checkbox" id="wallet_enabled" ${b.wallet_enabled ? 'checked' : ''} style="width:auto;">
-            Incluye botón de Apple Wallet (según el plan del negocio)
-          </label>
-
-          <label style="margin-top:18px;">PIN del staff</label>
-          <input type="password" inputmode="numeric" id="new_pin" placeholder="Deja vacío para no cambiarlo" maxlength="6">
-          <p class="hint">Por seguridad no se puede ver el PIN actual (solo se guarda cifrado, ni nosotros lo vemos). Escribe aquí solo si quieres reemplazarlo por uno nuevo de 4 a 6 dígitos. Si lo cambias, cualquier sesión de staff que ya estuviera adentro se cierra sola y tiene que volver a entrar con el nuevo.</p>
-          <input type="password" id="confirm_password_pin" placeholder="Tu contraseña de admin, para guardar el PIN nuevo">
-          <p class="hint">Escribe tu contraseña aquí solo si vas a guardar un PIN nuevo (arriba). Si no, déjalo vacío.</p>
+          <div class="accordion-section">
+            <button type="button" class="accordion-header">🔒 Seguridad y privacidad <span class="chevron">▾</span></button>
+            <div class="accordion-body">
+              <label style="margin-top:0;">PIN del staff</label>
+              <input type="password" inputmode="numeric" id="new_pin" placeholder="Deja vacío para no cambiarlo" maxlength="6" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore>
+              <p class="hint">Por seguridad no se puede ver el PIN actual (solo se guarda cifrado, ni nosotros lo vemos). Escribe aquí solo si quieres reemplazarlo por uno nuevo de 4 a 6 dígitos. Si lo cambias, cualquier sesión de staff que ya estuviera adentro se cierra sola y tiene que volver a entrar con el nuevo.</p>
+              <input type="password" id="confirm_password_pin" placeholder="Tu contraseña de admin, para guardar el PIN nuevo" autocomplete="new-password" data-lpignore="true" data-1p-ignore>
+              <p class="hint">Escribe tu contraseña aquí solo si vas a guardar un PIN nuevo (arriba). Si no, déjalo vacío.</p>
+            </div>
+          </div>
 
           <div style="display:flex;gap:8px;align-items:flex-end;">
             <button type="submit" style="flex:1;">Guardar cambios</button>
             <button type="button" id="undoBtn" class="undo-btn" style="flex:0 0 auto;width:auto;padding:14px 16px;" disabled title="Deshacer último cambio (Ctrl+Z)">↩️ Deshacer</button>
           </div>
         </form>
+
+        <script>
+          document.querySelectorAll('.accordion-header').forEach(function(h) {
+            h.addEventListener('click', function() {
+              h.classList.toggle('open');
+              h.nextElementSibling.classList.toggle('open');
+            });
+          });
+        </script>
 
         <div class="card" style="margin-top:20px;">
           <label>Tu recordatorio del PIN</label>
