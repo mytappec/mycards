@@ -1330,6 +1330,13 @@ async function renderAdminDashboard(env, admin) {
           <label>Slug (va en el link, sin espacios ni tildes)</label>
           <input type="text" id="slug" required placeholder="Ej. cloudscookies">
 
+          <label>Tipo de cliente</label>
+          <div style="display:flex;gap:16px;margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="radio" name="client_type" value="cliente" checked style="width:auto;margin:0;"> Cliente</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="radio" name="client_type" value="influencer" style="width:auto;margin:0;"> Influencer</label>
+          </div>
+          <p class="hint">Solo para ti, para organizarte — nunca se le muestra al negocio ni a sus clientes.</p>
+
           <label>Logo (imagen con fondo transparente)</label>
           <input type="file" id="logo" accept="image/*" required>
 
@@ -1690,6 +1697,7 @@ async function renderAdminDashboard(env, admin) {
           const payload = {
             name: document.getElementById('name').value.trim(),
             slug: document.getElementById('slug').value.trim().toLowerCase(),
+            client_type: (document.querySelector('input[name="client_type"]:checked') || {}).value || 'cliente',
             logo_base64: await fileToWalletLogoBase64(logoFile),
             sello_1_base64: await fileToBase64(s1),
             sello_2_base64: s2 ? await fileToBase64(s2) : null,
@@ -1914,6 +1922,7 @@ async function handleCreateBusiness(request, env) {
     wallet_enabled: body.wallet_enabled === false ? 0 : 1,
     strip_bg_base64: body.strip_bg_base64 || null,
     strip_bg_scope: ['both', 'wallet', 'web'].includes(body.strip_bg_scope) ? body.strip_bg_scope : 'both',
+    client_type: ['cliente', 'influencer'].includes(body.client_type) ? body.client_type : 'cliente',
   };
   // casillas de negrita/cursiva, por bloque
   const boldFields = { font_bold: 1, font_italic: 0, eyebrow_bold: 1, eyebrow_italic: 0, reward_bold: 1, reward_italic: 0 };
@@ -2352,6 +2361,12 @@ async function handleEditBusinessForm(request, env, slug) {
     .accordion-header.open .chevron{transform:rotate(180deg);}
     .accordion-body{padding:0 18px;max-height:0;overflow:hidden;transition:max-height .25s ease, padding .25s ease;}
     .accordion-body.open{padding:16px 18px 4px;max-height:none;}
+    .accordion-header.sub{background:#F7F2E7;padding:12px 14px;font-size:13px;border-radius:10px!important;}
+    .accordion-header.sub:hover{background:#F0EADB;}
+    .accordion-header.sub .chevron{font-size:11px;}
+    .accordion-body.sub{padding:0 14px;}
+    .accordion-body.sub.open{padding:12px 14px 2px;}
+    .sub-section{border:1.5px solid #EDE4D3;border-radius:12px;margin-top:10px;overflow:hidden;background:#FEFDFB;}
   </style></head>
   <body>
     <div class="wrap">
@@ -2369,61 +2384,89 @@ async function handleEditBusinessForm(request, env, slug) {
               <p class="hint">El slug (${escapeHtml(b.slug)}) es la parte del link que va después de tu dominio.</p>
               <input type="text" id="slug" value="${escapeHtml(b.slug)}" required pattern="[a-z0-9-]+">
               <p class="hint" style="color:#B23A3A;">⚠️ Si lo cambias, los links y códigos QR que tus clientes ya tienen guardados (con el slug anterior) van a dejar de funcionar. Solo cámbialo si sabes lo que haces.</p>
+
+              <label>Tipo de cliente</label>
+              <div style="display:flex;gap:16px;margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="radio" name="client_type" value="cliente" ${(!b.client_type || b.client_type === 'cliente') ? 'checked' : ''} style="width:auto;margin:0;"> Cliente</label>
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="radio" name="client_type" value="influencer" ${b.client_type === 'influencer' ? 'checked' : ''} style="width:auto;margin:0;"> Influencer</label>
+              </div>
+              <p class="hint">Solo para ti, para organizarte — nunca se le muestra al negocio ni a sus clientes.</p>
             </div>
           </div>
 
           <div class="accordion-section">
             <button type="button" class="accordion-header">🎨 Apariencia <span class="chevron">▾</span></button>
             <div class="accordion-body">
-              <label>Logo actual</label>
-              <img class="current-img" src="data:image/png;base64,${b.logo_base64}">
-              <input type="file" id="logo" accept="image/*">
-              <p class="hint">Deja vacío para mantener el logo actual.</p>
 
-              <label>Sellos actuales</label>
-              <div class="sellos">
-                <div><img class="current-img" src="data:image/png;base64,${b.sello_1_base64}"><input type="file" id="sello1" accept="image/*"></div>
-                <div><img class="current-img" src="data:image/png;base64,${b.sello_2_base64}"><input type="file" id="sello2" accept="image/*"></div>
-                <div><img class="current-img" src="data:image/png;base64,${b.sello_3_base64}"><input type="file" id="sello3" accept="image/*"></div>
-                <div><img class="current-img" src="data:image/png;base64,${b.sello_4_base64}"><input type="file" id="sello4" accept="image/*"></div>
-              </div>
-              <p class="hint">Deja vacíos los que no quieras cambiar. El primer sello también se usa dentro de Apple Wallet, adentro de cada círculo.</p>
+              <div class="sub-section">
+                <button type="button" class="accordion-header sub open">Imagen para sello <span class="chevron">▾</span></button>
+                <div class="accordion-body sub open">
+                  <label>Logo actual</label>
+                  <img class="current-img" src="data:image/png;base64,${b.logo_base64}">
+                  <input type="file" id="logo" accept="image/*">
+                  <p class="hint">Deja vacío para mantener el logo actual.</p>
 
-              <label>Imagen de fondo para Apple Wallet (opcional)</label>
-              ${b.strip_bg_base64 ? `<img class="current-img" src="data:image/png;base64,${b.strip_bg_base64}">` : ''}
-              <input type="file" id="stripBg" accept="image/*">
-              <p class="hint">Se recorta sola para llenar la franja (750x246). Deja vacío para mantener la actual${b.strip_bg_base64 ? '' : ' (por ahora usa color plano)'}.</p>
-              ${b.strip_bg_base64 ? `<label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="removeStripBg" style="width:auto;"> Quitar esta imagen y volver al color plano</label>` : ''}
-              <label>¿Dónde se aplica esa imagen de fondo?</label>
-              <select id="stripBgScope">
-                <option value="both" ${(!b.strip_bg_scope || b.strip_bg_scope === 'both') ? 'selected' : ''}>En Wallet y en la tarjeta web</option>
-                <option value="wallet" ${b.strip_bg_scope === 'wallet' ? 'selected' : ''}>Solo en Wallet</option>
-                <option value="web" ${b.strip_bg_scope === 'web' ? 'selected' : ''}>Solo en la tarjeta web</option>
-              </select>
-
-              <label>Tipografía</label>
-              <select id="font_family">${fontOptions}</select>
-
-              <label>Estilo del saludo (ej. "¡Hello!")</label>
-              <div style="display:flex;gap:16px;margin-top:4px;">
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_bold" ${b.eyebrow_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_italic" ${b.eyebrow_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+                  <label>Sellos actuales</label>
+                  <div class="sellos">
+                    <div><img class="current-img" src="data:image/png;base64,${b.sello_1_base64}"><input type="file" id="sello1" accept="image/*"></div>
+                    <div><img class="current-img" src="data:image/png;base64,${b.sello_2_base64}"><input type="file" id="sello2" accept="image/*"></div>
+                    <div><img class="current-img" src="data:image/png;base64,${b.sello_3_base64}"><input type="file" id="sello3" accept="image/*"></div>
+                    <div><img class="current-img" src="data:image/png;base64,${b.sello_4_base64}"><input type="file" id="sello4" accept="image/*"></div>
+                  </div>
+                  <p class="hint">Deja vacíos los que no quieras cambiar. El primer sello también se usa dentro de Apple Wallet, adentro de cada círculo.</p>
+                </div>
               </div>
 
-              <label>Estilo del nombre del cliente</label>
-              <div style="display:flex;gap:16px;margin-top:4px;">
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" ${b.font_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" ${b.font_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+              <div class="sub-section">
+                <button type="button" class="accordion-header sub">Imagen de fondo para Apple Wallet <span class="chevron">▾</span></button>
+                <div class="accordion-body sub">
+                  <label style="margin-top:0;">Imagen de fondo (opcional)</label>
+                  ${b.strip_bg_base64 ? `<img class="current-img" src="data:image/png;base64,${b.strip_bg_base64}">` : ''}
+                  <input type="file" id="stripBg" accept="image/*">
+                  <p class="hint">Se recorta sola para llenar la franja (750x246). Deja vacío para mantener la actual${b.strip_bg_base64 ? '' : ' (por ahora usa color plano)'}.</p>
+                  ${b.strip_bg_base64 ? `<label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="removeStripBg" style="width:auto;"> Quitar esta imagen y volver al color plano</label>` : ''}
+                  <label>¿Dónde se aplica esa imagen de fondo?</label>
+                  <select id="stripBgScope">
+                    <option value="both" ${(!b.strip_bg_scope || b.strip_bg_scope === 'both') ? 'selected' : ''}>En Wallet y en la tarjeta web</option>
+                    <option value="wallet" ${b.strip_bg_scope === 'wallet' ? 'selected' : ''}>Solo en Wallet</option>
+                    <option value="web" ${b.strip_bg_scope === 'web' ? 'selected' : ''}>Solo en la tarjeta web</option>
+                  </select>
+                </div>
               </div>
 
-              <label>Estilo del bloque "Tu premio"</label>
-              <div style="display:flex;gap:16px;margin-top:4px;">
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_bold" ${b.reward_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_italic" ${b.reward_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+              <div class="sub-section">
+                <button type="button" class="accordion-header sub">Tipografía <span class="chevron">▾</span></button>
+                <div class="accordion-body sub">
+                  <label style="margin-top:0;">Fuente</label>
+                  <select id="font_family">${fontOptions}</select>
+
+                  <label>Estilo del saludo (ej. "¡Hello!")</label>
+                  <div style="display:flex;gap:16px;margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_bold" ${b.eyebrow_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_italic" ${b.eyebrow_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+                  </div>
+
+                  <label>Estilo del nombre del cliente</label>
+                  <div style="display:flex;gap:16px;margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" ${b.font_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" ${b.font_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+                  </div>
+
+                  <label>Estilo del bloque "Tu premio"</label>
+                  <div style="display:flex;gap:16px;margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_bold" ${b.reward_bold ? 'checked' : ''} style="width:auto;margin:0;"> Negrita</label>
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_italic" ${b.reward_italic ? 'checked' : ''} style="width:auto;margin:0;"> Cursiva</label>
+                  </div>
+                </div>
               </div>
 
-              <label>Colores de marca</label>
-              ${colorGroupsHtml(b)}
+              <div class="sub-section">
+                <button type="button" class="accordion-header sub">Colores de marca <span class="chevron">▾</span></button>
+                <div class="accordion-body sub">
+                  ${colorGroupsHtml(b)}
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -2460,7 +2503,7 @@ async function handleEditBusinessForm(request, env, slug) {
           </div>
 
           <div class="accordion-section">
-            <button type="button" class="accordion-header">💳 Tipo de plan <span class="chevron">▾</span></button>
+            <button type="button" class="accordion-header">🍏 Apple Wallet <span class="chevron">▾</span></button>
             <div class="accordion-body">
               <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
                 <input type="checkbox" id="wallet_enabled" ${b.wallet_enabled ? 'checked' : ''} style="width:auto;">
@@ -2605,6 +2648,7 @@ async function handleEditBusinessForm(request, env, slug) {
           const payload = {
             name: document.getElementById('name').value.trim(),
             slug: document.getElementById('slug').value.trim(),
+            client_type: (document.querySelector('input[name="client_type"]:checked') || {}).value || 'cliente',
             logo_base64: logoFile ? await fileToWalletLogoBase64(logoFile) : null,
             sello_1_base64: s1 ? await fileToBase64(s1) : null,
             sello_2_base64: s2 ? await fileToBase64(s2) : null,
@@ -2790,6 +2834,7 @@ async function handleUpdateBusiness(request, env, slug) {
     instruction_text: body.instruction_text || business.instruction_text,
     wallet_enabled: body.wallet_enabled === false ? 0 : 1,
     strip_bg_scope: ['both', 'wallet', 'web'].includes(body.strip_bg_scope) ? body.strip_bg_scope : (business.strip_bg_scope || 'both'),
+    client_type: ['cliente', 'influencer'].includes(body.client_type) ? body.client_type : (business.client_type || 'cliente'),
   };
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
   for (const key of boldFieldNames) fixedFields[key] = body[key] ? 1 : 0;
