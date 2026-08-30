@@ -1,11 +1,11 @@
 // ============================================================
 // Tarjetas de sellos digitales — Worker principal
 // Rutas:
-//   GET  /admin                -> login / crear tu cuenta / panel (según el caso)
-//   POST /admin/signup         -> crea tu cuenta (solo si todavía no existe ninguna)
-//   POST /admin/login          -> inicia sesión con correo y contraseña
-//   GET  /admin/logout         -> cierra tu sesión
-//   POST /admin/businesses     -> crea un negocio nuevo (protegido con tu sesión)
+//   GET  /brandpanel                -> login / crear tu cuenta / panel (según el caso)
+//   POST /brandpanel/signup         -> crea tu cuenta (solo si todavía no existe ninguna)
+//   POST /brandpanel/login          -> inicia sesión con correo y contraseña
+//   GET  /brandpanel/logout         -> cierra tu sesión
+//   POST /brandpanel/businesses     -> crea un negocio nuevo (protegido con tu sesión)
 //   GET  /:slug/nuevo          -> formulario público para que el CLIENTE se registre solo
 //   POST /:slug/nuevo          -> crea al cliente y lo manda directo a su tarjeta
 //   GET  /:slug/:code          -> tarjeta del cliente
@@ -90,7 +90,7 @@ export default {
       }
 
       // ---- tu panel de administración (My Tapp) ----
-      if (parts[0] === 'admin') {
+      if (parts[0] === 'brandpanel') {
         if (parts[1] === 'leads') return handleLeadsList(request, env);
         if (parts[1] === 'signup' && request.method === 'POST') return handleAdminSignup(request, env);
         if (parts[1] === 'login' && request.method === 'POST') return handleAdminLogin(request, env);
@@ -1055,7 +1055,7 @@ function renderAdminSignup(platformName) {
         const msg = document.getElementById('msg');
         msg.textContent = 'Creando...'; msg.className = 'msg';
         try {
-          const res = await fetch('/admin/signup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
+          const res = await fetch('/brandpanel/signup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
           if (res.ok) {
             const data = await res.json();
             document.getElementById('recoveryCode').textContent = data.recoveryCode;
@@ -1067,7 +1067,7 @@ function renderAdminSignup(platformName) {
           msg.textContent = 'Algo falló (' + err.message + '). Intenta de nuevo.'; msg.className = 'msg err';
         }
       });
-      document.getElementById('continueBtn').addEventListener('click', () => { location.href = '/admin'; });
+      document.getElementById('continueBtn').addEventListener('click', () => { location.href = '/brandpanel'; });
     </script>
   </body></html>`;
 }
@@ -1092,7 +1092,7 @@ function renderAdminLogin(platformName) {
         <button type="submit">Entrar</button>
       </form>
       <p class="msg" id="msg"></p>
-      <p class="sub"><a href="/admin/recuperar">¿Olvidaste tu contraseña?</a></p>
+      <p class="sub"><a href="/brandpanel/recuperar">¿Olvidaste tu contraseña?</a></p>
     </div>
     <script>
       document.querySelectorAll('.pw-toggle').forEach(btn => {
@@ -1108,8 +1108,8 @@ function renderAdminLogin(platformName) {
         const password = document.getElementById('password').value;
         const msg = document.getElementById('msg');
         msg.textContent = 'Entrando...'; msg.className = 'msg';
-        const res = await fetch('/admin/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
-        if (res.ok) { location.href = '/admin'; }
+        const res = await fetch('/brandpanel/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
+        if (res.ok) { location.href = '/brandpanel'; }
         else { const d = await res.json(); msg.textContent = d.error || 'Correo o contraseña incorrectos'; msg.className = 'msg err'; }
       });
     </script>
@@ -1131,7 +1131,7 @@ async function renderAdminDashboard(env, admin) {
     const isOverdue = b.next_payment_date && b.next_payment_date < today;
     return `
     <tr>
-      <td data-label="Editar tarjeta" style="white-space:nowrap;"><a href="/admin/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
+      <td data-label="Editar tarjeta" style="white-space:nowrap;"><a href="/brandpanel/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
       <td data-label="Negocio" style="white-space:nowrap;">${escapeHtml(b.name)}</td>
       <td data-label="Slug" style="white-space:nowrap;">${escapeHtml(b.slug)}</td>
       <td data-label="Código QR" style="white-space:nowrap;"><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
@@ -1252,9 +1252,9 @@ async function renderAdminDashboard(env, admin) {
           <h1 style="white-space:nowrap;margin:0;">${escapeHtml(platformName)} by Anaelí Brand</h1>
         </div>
         <div style="display:flex;align-items:center;gap:14px;">
-          <a href="/admin/leads" style="text-decoration:none;font-size:12px;font-weight:700;color:#42281B;background:#EBDA8B;padding:8px 14px;border-radius:8px;">📬 Solicitudes${leadsCount > 0 ? ` (${leadsCount})` : ''}</a>
+          <a href="/brandpanel/leads" style="text-decoration:none;font-size:12px;font-weight:700;color:#42281B;background:#EBDA8B;padding:8px 14px;border-radius:8px;">📬 Solicitudes${leadsCount > 0 ? ` (${leadsCount})` : ''}</a>
           <button type="button" id="toggleSettingsBtn" style="width:auto;margin:0;padding:8px 14px;font-size:12px;background:#F4F1EA;color:#2B2320;">⚙️ Configuración</button>
-          <a class="logout" href="/admin/logout" style="float:none;">Cerrar sesión</a>
+          <a class="logout" href="/brandpanel/logout" style="float:none;">Cerrar sesión</a>
         </div>
       </div>
       <div class="card" id="settingsCard" style="display:none;margin-top:14px;">
@@ -1455,7 +1455,7 @@ async function renderAdminDashboard(env, admin) {
         const name = document.getElementById('platformNameInput').value.trim();
         const nameMsg = document.getElementById('nameMsg');
         nameMsg.textContent = 'Guardando...'; nameMsg.className = 'msg';
-        const res = await fetch('/admin/update-platform-name', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name }) });
+        const res = await fetch('/brandpanel/update-platform-name', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name }) });
         const data = await res.json();
         if (res.ok) { nameMsg.textContent = '✅ Guardado. Recargando...'; nameMsg.className = 'msg ok'; setTimeout(() => location.reload(), 800); }
         else { nameMsg.textContent = data.error || 'No se pudo guardar'; nameMsg.className = 'msg err'; }
@@ -1496,7 +1496,7 @@ async function renderAdminDashboard(env, admin) {
             ui_btn_bg: document.getElementById('adminBtnBg').value,
             ui_btn_text: document.getElementById('adminBtnText').value,
           };
-          const res = await fetch('/admin/appearance', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          const res = await fetch('/brandpanel/appearance', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
           const data = await res.json();
           if (res.ok) { appearanceMsg.textContent = '✅ Guardado. Recargando...'; appearanceMsg.className = 'msg ok'; setTimeout(() => location.reload(), 800); }
           else { appearanceMsg.textContent = data.error || 'No se pudo guardar'; appearanceMsg.className = 'msg err'; }
@@ -1513,7 +1513,7 @@ async function renderAdminDashboard(env, admin) {
           if (password === null) return;
           const deleteMsg = document.getElementById('deleteMsg');
           deleteMsg.textContent = 'Borrando...'; deleteMsg.className = 'msg';
-          const res = await fetch('/admin/business/' + slug + '/delete', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
+          const res = await fetch('/brandpanel/business/' + slug + '/delete', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
           if (res.ok) { location.reload(); }
           else { const d = await res.json(); deleteMsg.textContent = d.error || 'No se pudo borrar'; deleteMsg.className = 'msg err'; }
         });
@@ -1525,7 +1525,7 @@ async function renderAdminDashboard(env, admin) {
           const slug = cell.dataset.slug;
           const password = await askPassword('Escribe tu contraseña de administradora para ver el PIN de este negocio:');
           if (password === null) return;
-          const res = await fetch('/admin/business/' + slug + '/reveal-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
+          const res = await fetch('/brandpanel/business/' + slug + '/reveal-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
           const data = await res.json();
           if (res.ok) {
             cell.textContent = '🔓 ' + data.pin;
@@ -1552,7 +1552,7 @@ async function renderAdminDashboard(env, admin) {
           const last_payment_date = cell.querySelector('.last-payment-input').value;
           const next_payment_date = cell.querySelector('.next-payment-input').value;
           btn.textContent = 'Guardando...';
-          const res = await fetch('/admin/business/' + slug + '/payment', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ last_payment_date, next_payment_date }) });
+          const res = await fetch('/brandpanel/business/' + slug + '/payment', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ last_payment_date, next_payment_date }) });
           if (res.ok) { location.reload(); } else { btn.textContent = 'Error, reintenta'; }
         });
       });
@@ -1563,7 +1563,7 @@ async function renderAdminDashboard(env, admin) {
           const isSuspended = link.dataset.suspended === '1';
           const action = isSuspended ? 'activar' : 'suspender';
           if (!confirm('¿Seguro que quieres ' + action + ' este negocio?' + (isSuspended ? '' : ' Su staff no va a poder sellar hasta que lo actives de nuevo.'))) return;
-          const res = await fetch('/admin/business/' + slug + '/toggle-suspend', { method: 'POST' });
+          const res = await fetch('/brandpanel/business/' + slug + '/toggle-suspend', { method: 'POST' });
           if (res.ok) { location.reload(); } else { alert('No se pudo cambiar el estado'); }
         });
       });
@@ -1588,7 +1588,7 @@ async function renderAdminDashboard(env, admin) {
         link.addEventListener('click', async (e) => {
           e.preventDefault();
           const slug = link.dataset.slug;
-          const res = await fetch('/admin/business/' + slug + '/unlock', { method: 'POST' });
+          const res = await fetch('/brandpanel/business/' + slug + '/unlock', { method: 'POST' });
           if (res.ok) { location.reload(); }
           else { alert('No se pudo desbloquear, intenta de nuevo.'); }
         });
@@ -1672,7 +1672,7 @@ async function renderAdminDashboard(env, admin) {
         const newPassword = document.getElementById('newPassword').value;
         const pwMsg = document.getElementById('pwMsg');
         pwMsg.textContent = 'Actualizando...'; pwMsg.className = 'msg';
-        const res = await fetch('/admin/cambiar-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ currentPassword, newPassword }) });
+        const res = await fetch('/brandpanel/cambiar-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ currentPassword, newPassword }) });
         const data = await res.json();
         if (res.ok) {
           pwMsg.textContent = '✅ Contraseña actualizada'; pwMsg.className = 'msg ok';
@@ -1723,7 +1723,7 @@ async function renderAdminDashboard(env, admin) {
             wallet_enabled: document.getElementById('wallet_enabled').checked
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
-          const res = await fetch('/admin/businesses', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          const res = await fetch('/brandpanel/businesses', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
           const data = await res.json();
           if (res.ok) {
             msg.innerHTML = '✅ Negocio creado. <a href="/' + data.slug + '/nuevo" target="_blank">Ver link de registro</a>';
@@ -1780,7 +1780,7 @@ async function handleAdminLogin(request, env) {
   }
   const cookieToken = await createAdminSession(env, admin.id);
   const headers = new Headers({ 'Content-Type': 'application/json' });
-  headers.append('Set-Cookie', `admin_session=${cookieToken}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`);
+  headers.append('Set-Cookie', `admin_session=${cookieToken}; Path=/brandpanel; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`);
   return new Response(JSON.stringify({ ok: true }), { headers });
 }
 
@@ -1788,8 +1788,8 @@ async function handleAdminLogout(request, env) {
   const cookieVal = getCookie(request, 'admin_session');
   const admin = await getAdminFromSession(env, cookieVal);
   if (admin) await invalidateAdminSession(env, admin.id);
-  const headers = new Headers({ 'Location': '/admin' });
-  headers.append('Set-Cookie', `admin_session=; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
+  const headers = new Headers({ 'Location': '/brandpanel' });
+  headers.append('Set-Cookie', `admin_session=; Path=/brandpanel; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
   return new Response(null, { status: 302, headers });
 }
 
@@ -1812,7 +1812,7 @@ function renderAdminRecoverForm(platformName) {
         <button type="submit">Restablecer contraseña</button>
       </form>
       <p class="msg" id="msg"></p>
-      <p class="sub"><a href="/admin">← Volver a entrar</a></p>
+      <p class="sub"><a href="/brandpanel">← Volver a entrar</a></p>
     </div>
     <script>
       document.querySelectorAll('.pw-toggle').forEach(btn => {
@@ -1829,7 +1829,7 @@ function renderAdminRecoverForm(platformName) {
         const password = document.getElementById('password').value;
         const msg = document.getElementById('msg');
         msg.textContent = 'Verificando...'; msg.className = 'msg';
-        const res = await fetch('/admin/recuperar', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, code, password }) });
+        const res = await fetch('/brandpanel/recuperar', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, code, password }) });
         if (res.ok) { msg.textContent = '✅ Contraseña actualizada. Ya puedes entrar.'; msg.className = 'msg ok'; }
         else { const d = await res.json(); msg.textContent = d.error || 'Código o correo incorrectos'; msg.className = 'msg err'; }
       });
@@ -1874,7 +1874,7 @@ async function handleAdminChangePassword(request, env) {
   // y esta pestaña sigue con sesión activa gracias al cookie nuevo
   const cookieToken = await createAdminSession(env, admin.id);
   const headers = new Headers({ 'Content-Type': 'application/json' });
-  headers.append('Set-Cookie', `admin_session=${cookieToken}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`);
+  headers.append('Set-Cookie', `admin_session=${cookieToken}; Path=/brandpanel; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`);
   return new Response(JSON.stringify({ ok: true }), { headers });
 }
 
@@ -1891,7 +1891,7 @@ async function handleCreateBusiness(request, env) {
   if (!/^\d{4,6}$/.test(String(body.pin))) {
     return new Response(JSON.stringify({ error: 'El PIN debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  if (['admin', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined'].includes(slug)) {
+  if (['admin', 'brandpanel', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined'].includes(slug)) {
     return new Response(JSON.stringify({ error: 'Ese slug está reservado, usa otro' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   const existing = await env.DB.prepare('SELECT id FROM businesses WHERE slug = ?').bind(slug).first();
@@ -2252,7 +2252,7 @@ async function handleLeadsList(request, env) {
     }
   </style></head>
   <body>
-    <a class="back" href="/admin">← Volver al panel</a>
+    <a class="back" href="/brandpanel">← Volver al panel</a>
     <h1>Solicitudes de info ${tableMissing ? '' : `(${results.length})`}</h1>
     ${tableMissing
       ? `<div class="warn-box"><b>Todavía falta un paso.</b><br>La tabla "leads" no existe en tu base de datos todavía. Entra a Cloudflare → tu base de datos D1 → pestaña <b>Console</b>, y pega esto:<br><br><code>CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT NOT NULL, instagram TEXT, business_type TEXT, emailed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));</code><br><br>Después de correr eso una sola vez, esta página va a funcionar y vas a poder ver aquí todas las solicitudes que lleguen.</div>`
@@ -2370,7 +2370,7 @@ async function handleEditBusinessForm(request, env, slug) {
   <body>
     <div class="wrap">
       <div class="form-col">
-      <a class="back" href="/admin">← Volver al panel</a>
+      <a class="back" href="/brandpanel">← Volver al panel</a>
       <h1>Editar ${escapeHtml(b.name)}</h1>
       <div class="card">
         <form id="editForm">
@@ -2675,12 +2675,12 @@ async function handleEditBusinessForm(request, env, slug) {
             wallet_enabled: document.getElementById('wallet_enabled').checked
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
-          const res = await fetch('/admin/business/${slug}/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          const res = await fetch('/brandpanel/business/${slug}/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
           const data = await res.json();
           if (res.ok) {
             if (data.slug && data.slug !== '${slug}') {
               msg.textContent = '✅ Guardado. El slug cambió, redirigiendo...'; msg.className = 'msg ok';
-              setTimeout(() => { location.href = '/admin/business/' + data.slug + '/edit'; }, 900);
+              setTimeout(() => { location.href = '/brandpanel/business/' + data.slug + '/edit'; }, 900);
             } else {
               msg.textContent = '✅ Cambios guardados'; msg.className = 'msg ok';
             }
@@ -2745,7 +2745,7 @@ async function handleEditBusinessForm(request, env, slug) {
       document.getElementById('pinNoteViewBtn').addEventListener('click', async () => {
         const password = await askPassword('Escribe tu contraseña de administradora para ver el recordatorio del PIN:');
         if (password === null) return;
-        const res = await fetch('/admin/business/${slug}/reveal-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
+        const res = await fetch('/brandpanel/business/${slug}/reveal-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
         const data = await res.json();
         if (res.ok) {
           document.getElementById('pinNoteDisplay').textContent = '🔓 ' + data.pin;
@@ -2761,7 +2761,7 @@ async function handleEditBusinessForm(request, env, slug) {
         const note = document.getElementById('pinNoteNewValue').value;
         const password = await askPassword('Escribe tu contraseña de administradora para guardar este recordatorio:');
         if (password === null) return;
-        const res = await fetch('/admin/business/${slug}/update-pin-note', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password, note }) });
+        const res = await fetch('/brandpanel/business/${slug}/update-pin-note', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password, note }) });
         const data = await res.json();
         if (res.ok) {
           document.getElementById('pinNoteDisplay').textContent = '🔒 ••••';
@@ -2794,7 +2794,7 @@ async function handleUpdateBusiness(request, env, slug) {
     if (!cleanSlug) {
       return new Response(JSON.stringify({ error: 'El slug no puede quedar vacío' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
-    if (['admin', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined'].includes(cleanSlug)) {
+    if (['admin', 'brandpanel', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined'].includes(cleanSlug)) {
       return new Response(JSON.stringify({ error: 'Ese slug está reservado, usa otro' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     if (cleanSlug !== business.slug) {
