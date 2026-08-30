@@ -5028,7 +5028,7 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
         // círculo relleno con transparencia (se ve claro contra cualquier fondo,
         // pero se distingue de los ya sellados) + un borde un poco más marcado
         // encima, para que se note bien el contorno de cada sello
-        walletSetPixel(pixels, width, x, y, fr, fg, fb, 255 * outerAlpha * 0.4);
+        walletSetPixel(pixels, width, x, y, fr, fg, fb, 255 * outerAlpha * 0.6);
         const innerEdge = radius - borderW;
         if (d >= innerEdge - AA) {
           let ringAlpha = outerAlpha;
