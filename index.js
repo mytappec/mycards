@@ -91,6 +91,8 @@ export default {
 
       // ---- tu panel de administración (My Tapp) ----
       if (parts[0] === 'brandpanel') {
+        if (parts[1] === 'leads' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteLead(request, env, parts[2]);
+        if (parts[1] === 'leads' && parts[2] && parts[3] === 'emailed' && request.method === 'POST') return handleUpdateLeadEmailed(request, env, parts[2]);
         if (parts[1] === 'leads') return handleLeadsList(request, env);
         if (parts[1] === 'signup' && request.method === 'POST') return handleAdminSignup(request, env);
         if (parts[1] === 'login' && request.method === 'POST') return handleAdminLogin(request, env);
@@ -2192,6 +2194,33 @@ async function handleCreateLead(request, env) {
 
 // lista de solicitudes recibidas, para cuando no tengas el correo automático
 // configurado (o como respaldo aunque sí lo tengas)
+async function handleDeleteLead(request, env, id) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  if (!/^\d+$/.test(String(id))) {
+    return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  await env.DB.prepare('DELETE FROM leads WHERE id = ?').bind(id).run();
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleUpdateLeadEmailed(request, env, id) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  if (!/^\d+$/.test(String(id))) {
+    return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+  const emailed = body.emailed ? 1 : 0;
+  await env.DB.prepare('UPDATE leads SET emailed = ? WHERE id = ?').bind(emailed, id).run();
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
 async function handleLeadsList(request, env) {
   const cookieVal = getCookie(request, 'admin_session');
   const admin = await getAdminFromSession(env, cookieVal);
@@ -2213,14 +2242,15 @@ async function handleLeadsList(request, env) {
       : l.business_type === 'fisico' ? 'Emprende Físico'
       : l.business_type === 'wallet' ? 'Plan Fideliza Wallet' : '—';
     return `
-    <tr>
+    <tr data-id="${l.id}">
       <td data-label="Nombre">${escapeHtml(l.name)}</td>
       <td data-label="Celular"><a href="tel:${escapeHtml(l.phone)}">${escapeHtml(l.phone)}</a></td>
       <td data-label="Correo"><a href="mailto:${escapeHtml(l.email)}">${escapeHtml(l.email)}</a></td>
       <td data-label="Instagram">${l.instagram ? escapeHtml(l.instagram) : '—'}</td>
       <td data-label="Interesado en">${planLabel}</td>
       <td data-label="Fecha">${escapeHtml(l.created_at)}</td>
-      <td data-label="Correo enviado">${l.emailed ? '✅' : '—'}</td>
+      <td data-label="Correo enviado"><input type="checkbox" class="emailedCheck" data-id="${l.id}" ${l.emailed ? 'checked' : ''} style="width:20px;height:20px;cursor:pointer;"></td>
+      <td data-label="Borrar"><button type="button" class="deleteLeadBtn" data-id="${l.id}" style="background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;">Borrar</button></td>
     </tr>`;
   }).join('');
 
@@ -2257,8 +2287,44 @@ async function handleLeadsList(request, env) {
     ${tableMissing
       ? `<div class="warn-box"><b>Todavía falta un paso.</b><br>La tabla "leads" no existe en tu base de datos todavía. Entra a Cloudflare → tu base de datos D1 → pestaña <b>Console</b>, y pega esto:<br><br><code>CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT NOT NULL, instagram TEXT, business_type TEXT, emailed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));</code><br><br>Después de correr eso una sola vez, esta página va a funcionar y vas a poder ver aquí todas las solicitudes que lleguen.</div>`
       : `<p class="sub">El correo automático a hola@heytapp.com está activo por FormSubmit — esto es tu respaldo, revísalo si algún correo no llegó.</p>
-        ${results.length ? `<table><thead><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>Instagram</th><th>Interesado en</th><th>Fecha</th><th>Correo enviado</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Todavía no hay solicitudes.</div>'}`
+        ${results.length ? `<table><thead><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>Instagram</th><th>Interesado en</th><th>Fecha</th><th>Correo enviado</th><th>Borrar</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Todavía no hay solicitudes.</div>'}`
     }
+    <script>
+      document.querySelectorAll('.emailedCheck').forEach(function(cb) {
+        cb.addEventListener('change', async function() {
+          const id = cb.dataset.id;
+          cb.disabled = true;
+          try {
+            const res = await fetch('/brandpanel/leads/' + id + '/emailed', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ emailed: cb.checked }),
+            });
+            if (!res.ok) { cb.checked = !cb.checked; alert('No se pudo guardar, intenta de nuevo.'); }
+          } catch (e) { cb.checked = !cb.checked; alert('Error de conexión, intenta de nuevo.'); }
+          cb.disabled = false;
+        });
+      });
+      document.querySelectorAll('.deleteLeadBtn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          if (!confirm('¿Borrar esta solicitud? No se puede deshacer.')) return;
+          const id = btn.dataset.id;
+          btn.disabled = true; btn.textContent = 'Borrando...';
+          try {
+            const res = await fetch('/brandpanel/leads/' + id + '/delete', { method: 'POST' });
+            if (res.ok) {
+              const row = btn.closest('tr');
+              row.remove();
+            } else {
+              alert('No se pudo borrar, intenta de nuevo.');
+              btn.disabled = false; btn.textContent = 'Borrar';
+            }
+          } catch (e) {
+            alert('Error de conexión, intenta de nuevo.');
+            btn.disabled = false; btn.textContent = 'Borrar';
+          }
+        });
+      });
+    </script>
   </body></html>`;
 
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
