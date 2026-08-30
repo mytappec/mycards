@@ -447,8 +447,8 @@ function getContrastButtonColors(b) {
   return best;
 }
 
-function colorField(id, label, value) {
-  return `<div class="color-row"><span class="color-row-label">${label}</span><input type="color" class="colorPicker" id="${id}" value="${value}"><input type="text" class="colorHex" id="${id}_hex" value="${value}"></div>`;
+function colorField(id, label, value, note) {
+  return `<div class="color-row-wrap"><div class="color-row"><span class="color-row-label">${label}</span><input type="color" class="colorPicker" id="${id}" value="${value}"><input type="text" class="colorHex" id="${id}_hex" value="${value}"></div>${note ? `<p class="hint" style="margin:-3px 0 7px;padding-left:2px;">🔗 ${note}</p>` : ''}</div>`;
 }
 
 // cuadro modal para pedir la contraseña de administradora, con asteriscos reales
@@ -542,31 +542,31 @@ function colorGroupsHtml(b) {
       <p class="hint" id="quickPaletteMsg" style="min-height:14px;"></p>
     </div>
 
-    <label style="margin-top:22px;">🔤 Textos</label>
-    <div class="colors">
-      ${colorField('color_brown_soft', 'Título bienvenida: "¡Hello!"', v('color_brown_soft', '#8A5A34'))}
-      ${colorField('color_brown', 'Nombre del cliente', v('color_brown', '#593212'))}
-      ${colorField('color_text_progress_pct', 'Porcentaje al lado de la barra (ej. 40%)', v('color_text_progress_pct', '#593212'))}
-      ${colorField('color_text_progress_label', 'Texto debajo de la barra: "X de 10 sellos..."', v('color_text_progress_label', '#8A5A34'))}
-      ${colorField('color_reward_heading', 'Título: "Tu premio, cada vez más cerca"', v('color_reward_heading', '#593212'))}
-      ${colorField('color_reward_text', 'Descripción debajo de ese título', v('color_reward_text', '#593212'))}
-      ${colorField('color_text_qr_code', 'Código de cliente (ej. #ABC123)', v('color_text_qr_code', '#593212'))}
-      ${colorField('color_text_qr_instruction', 'Descripción debajo del código de cliente', v('color_text_qr_instruction', '#8A5A34'))}
-      ${colorField('color_text_instagram', 'Usuario de Instagram (@usuario)', v('color_text_instagram', '#593212'))}
-      ${colorField('color_text_credit', 'Texto final: "My Tapp, una marca de Anaelí Brand"', v('color_text_credit', '#593212'))}
-    </div>
-
-    <label style="margin-top:18px;">🎨 Fondos</label>
+    <label style="margin-top:22px;">🎨 Fondos</label>
     <div class="colors">
       ${colorField('color_page_bg', 'Fondo de toda la pantalla', v('color_page_bg', '#DCEAF4'))}
       ${colorField('color_card_bg', 'Fondo de la tarjeta', v('color_card_bg', '#FFFCF5'))}
       ${colorField('color_stamp_bg', 'Fondo de los círculos de sello', v('color_stamp_bg', '#593212'))}
       ${colorField('color_pink', 'Relleno de la barra de progreso', v('color_pink', '#F4D3DF'))}
-      ${colorField('color_butter_mid', 'Fondo del bloque "Tu premio"', v('color_butter_mid', '#F9E6B2'))}
+      ${colorField('color_butter_mid', 'Fondo del bloque "Tu premio"', v('color_butter_mid', '#F9E6B2'), 'También pinta la etiqueta "PREMIO" y el anillo que pulsa alrededor del último sello.')}
       ${colorField('color_qr_bg', 'Fondo del recuadro del código QR', v('color_qr_bg', '#F4D3DF'))}
       ${colorField('color_qr_pattern_light', 'Color del QR: espacio entre cuadritos', v('color_qr_pattern_light', '#F4D3DF'))}
       ${colorField('color_instagram_bg', 'Fondo de la burbuja de Instagram', v('color_instagram_bg', '#DCEAF4'))}
       ${colorField('color_butter_light', 'Fondo claro adicional (uso interno)', v('color_butter_light', '#FBEFD2'))}
+    </div>
+
+    <label style="margin-top:18px;">🔤 Textos</label>
+    <div class="colors">
+      ${colorField('color_brown_soft', 'Título bienvenida: "¡Hello!"', v('color_brown_soft', '#8A5A34'))}
+      ${colorField('color_brown', 'Nombre del cliente', v('color_brown', '#593212'))}
+      ${colorField('color_text_progress_pct', 'Porcentaje al lado de la barra (ej. 40%)', v('color_text_progress_pct', '#593212'))}
+      ${colorField('color_text_progress_label', 'Texto debajo de la barra: "X de 10 sellos..."', v('color_text_progress_label', '#8A5A34'))}
+      ${colorField('color_reward_heading', 'Título: "Tu premio, cada vez más cerca"', v('color_reward_heading', '#593212'), 'También pinta el texto de la etiqueta "PREMIO".')}
+      ${colorField('color_reward_text', 'Descripción debajo de ese título', v('color_reward_text', '#593212'))}
+      ${colorField('color_text_qr_code', 'Código de cliente (ej. #ABC123)', v('color_text_qr_code', '#593212'))}
+      ${colorField('color_text_qr_instruction', 'Descripción debajo del código de cliente', v('color_text_qr_instruction', '#8A5A34'))}
+      ${colorField('color_text_instagram', 'Usuario de Instagram (@usuario)', v('color_text_instagram', '#593212'))}
+      ${colorField('color_text_credit', 'Texto final: "My Tapp, una marca de Anaelí Brand"', v('color_text_credit', '#593212'))}
     </div>
 
     <label style="margin-top:18px;">🖊️ Bordes y sombra</label>
