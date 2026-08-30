@@ -1345,6 +1345,12 @@ async function renderAdminDashboard(env, admin) {
           <label>Imagen de fondo para Apple Wallet (opcional)</label>
           <input type="file" id="stripBg" accept="image/*">
           <p class="hint">Se recorta sola para llenar la franja de sellos (750x246). Si no subes nada, se queda con el color plano.</p>
+          <label>¿Dónde se aplica esa imagen de fondo?</label>
+          <select id="stripBgScope">
+            <option value="both">En Wallet y en la tarjeta web</option>
+            <option value="wallet">Solo en Wallet</option>
+            <option value="web">Solo en la tarjeta web</option>
+          </select>
 
           <label>Colores de marca</label>
           ${colorGroupsHtml(null)}
@@ -1690,6 +1696,7 @@ async function renderAdminDashboard(env, admin) {
             sello_3_base64: s3 ? await fileToBase64(s3) : null,
             sello_4_base64: s4 ? await fileToBase64(s4) : null,
             strip_bg_base64: stripBgFile ? await fileToStripBgBase64(stripBgFile) : null,
+            strip_bg_scope: document.getElementById('stripBgScope').value,
             font_family: document.getElementById('font_family').value,
             font_bold: document.getElementById('font_bold').checked,
             font_italic: document.getElementById('font_italic').checked,
@@ -1906,6 +1913,7 @@ async function handleCreateBusiness(request, env) {
     instruction_text: body.instruction_text || 'Muestra este código en caja para sumar tu sello en tu compra.',
     wallet_enabled: body.wallet_enabled === false ? 0 : 1,
     strip_bg_base64: body.strip_bg_base64 || null,
+    strip_bg_scope: ['both', 'wallet', 'web'].includes(body.strip_bg_scope) ? body.strip_bg_scope : 'both',
   };
   // casillas de negrita/cursiva, por bloque
   const boldFields = { font_bold: 1, font_italic: 0, eyebrow_bold: 1, eyebrow_italic: 0, reward_bold: 1, reward_italic: 0 };
@@ -2371,6 +2379,12 @@ async function handleEditBusinessForm(request, env, slug) {
           <input type="file" id="stripBg" accept="image/*">
           <p class="hint">Se recorta sola para llenar la franja (750x246). Deja vacío para mantener la actual${b.strip_bg_base64 ? '' : ' (por ahora usa color plano)'}.</p>
           ${b.strip_bg_base64 ? `<label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="removeStripBg" style="width:auto;"> Quitar esta imagen y volver al color plano</label>` : ''}
+          <label>¿Dónde se aplica esa imagen de fondo?</label>
+          <select id="stripBgScope">
+            <option value="both" ${(!b.strip_bg_scope || b.strip_bg_scope === 'both') ? 'selected' : ''}>En Wallet y en la tarjeta web</option>
+            <option value="wallet" ${b.strip_bg_scope === 'wallet' ? 'selected' : ''}>Solo en Wallet</option>
+            <option value="web" ${b.strip_bg_scope === 'web' ? 'selected' : ''}>Solo en la tarjeta web</option>
+          </select>
 
           <label>Tipografía</label>
           <select id="font_family">${fontOptions}</select>
@@ -2548,6 +2562,7 @@ async function handleEditBusinessForm(request, env, slug) {
             sello_4_base64: s4 ? await fileToBase64(s4) : null,
             strip_bg_base64: stripBgFile ? await fileToStripBgBase64(stripBgFile) : null,
             remove_strip_bg: removeStripBgEl ? removeStripBgEl.checked : false,
+            strip_bg_scope: document.getElementById('stripBgScope').value,
             font_family: document.getElementById('font_family').value,
             font_bold: document.getElementById('font_bold').checked,
             font_italic: document.getElementById('font_italic').checked,
@@ -2707,6 +2722,7 @@ async function handleUpdateBusiness(request, env, slug) {
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url),
     instruction_text: body.instruction_text || business.instruction_text,
     wallet_enabled: body.wallet_enabled === false ? 0 : 1,
+    strip_bg_scope: ['both', 'wallet', 'web'].includes(body.strip_bg_scope) ? body.strip_bg_scope : (business.strip_bg_scope || 'both'),
   };
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
   for (const key of boldFieldNames) fixedFields[key] = body[key] ? 1 : 0;
@@ -2908,7 +2924,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   // si el negocio subió una imagen de fondo (la misma que usa en Wallet), se
   // pone detrás de los círculos de sellos con un poco de aire alrededor; si no
   // subió nada, no se toca el fondo transparente de siempre
-  const stampsBgStyle = b.strip_bg_base64
+  const stampsBgStyle = (b.strip_bg_base64 && b.strip_bg_scope !== 'wallet')
     ? `background-image:url('data:image/png;base64,${b.strip_bg_base64}');background-size:cover;background-position:center;border-radius:16px;padding:14px 10px;`
     : '';
   const buildStamp = (i) => {
@@ -5009,11 +5025,16 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
         const gr = highlight[0] + (fr - highlight[0]) * t, gg = highlight[1] + (fg - highlight[1]) * t, gb = highlight[2] + (fb - highlight[2]) * t;
         walletSetPixel(pixels, width, x, y, gr, gg, gb, 255*outerAlpha);
       } else {
+        // círculo relleno con transparencia (se ve claro contra cualquier fondo,
+        // pero se distingue de los ya sellados) + un borde un poco más marcado
+        // encima, para que se note bien el contorno de cada sello
+        walletSetPixel(pixels, width, x, y, fr, fg, fb, 255 * outerAlpha * 0.4);
         const innerEdge = radius - borderW;
-        let ringAlpha = outerAlpha;
-        if (d < innerEdge - AA) { ringAlpha = 0; }
-        else if (d < innerEdge + AA) { ringAlpha *= Math.max(0, Math.min(1, (d - innerEdge + AA) / (AA*2))); }
-        if (ringAlpha > 0) walletSetPixel(pixels, width, x, y, br, bg, bb, 255*ringAlpha);
+        if (d >= innerEdge - AA) {
+          let ringAlpha = outerAlpha;
+          if (d < innerEdge + AA) ringAlpha *= Math.max(0, Math.min(1, (d - innerEdge + AA) / (AA*2)));
+          walletSetPixel(pixels, width, x, y, br, bg, bb, 255 * ringAlpha * 0.85);
+        }
       }
     }
   }
@@ -5053,7 +5074,7 @@ async function walletBuildStampStripImage(business, filled, total) {
   // recortada a 750x246 desde el navegador); si no hay, o si algo falla al
   // leerla, se usa el color plano de siempre — nunca se rompe la tarjeta por esto
   let usedCustomBg = false;
-  if (business.strip_bg_base64) {
+  if (business.strip_bg_base64 && business.strip_bg_scope !== 'web') {
     try {
       const bytes = Uint8Array.from(atob(business.strip_bg_base64), c => c.charCodeAt(0));
       const decoded = walletDecodePng(bytes);
