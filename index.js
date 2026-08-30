@@ -18,6 +18,7 @@
 // ============================================================
 
 import { createSign, createHash } from 'node:crypto';
+import zlib from 'node:zlib';
 
 export default {
   async fetch(request, env) {
@@ -1339,6 +1340,11 @@ async function renderAdminDashboard(env, admin) {
             <input type="file" id="sello3" accept="image/*">
             <input type="file" id="sello4" accept="image/*">
           </div>
+          <p class="hint">El primer sello se usa también dentro de Apple Wallet, adentro de cada círculo relleno.</p>
+
+          <label>Imagen de fondo para Apple Wallet (opcional)</label>
+          <input type="file" id="stripBg" accept="image/*">
+          <p class="hint">Se recorta sola para llenar la franja de sellos (750x246). Si no subes nada, se queda con el color plano.</p>
 
           <label>Colores de marca</label>
           ${colorGroupsHtml(null)}
@@ -1610,6 +1616,31 @@ async function renderAdminDashboard(env, admin) {
           };
           reader.readAsDataURL(file);
         });
+      // recorta y escala una imagen para que llene exactamente 750x246 (el
+      // tamaño real de la franja de sellos en Apple Wallet), sin dejar bordes
+      // vacíos — si la proporción no calza, recorta el sobrante desde el centro
+      function fileToStripBgBase64(file) {
+        const targetW = 750, targetH = 246;
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = reject;
+          reader.onload = () => {
+            const img = new Image();
+            img.onerror = reject;
+            img.onload = () => {
+              const scale = Math.max(targetW / img.width, targetH / img.height);
+              const sw = targetW / scale, sh = targetH / scale;
+              const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+              const canvas = document.createElement('canvas');
+              canvas.width = targetW; canvas.height = targetH;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+              resolve(canvas.toDataURL('image/png').split(',')[1]);
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
       }
       document.querySelectorAll('.colorPicker').forEach(picker => {
         const hexInput = document.getElementById(picker.id + '_hex');
@@ -1649,6 +1680,7 @@ async function renderAdminDashboard(env, admin) {
           const s2 = document.getElementById('sello2').files[0];
           const s3 = document.getElementById('sello3').files[0];
           const s4 = document.getElementById('sello4').files[0];
+          const stripBgFile = document.getElementById('stripBg').files[0];
           const payload = {
             name: document.getElementById('name').value.trim(),
             slug: document.getElementById('slug').value.trim().toLowerCase(),
@@ -1657,6 +1689,7 @@ async function renderAdminDashboard(env, admin) {
             sello_2_base64: s2 ? await fileToBase64(s2) : null,
             sello_3_base64: s3 ? await fileToBase64(s3) : null,
             sello_4_base64: s4 ? await fileToBase64(s4) : null,
+            strip_bg_base64: stripBgFile ? await fileToStripBgBase64(stripBgFile) : null,
             font_family: document.getElementById('font_family').value,
             font_bold: document.getElementById('font_bold').checked,
             font_italic: document.getElementById('font_italic').checked,
@@ -1872,6 +1905,7 @@ async function handleCreateBusiness(request, env) {
     staff_pin_note: body.pin_note || null,
     instruction_text: body.instruction_text || 'Muestra este código en caja para sumar tu sello en tu compra.',
     wallet_enabled: body.wallet_enabled === false ? 0 : 1,
+    strip_bg_base64: body.strip_bg_base64 || null,
   };
   // casillas de negrita/cursiva, por bloque
   const boldFields = { font_bold: 1, font_italic: 0, eyebrow_bold: 1, eyebrow_italic: 0, reward_bold: 1, reward_italic: 0 };
@@ -2330,7 +2364,13 @@ async function handleEditBusinessForm(request, env, slug) {
             <div><img class="current-img" src="data:image/png;base64,${b.sello_3_base64}"><input type="file" id="sello3" accept="image/*"></div>
             <div><img class="current-img" src="data:image/png;base64,${b.sello_4_base64}"><input type="file" id="sello4" accept="image/*"></div>
           </div>
-          <p class="hint">Deja vacíos los que no quieras cambiar.</p>
+          <p class="hint">Deja vacíos los que no quieras cambiar. El primer sello también se usa dentro de Apple Wallet, adentro de cada círculo.</p>
+
+          <label>Imagen de fondo para Apple Wallet (opcional)</label>
+          ${b.strip_bg_base64 ? `<img class="current-img" src="data:image/png;base64,${b.strip_bg_base64}">` : ''}
+          <input type="file" id="stripBg" accept="image/*">
+          <p class="hint">Se recorta sola para llenar la franja (750x246). Deja vacío para mantener la actual${b.strip_bg_base64 ? '' : ' (por ahora usa color plano)'}.</p>
+          ${b.strip_bg_base64 ? `<label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="removeStripBg" style="width:auto;"> Quitar esta imagen y volver al color plano</label>` : ''}
 
           <label>Tipografía</label>
           <select id="font_family">${fontOptions}</select>
@@ -2463,6 +2503,29 @@ async function handleEditBusinessForm(request, env, slug) {
           reader.readAsDataURL(file);
         });
       }
+      function fileToStripBgBase64(file) {
+        const targetW = 750, targetH = 246;
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = reject;
+          reader.onload = () => {
+            const img = new Image();
+            img.onerror = reject;
+            img.onload = () => {
+              const scale = Math.max(targetW / img.width, targetH / img.height);
+              const sw = targetW / scale, sh = targetH / scale;
+              const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+              const canvas = document.createElement('canvas');
+              canvas.width = targetW; canvas.height = targetH;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+              resolve(canvas.toDataURL('image/png').split(',')[1]);
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
       document.getElementById('editForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const msg = document.getElementById('msg');
@@ -2473,6 +2536,8 @@ async function handleEditBusinessForm(request, env, slug) {
           const s2 = document.getElementById('sello2').files[0];
           const s3 = document.getElementById('sello3').files[0];
           const s4 = document.getElementById('sello4').files[0];
+          const stripBgFile = document.getElementById('stripBg').files[0];
+          const removeStripBgEl = document.getElementById('removeStripBg');
           const payload = {
             name: document.getElementById('name').value.trim(),
             slug: document.getElementById('slug').value.trim(),
@@ -2481,6 +2546,8 @@ async function handleEditBusinessForm(request, env, slug) {
             sello_2_base64: s2 ? await fileToBase64(s2) : null,
             sello_3_base64: s3 ? await fileToBase64(s3) : null,
             sello_4_base64: s4 ? await fileToBase64(s4) : null,
+            strip_bg_base64: stripBgFile ? await fileToStripBgBase64(stripBgFile) : null,
+            remove_strip_bg: removeStripBgEl ? removeStripBgEl.checked : false,
             font_family: document.getElementById('font_family').value,
             font_bold: document.getElementById('font_bold').checked,
             font_italic: document.getElementById('font_italic').checked,
@@ -2631,7 +2698,8 @@ async function handleUpdateBusiness(request, env, slug) {
 
   // campos con imagen: si no se subió una nueva, se mantiene la actual (COALESCE en SQL)
   const imageFields = { logo_base64: body.logo_base64 || null, sello_1_base64: body.sello_1_base64 || null,
-    sello_2_base64: body.sello_2_base64 || null, sello_3_base64: body.sello_3_base64 || null, sello_4_base64: body.sello_4_base64 || null };
+    sello_2_base64: body.sello_2_base64 || null, sello_3_base64: body.sello_3_base64 || null, sello_4_base64: body.sello_4_base64 || null,
+    strip_bg_base64: body.strip_bg_base64 || null };
 
   const fixedFields = {
     slug: newSlug, name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
@@ -2655,6 +2723,13 @@ async function handleUpdateBusiness(request, env, slug) {
   const setClauses = Object.keys(imageFields).map(c => `${c} = COALESCE(?, ${c})`)
     .concat(Object.keys(fixedFields).map(c => `${c} = ?`));
   const values = [...Object.values(imageFields), ...Object.values(fixedFields)];
+
+  // "quitar imagen de fondo" es un caso especial: no es que no se mandó nada
+  // nuevo (ahí se mantendría la actual por el COALESCE), es que explícitamente
+  // se pidió borrarla y volver al color plano
+  if (body.remove_strip_bg) {
+    setClauses.push('strip_bg_base64 = NULL');
+  }
 
   await env.DB.prepare(`UPDATE businesses SET ${setClauses.join(', ')} WHERE id = ?`)
     .bind(...values, business.id)
@@ -2830,6 +2905,12 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   // si es impar, la fila de arriba lleva uno más que la de abajo.
   const topCount = Math.ceil(total / 2);
   const bottomCount = total - topCount;
+  // si el negocio subió una imagen de fondo (la misma que usa en Wallet), se
+  // pone detrás de los círculos de sellos con un poco de aire alrededor; si no
+  // subió nada, no se toca el fondo transparente de siempre
+  const stampsBgStyle = b.strip_bg_base64
+    ? `background-image:url('data:image/png;base64,${b.strip_bg_base64}');background-size:cover;background-position:center;border-radius:16px;padding:14px 10px;`
+    : '';
   const buildStamp = (i) => {
     const isReward = i === total;
     const selloKey = selloNames[(i - 1) % 4];
@@ -2973,7 +3054,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
           <span class="progress-pct">${pct}%</span>
         </div>
         <p class="progress-text">${progressText}</p>
-        <div class="stamp-rows" style="--stamp-cols:${topCount};">
+        <div class="stamp-rows" style="--stamp-cols:${topCount};${stampsBgStyle}">
           <div class="stamp-row">${stampsTopHtml}</div>
           ${bottomCount > 0 ? `<div class="stamp-row">${stampsBottomHtml}</div>` : ''}
         </div>
@@ -4684,6 +4765,111 @@ function walletBuildZip(files) {
 }
 
 // ---------- generador de PNG puro (sin librerías), para dibujar la fila de sellos como imagen real ----------
+// ---------- decodificador de PNG (probado a fondo: RGB, RGBA, y paleta indexada
+// con transparencia, comparado píxel por píxel contra ImageMagick) — se usa para
+// leer el ícono de sello y la imagen de fondo que suba el negocio ----------
+function walletReadPngChunks(bytes) {
+  const sig = [137,80,78,71,13,10,26,10];
+  for (let i=0;i<8;i++) if (bytes[i] !== sig[i]) throw new Error('no es un PNG válido');
+  let offset = 8;
+  const chunks = [];
+  while (offset < bytes.length) {
+    const length = (bytes[offset]<<24 | bytes[offset+1]<<16 | bytes[offset+2]<<8 | bytes[offset+3]) >>> 0;
+    const type = String.fromCharCode(bytes[offset+4], bytes[offset+5], bytes[offset+6], bytes[offset+7]);
+    const data = bytes.slice(offset+8, offset+8+length);
+    chunks.push({ type, data });
+    offset += 8 + length + 4;
+    if (type === 'IEND') break;
+  }
+  return chunks;
+}
+function walletPaeth(a,b,c) {
+  const p = a+b-c;
+  const pa = Math.abs(p-a), pb = Math.abs(p-b), pc = Math.abs(p-c);
+  if (pa<=pb && pa<=pc) return a;
+  if (pb<=pc) return b;
+  return c;
+}
+function walletDecodePng(bytes) {
+  const chunks = walletReadPngChunks(bytes);
+  const ihdr = chunks.find(c => c.type === 'IHDR').data;
+  const width = (ihdr[0]<<24|ihdr[1]<<16|ihdr[2]<<8|ihdr[3])>>>0;
+  const height = (ihdr[4]<<24|ihdr[5]<<16|ihdr[6]<<8|ihdr[7])>>>0;
+  const bitDepth = ihdr[8];
+  const colorType = ihdr[9];
+  const interlace = ihdr[12];
+  if (interlace !== 0) throw new Error('PNG con interlace no soportado');
+  if (bitDepth !== 8) throw new Error('solo se soporta profundidad de 8 bits (bitDepth=' + bitDepth + ')');
+
+  const channelsByType = { 0:1, 2:3, 3:1, 4:2, 6:4 };
+  const channels = channelsByType[colorType];
+  if (channels === undefined) throw new Error('colorType no soportado: ' + colorType);
+
+  let palette = null;
+  if (colorType === 3) {
+    const plte = chunks.find(c => c.type === 'PLTE');
+    if (!plte) throw new Error('PNG con paleta pero sin bloque PLTE');
+    const trns = chunks.find(c => c.type === 'tRNS');
+    const entries = plte.data.length / 3;
+    palette = new Uint8Array(entries * 4);
+    for (let i = 0; i < entries; i++) {
+      palette[i*4] = plte.data[i*3];
+      palette[i*4+1] = plte.data[i*3+1];
+      palette[i*4+2] = plte.data[i*3+2];
+      palette[i*4+3] = trns && i < trns.data.length ? trns.data[i] : 255;
+    }
+  }
+
+  const idat = Buffer.concat(chunks.filter(c => c.type === 'IDAT').map(c => Buffer.from(c.data)));
+  const raw = zlib.inflateSync(idat);
+
+  const bytesPerPixel = channels;
+  const stride = width * bytesPerPixel;
+  const out = new Uint8Array(width * height * 4);
+
+  let pos = 0;
+  const prevRow = new Uint8Array(stride);
+  let currRow = new Uint8Array(stride);
+
+  for (let y = 0; y < height; y++) {
+    const filterType = raw[pos]; pos++;
+    currRow = raw.slice(pos, pos + stride);
+    pos += stride;
+
+    for (let i = 0; i < stride; i++) {
+      const a = i >= bytesPerPixel ? currRow[i - bytesPerPixel] : 0;
+      const b = prevRow[i];
+      const c = i >= bytesPerPixel ? prevRow[i - bytesPerPixel] : 0;
+      let val = currRow[i];
+      if (filterType === 1) val = (val + a) & 0xff;
+      else if (filterType === 2) val = (val + b) & 0xff;
+      else if (filterType === 3) val = (val + Math.floor((a+b)/2)) & 0xff;
+      else if (filterType === 4) val = (val + walletPaeth(a,b,c)) & 0xff;
+      currRow[i] = val;
+    }
+
+    for (let x = 0; x < width; x++) {
+      const srcI = x * bytesPerPixel;
+      const dstI = (y * width + x) * 4;
+      if (colorType === 3) {
+        const idx = currRow[srcI] * 4;
+        out[dstI]=palette[idx]; out[dstI+1]=palette[idx+1]; out[dstI+2]=palette[idx+2]; out[dstI+3]=palette[idx+3];
+      } else if (channels === 4) {
+        out[dstI]=currRow[srcI]; out[dstI+1]=currRow[srcI+1]; out[dstI+2]=currRow[srcI+2]; out[dstI+3]=currRow[srcI+3];
+      } else if (channels === 3) {
+        out[dstI]=currRow[srcI]; out[dstI+1]=currRow[srcI+1]; out[dstI+2]=currRow[srcI+2]; out[dstI+3]=255;
+      } else if (channels === 2) {
+        out[dstI]=currRow[srcI]; out[dstI+1]=currRow[srcI]; out[dstI+2]=currRow[srcI]; out[dstI+3]=currRow[srcI+1];
+      } else if (channels === 1) {
+        out[dstI]=currRow[srcI]; out[dstI+1]=currRow[srcI]; out[dstI+2]=currRow[srcI]; out[dstI+3]=255;
+      }
+    }
+    prevRow.set(currRow);
+  }
+
+  return { width, height, pixels: out };
+}
+
 function walletPngCrc32(buf) {
   if (!walletPngCrc32.table) {
     const table = new Uint32Array(256);
@@ -4787,7 +4973,25 @@ function walletDrawStar(pixels, width, cx, cy, outerR, innerR, color) {
     }
   }
 }
-function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, filled) {
+// compone un ícono decodificado (con transparencia real) centrado dentro de un
+// círculo, escalado para que quepa — respeta el alpha real del PNG subido
+function walletCompositeIcon(pixels, width, cx, cy, maxSize, icon) {
+  if (!icon) return;
+  const scale = Math.min(maxSize / icon.width, maxSize / icon.height);
+  const dw = icon.width * scale, dh = icon.height * scale;
+  const startX = cx - dw / 2, startY = cy - dh / 2;
+  for (let dy = 0; dy < Math.ceil(dh); dy++) {
+    const srcY = Math.min(icon.height - 1, Math.floor(dy / scale));
+    for (let dx = 0; dx < Math.ceil(dw); dx++) {
+      const srcX = Math.min(icon.width - 1, Math.floor(dx / scale));
+      const si = (srcY * icon.width + srcX) * 4;
+      const a = icon.pixels[si + 3];
+      if (a === 0) continue;
+      walletSetPixel(pixels, width, Math.round(startX + dx), Math.round(startY + dy), icon.pixels[si], icon.pixels[si + 1], icon.pixels[si + 2], a);
+    }
+  }
+}
+function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, filled, iconData) {
   const [fr, fg, fb] = fillColor;
   const [br, bg, bb] = borderColor;
   // FIX #5: borde más delgado (antes: Math.max(4, radius * 0.14))
@@ -4813,21 +5017,26 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
       }
     }
   }
-  // estrellita recortada en el color de fondo de la tarjeta, adentro de cada sello completado
+  // adentro de cada sello completado: el ícono real que subió el negocio si se
+  // pudo leer, o si no, la estrellita de siempre como respaldo
   if (filled) {
-    const outerR = radius * 0.32;
-    walletDrawStar(pixels, width, cx, cy, outerR, outerR * 0.52, bgColor);
+    if (iconData) {
+      walletCompositeIcon(pixels, width, cx, cy, radius * 1.15, iconData);
+    } else {
+      const outerR = radius * 0.32;
+      walletDrawStar(pixels, width, cx, cy, outerR, outerR * 0.52, bgColor);
+    }
   }
 }
 // FIX #1: ahora recibe maxRadius explícito, calculado por el caller según si hay 1 o 2 filas,
 // para que el radio nunca pueda ser mayor que la mitad del espacio vertical libre entre filas.
-function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor, bgColor, maxRadius) {
+function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor, bgColor, maxRadius, iconData) {
   const availableWidth = width - marginX*2;
   const spacing = availableWidth / count;
   const radius = Math.min(spacing*0.42, maxRadius);
   for (let i = 0; i < count; i++) {
     const cx = marginX + spacing*i + spacing/2;
-    walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, i < filledCount);
+    walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, i < filledCount, iconData);
   }
 }
 async function walletBuildStampStripImage(business, filled, total) {
@@ -4838,11 +5047,39 @@ async function walletBuildStampStripImage(business, filled, total) {
     parseInt((business.color_card_bg || '#42281B').replace('#','').substring(2,4),16) || 0,
     parseInt((business.color_card_bg || '#42281B').replace('#','').substring(4,6),16) || 0,
   ];
-  for (let i=0;i<width*height;i++) { pixels[i*4]=br; pixels[i*4+1]=bg2; pixels[i*4+2]=bb; pixels[i*4+3]=255; }
   const bgColor = [br, bg2, bb];
+
+  // fondo: si el negocio subió una imagen para la franja, se usa esa (ya viene
+  // recortada a 750x246 desde el navegador); si no hay, o si algo falla al
+  // leerla, se usa el color plano de siempre — nunca se rompe la tarjeta por esto
+  let usedCustomBg = false;
+  if (business.strip_bg_base64) {
+    try {
+      const bytes = Uint8Array.from(atob(business.strip_bg_base64), c => c.charCodeAt(0));
+      const decoded = walletDecodePng(bytes);
+      if (decoded.width === width && decoded.height === height) {
+        pixels.set(decoded.pixels);
+        usedCustomBg = true;
+      }
+    } catch (e) { /* se cae al color plano de respaldo, abajo */ }
+  }
+  if (!usedCustomBg) {
+    for (let i=0;i<width*height;i++) { pixels[i*4]=br; pixels[i*4+1]=bg2; pixels[i*4+2]=bb; pixels[i*4+3]=255; }
+  }
 
   const stampHex = (business.color_brown || '#42281B').replace('#','');
   const fillColor = [parseInt(stampHex.substring(0,2),16)||0, parseInt(stampHex.substring(2,4),16)||0, parseInt(stampHex.substring(4,6),16)||0];
+
+  // ícono real del sello (el mismo que se sube para la tarjeta web) en vez de
+  // la estrella fija — si no se puede leer por algún motivo, se cae sola a la
+  // estrella de siempre (walletDrawCircle ya maneja ese respaldo)
+  let iconData = null;
+  if (business.sello_1_base64) {
+    try {
+      const iconBytes = Uint8Array.from(atob(business.sello_1_base64), c => c.charCodeAt(0));
+      iconData = walletDecodePng(iconBytes);
+    } catch (e) { iconData = null; }
+  }
 
   const topCount = Math.ceil(total / 2);
   const bottomCount = total - topCount;
@@ -4852,10 +5089,10 @@ async function walletBuildStampStripImage(business, filled, total) {
     // dejando ~15% de aire, en vez del height*0.30 fijo que causaba el encimado.
     const rowGap = bottomCy - topCy;
     const maxRadius = rowGap * 0.42;
-    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, bgColor, maxRadius);
-    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, bgColor, maxRadius);
+    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData);
+    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData);
   } else {
-    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor, bgColor, height*0.30);
+    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor, bgColor, height*0.30, iconData);
   }
   return walletEncodePNG(width, height, pixels);
 }
