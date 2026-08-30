@@ -5666,7 +5666,7 @@ function walletBuildPassJSON(business, customer, env, origin) {
       {
         latitude: business.wallet_location_lat,
         longitude: business.wallet_location_lng,
-        relevantText: `Estás cerca de ${business.name} — toca para ver tu tarjeta`,
+        relevantText: `Estás cerca de ${business.name}. Toca para usar tu Hey Tapp y sumar sellos por tus compras.`,
       },
     ];
   }
