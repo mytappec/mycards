@@ -2360,6 +2360,12 @@ async function handleEditBusinessForm(request, env, slug) {
           <input type="text" id="slug" value="${escapeHtml(b.slug)}" required pattern="[a-z0-9-]+">
           <p class="hint" style="color:#B23A3A;">⚠️ Si lo cambias, los links y códigos QR que tus clientes ya tienen guardados (con el slug anterior) van a dejar de funcionar. Solo cámbialo si sabes lo que haces.</p>
 
+          <label>PIN del staff</label>
+          <input type="text" inputmode="numeric" id="new_pin" placeholder="Deja vacío para no cambiarlo" maxlength="6">
+          <p class="hint">Por seguridad no se puede ver el PIN actual (solo se guarda cifrado, ni nosotros lo vemos). Escribe aquí solo si quieres reemplazarlo por uno nuevo de 4 a 6 dígitos. Si lo cambias, cualquier sesión de staff que ya estuviera adentro se cierra sola y tiene que volver a entrar con el nuevo.</p>
+          <input type="password" id="confirm_password_pin" placeholder="Tu contraseña de admin, para confirmar el cambio de PIN">
+          <p class="hint">Solo hace falta si vas a cambiar el PIN de arriba.</p>
+
           <label>Logo actual</label>
           <img class="current-img" src="data:image/png;base64,${b.logo_base64}">
           <input type="file" id="logo" accept="image/*">
@@ -2540,6 +2546,9 @@ async function handleEditBusinessForm(request, env, slug) {
           reader.readAsDataURL(file);
         });
       }
+      document.getElementById('new_pin').addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+      });
       document.getElementById('editForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const msg = document.getElementById('msg');
@@ -2562,6 +2571,8 @@ async function handleEditBusinessForm(request, env, slug) {
             sello_4_base64: s4 ? await fileToBase64(s4) : null,
             strip_bg_base64: stripBgFile ? await fileToStripBgBase64(stripBgFile) : null,
             remove_strip_bg: removeStripBgEl ? removeStripBgEl.checked : false,
+            new_pin: document.getElementById('new_pin').value.trim(),
+            confirm_password: document.getElementById('confirm_password_pin').value,
             strip_bg_scope: document.getElementById('stripBgScope').value,
             font_family: document.getElementById('font_family').value,
             font_bold: document.getElementById('font_bold').checked,
@@ -2711,10 +2722,25 @@ async function handleUpdateBusiness(request, env, slug) {
     newSlug = cleanSlug;
   }
 
+  // PIN nuevo: opcional — si se manda, reemplaza el actual (para cuando se
+  // pierde el PIN de un negocio y no hay forma de recuperar el viejo, porque
+  // solo se guarda su hash, nunca el texto real). Por ser un cambio sensible,
+  // se exige volver a confirmar la contraseña de admin antes de aplicarlo.
+  let newPinHash = null;
+  if (typeof body.new_pin === 'string' && body.new_pin.trim() !== '') {
+    if (!/^\d{4,6}$/.test(body.new_pin.trim())) {
+      return new Response(JSON.stringify({ error: 'El PIN debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (!(await verifyPassword(body.confirm_password || '', admin.password_hash))) {
+      return new Response(JSON.stringify({ error: 'Contraseña incorrecta. Para cambiar el PIN, confirma tu contraseña de admin.' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+    newPinHash = await sha256Hex(body.new_pin.trim());
+  }
+
   // campos con imagen: si no se subió una nueva, se mantiene la actual (COALESCE en SQL)
   const imageFields = { logo_base64: body.logo_base64 || null, sello_1_base64: body.sello_1_base64 || null,
     sello_2_base64: body.sello_2_base64 || null, sello_3_base64: body.sello_3_base64 || null, sello_4_base64: body.sello_4_base64 || null,
-    strip_bg_base64: body.strip_bg_base64 || null };
+    strip_bg_base64: body.strip_bg_base64 || null, staff_pin_hash: newPinHash };
 
   const fixedFields = {
     slug: newSlug, name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
@@ -2750,6 +2776,12 @@ async function handleUpdateBusiness(request, env, slug) {
   await env.DB.prepare(`UPDATE businesses SET ${setClauses.join(', ')} WHERE id = ?`)
     .bind(...values, business.id)
     .run();
+
+  // si se puso un PIN nuevo, cualquier sesión de staff que ya estuviera adentro
+  // con el PIN viejo queda cerrada — tiene que volver a entrar con el nuevo
+  if (newPinHash) {
+    await invalidateAllStaffSessions(env, business.id);
+  }
 
   return new Response(JSON.stringify({ ok: true, slug: newSlug }), { headers: { 'Content-Type': 'application/json' } });
 }
