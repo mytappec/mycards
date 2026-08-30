@@ -5007,9 +5007,11 @@ function walletCompositeIcon(pixels, width, cx, cy, maxSize, icon) {
     }
   }
 }
-function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, filled, iconData) {
+function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, filled, iconData, stampBgColor, ringColor) {
   const [fr, fg, fb] = fillColor;
   const [br, bg, bb] = borderColor;
+  const [sbr, sbg, sbb] = stampBgColor || bgColor;
+  const [rr, rg, rb] = ringColor || borderColor;
   // FIX #5: borde más delgado (antes: Math.max(4, radius * 0.14))
   const borderW = Math.max(2.2, radius * 0.075);
   const AA = 1.0;
@@ -5025,15 +5027,16 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
         const gr = highlight[0] + (fr - highlight[0]) * t, gg = highlight[1] + (fg - highlight[1]) * t, gb = highlight[2] + (fb - highlight[2]) * t;
         walletSetPixel(pixels, width, x, y, gr, gg, gb, 255*outerAlpha);
       } else {
-        // círculo relleno con transparencia (se ve claro contra cualquier fondo,
-        // pero se distingue de los ya sellados) + un borde un poco más marcado
-        // encima, para que se note bien el contorno de cada sello
-        walletSetPixel(pixels, width, x, y, fr, fg, fb, 255 * outerAlpha * 0.85);
-        const innerEdge = radius - borderW;
-        if (d >= innerEdge - AA) {
-          let ringAlpha = outerAlpha;
-          if (d < innerEdge + AA) ringAlpha *= Math.max(0, Math.min(1, (d - innerEdge + AA) / (AA*2)));
-          walletSetPixel(pixels, width, x, y, br, bg, bb, 255 * ringAlpha * 0.85);
+        // círculo sólido con el color de fondo de sello + un anillo delgado
+        // adentro, separado del borde — el mismo estilo que ya usa la tarjeta
+        // web (inset:3px, border:1.5px), aquí escalado en proporción
+        walletSetPixel(pixels, width, x, y, sbr, sbg, sbb, 255 * outerAlpha);
+        const ringRadius = radius - radius * 0.12;
+        const ringW = Math.max(1.5, radius * 0.05);
+        const distFromRing = Math.abs(d - ringRadius);
+        if (distFromRing < ringW / 2 + AA) {
+          const ringAlpha = Math.max(0, Math.min(1, (ringW / 2 + AA - distFromRing) / AA));
+          walletSetPixel(pixels, width, x, y, rr, rg, rb, 255 * ringAlpha);
         }
       }
     }
@@ -5051,13 +5054,13 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
 }
 // FIX #1: ahora recibe maxRadius explícito, calculado por el caller según si hay 1 o 2 filas,
 // para que el radio nunca pueda ser mayor que la mitad del espacio vertical libre entre filas.
-function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor, bgColor, maxRadius, iconData) {
+function walletDrawStampRow(pixels, width, height, count, filledCount, cy, marginX, fillColor, borderColor, bgColor, maxRadius, iconData, stampBgColor, ringColor) {
   const availableWidth = width - marginX*2;
   const spacing = availableWidth / count;
   const radius = Math.min(spacing*0.42, maxRadius);
   for (let i = 0; i < count; i++) {
     const cx = marginX + spacing*i + spacing/2;
-    walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, i < filledCount, iconData);
+    walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, i < filledCount, iconData, stampBgColor, ringColor);
   }
 }
 async function walletBuildStampStripImage(business, filled, total) {
@@ -5091,6 +5094,13 @@ async function walletBuildStampStripImage(business, filled, total) {
   const stampHex = (business.color_brown || '#42281B').replace('#','');
   const fillColor = [parseInt(stampHex.substring(0,2),16)||0, parseInt(stampHex.substring(2,4),16)||0, parseInt(stampHex.substring(4,6),16)||0];
 
+  // mismos dos colores que ya usa la tarjeta web para los sellos vacíos: el
+  // fondo del círculo y el anillo delgado de adentro
+  const stampBgHex = (business.color_stamp_bg || '#593212').replace('#','');
+  const stampBgColor = [parseInt(stampBgHex.substring(0,2),16)||0, parseInt(stampBgHex.substring(2,4),16)||0, parseInt(stampBgHex.substring(4,6),16)||0];
+  const ringHex = (business.color_border_stamp_ring || '#FFF8EC').replace('#','');
+  const ringColor = [parseInt(ringHex.substring(0,2),16)||0, parseInt(ringHex.substring(2,4),16)||0, parseInt(ringHex.substring(4,6),16)||0];
+
   // ícono real del sello (el mismo que se sube para la tarjeta web) en vez de
   // la estrella fija — si no se puede leer por algún motivo, se cae sola a la
   // estrella de siempre (walletDrawCircle ya maneja ese respaldo)
@@ -5110,10 +5120,10 @@ async function walletBuildStampStripImage(business, filled, total) {
     // dejando ~15% de aire, en vez del height*0.30 fijo que causaba el encimado.
     const rowGap = bottomCy - topCy;
     const maxRadius = rowGap * 0.42;
-    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData);
-    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData);
+    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData, stampBgColor, ringColor);
+    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData, stampBgColor, ringColor);
   } else {
-    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor, bgColor, height*0.30, iconData);
+    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor, bgColor, height*0.30, iconData, stampBgColor, ringColor);
   }
   return walletEncodePNG(width, height, pixels);
 }
