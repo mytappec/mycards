@@ -2360,12 +2360,6 @@ async function handleEditBusinessForm(request, env, slug) {
           <input type="text" id="slug" value="${escapeHtml(b.slug)}" required pattern="[a-z0-9-]+">
           <p class="hint" style="color:#B23A3A;">⚠️ Si lo cambias, los links y códigos QR que tus clientes ya tienen guardados (con el slug anterior) van a dejar de funcionar. Solo cámbialo si sabes lo que haces.</p>
 
-          <label>PIN del staff</label>
-          <input type="text" inputmode="numeric" id="new_pin" placeholder="Deja vacío para no cambiarlo" maxlength="6">
-          <p class="hint">Por seguridad no se puede ver el PIN actual (solo se guarda cifrado, ni nosotros lo vemos). Escribe aquí solo si quieres reemplazarlo por uno nuevo de 4 a 6 dígitos. Si lo cambias, cualquier sesión de staff que ya estuviera adentro se cierra sola y tiene que volver a entrar con el nuevo.</p>
-          <input type="password" id="confirm_password_pin" placeholder="Tu contraseña de admin, para confirmar el cambio de PIN">
-          <p class="hint">Solo hace falta si vas a cambiar el PIN de arriba.</p>
-
           <label>Logo actual</label>
           <img class="current-img" src="data:image/png;base64,${b.logo_base64}">
           <input type="file" id="logo" accept="image/*">
@@ -2447,6 +2441,12 @@ async function handleEditBusinessForm(request, env, slug) {
             <input type="checkbox" id="wallet_enabled" ${b.wallet_enabled ? 'checked' : ''} style="width:auto;">
             Incluye botón de Apple Wallet (según el plan del negocio)
           </label>
+
+          <label style="margin-top:18px;">PIN del staff</label>
+          <input type="password" inputmode="numeric" id="new_pin" placeholder="Deja vacío para no cambiarlo" maxlength="6">
+          <p class="hint">Por seguridad no se puede ver el PIN actual (solo se guarda cifrado, ni nosotros lo vemos). Escribe aquí solo si quieres reemplazarlo por uno nuevo de 4 a 6 dígitos. Si lo cambias, cualquier sesión de staff que ya estuviera adentro se cierra sola y tiene que volver a entrar con el nuevo.</p>
+          <input type="password" id="confirm_password_pin" placeholder="Tu contraseña de admin, para guardar el PIN nuevo">
+          <p class="hint">Escribe tu contraseña aquí solo si vas a guardar un PIN nuevo (arriba). Si no, déjalo vacío.</p>
 
           <div style="display:flex;gap:8px;align-items:flex-end;">
             <button type="submit" style="flex:1;">Guardar cambios</button>
@@ -5028,14 +5028,24 @@ function walletCompositeIcon(pixels, width, cx, cy, maxSize, icon) {
   const scale = Math.min(maxSize / icon.width, maxSize / icon.height);
   const dw = icon.width * scale, dh = icon.height * scale;
   const startX = cx - dw / 2, startY = cy - dh / 2;
+  const lerp = (a, b, t) => a + (b - a) * t;
   for (let dy = 0; dy < Math.ceil(dh); dy++) {
-    const srcY = Math.min(icon.height - 1, Math.floor(dy / scale));
+    // coordenada real (con decimales) dentro del ícono original, para
+    // interpolar entre los 4 píxeles vecinos en vez de tomar solo el más
+    // cercano — esto es lo que evita que se vea en bloques/pixelado al agrandar
+    const srcYf = Math.min(icon.height - 1, dy / scale);
+    const y0 = Math.floor(srcYf), y1 = Math.min(icon.height - 1, y0 + 1), fy = srcYf - y0;
     for (let dx = 0; dx < Math.ceil(dw); dx++) {
-      const srcX = Math.min(icon.width - 1, Math.floor(dx / scale));
-      const si = (srcY * icon.width + srcX) * 4;
-      const a = icon.pixels[si + 3];
-      if (a === 0) continue;
-      walletSetPixel(pixels, width, Math.round(startX + dx), Math.round(startY + dy), icon.pixels[si], icon.pixels[si + 1], icon.pixels[si + 2], a);
+      const srcXf = Math.min(icon.width - 1, dx / scale);
+      const x0 = Math.floor(srcXf), x1 = Math.min(icon.width - 1, x0 + 1), fx = srcXf - x0;
+      const i00 = (y0 * icon.width + x0) * 4, i10 = (y0 * icon.width + x1) * 4;
+      const i01 = (y1 * icon.width + x0) * 4, i11 = (y1 * icon.width + x1) * 4;
+      const a = lerp(lerp(icon.pixels[i00+3], icon.pixels[i10+3], fx), lerp(icon.pixels[i01+3], icon.pixels[i11+3], fx), fy);
+      if (a < 1) continue;
+      const r = lerp(lerp(icon.pixels[i00], icon.pixels[i10], fx), lerp(icon.pixels[i01], icon.pixels[i11], fx), fy);
+      const g = lerp(lerp(icon.pixels[i00+1], icon.pixels[i10+1], fx), lerp(icon.pixels[i01+1], icon.pixels[i11+1], fx), fy);
+      const b = lerp(lerp(icon.pixels[i00+2], icon.pixels[i10+2], fx), lerp(icon.pixels[i01+2], icon.pixels[i11+2], fx), fy);
+      walletSetPixel(pixels, width, Math.round(startX + dx), Math.round(startY + dy), r, g, b, a);
     }
   }
 }
@@ -5077,7 +5087,7 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
   // pudo leer, o si no, la estrellita de siempre como respaldo
   if (filled) {
     if (iconData) {
-      walletCompositeIcon(pixels, width, cx, cy, radius * 1.15, iconData);
+      walletCompositeIcon(pixels, width, cx, cy, radius * 1.7, iconData);
     } else {
       const outerR = radius * 0.32;
       walletDrawStar(pixels, width, cx, cy, outerR, outerR * 0.52, bgColor);
