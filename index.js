@@ -33,6 +33,9 @@ export default {
       if (parts.length === 1 && parts[0] === 'contacto' && request.method === 'POST') {
         return handleCreateLead(request, env);
       }
+      if (parts.length === 1 && parts[0] === 'contacto' && request.method === 'GET') {
+        return renderContactPage();
+      }
       if (parts.length === 1 && parts[0] === 'site-manifest.json') {
         const manifest = {
           name: 'Hey Tapp', short_name: 'Hey Tapp', start_url: '/', display: 'standalone',
@@ -3291,67 +3294,31 @@ function looksLikeEmail(str) {
 // página de inicio de heytapp.com — presentación de la marca,
 // sin precios, con formulario para pedir información
 // ------------------------------------------------------------
-function renderLandingPage() {
-  const icons = {
-    palette: '<svg viewBox="0 0 24 24" fill="currentColor"><g transform="rotate(45 12 12)"><path d="M11 24.4C14.36 21.04 13.8 17.4 11 16C8.2 17.4 6.64 21.04 11 24.4Z"/><rect x="8" y="12" width="6" height="4" rx="0.8"/><rect x="9.2" y="1" width="3.6" height="11.5" rx="1.8"/></g></svg>',
-    target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
-    scan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>',
-    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15.5" r="4"/><path d="m11 12.5 8.5-8.5M16.5 6 19 8.5M14 8.5 16 10.5"/></svg>',
-    staff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8" r="3"/><path d="M3.5 19c0-3 2.2-5 5-5s5 2 5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M14.8 19c.2-2.3 1.9-4 4.2-4 1.4 0 2.6.6 3.4 1.6"/></svg>',
-    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/><path d="M3 20h18"/></svg>',
-    instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
-    cap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m2.5 9.5 9.5-4 9.5 4-9.5 4-9.5-4Z"/><path d="M6.5 11.5v4c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-4M21 9.5v6"/></svg>',
-    shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5 4h14l1 5.5"/><path d="M4 9.5a2.3 2.3 0 0 0 4.4 1 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4-1"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-5h5v5"/></svg>',
-    wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3.2"/><path d="M3 10.5h18"/><path d="M7 15h4.5"/></svg>',
-    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 9.5 17 19 7"/></svg>',
-    gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9.5" width="17" height="10.5" rx="1.5"/><path d="M3.5 9.5h17M12 9.5v10.5"/><path d="M12 9.5c0-3-2-5-4-5-1.4 0-2.3 1-2.3 2.2C5.7 8.3 7.2 9.5 9 9.5H12ZM12 9.5c0-3 2-5 4-5 1.4 0 2.3 1 2.3 2.2 0 1.6-1.5 2.8-3.3 2.8H12Z"/></svg>',
-    layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3.5 8.5 4.8L12 13.1 3.5 8.3 12 3.5Z"/><path d="m3.5 12.5 8.5 4.8 8.5-4.8"/><path d="m3.5 16.7 8.5 4.8 8.5-4.8"/></svg>',
-  };
-
-  const beneficios = [
-    [icons.palette, 'Tarjeta 100% personalizada', 'Con el branding, colores y logo de tu marca. No una plantilla genérica.'],
-    [icons.target, 'Tu negocio, tus reglas', 'Elige el premio y la cantidad de sellos que quieres ofrecer.'],
-    [icons.scan, 'Registro fácil y rápido', 'Escaneando el QR del cliente o escribiendo su código a mano.'],
-    [icons.key, 'Código único por cliente', 'Para llevar su progreso de forma individual, sin confusiones.'],
-    [icons.staff, 'Panel exclusivo para tu staff', 'Desde donde podrán registrar y gestionar los sellos.'],
-    [icons.chart, 'Registro de clientes y compras', 'Para identificar quiénes compran y quiénes están regresando.'],
-    [icons.instagram, 'Botón directo a tu Instagram', 'Para llevar más clientes a tu perfil y mantenerlos conectados.'],
-    [icons.wallet, 'Tarjeta en Apple Wallet', 'Tus clientes la guardan en su iPhone y se actualiza sola con cada sello, sin abrir ninguna app.'],
-    [icons.cap, 'Capacitación + mejoras incluidas', 'Te enseñamos a usarla y recibes actualizaciones sin costo extra.'],
-  ];
-
-  const beneficiosHtml = beneficios.map(([icon, titulo, texto], i) => `
-        <div class="benefit reveal" style="--d:${(i % 3) * 70}ms">
-          <div class="benefit-head">
-            <div class="benefit-icon">${icon}</div>
-            <h3>${titulo}</h3>
-          </div>
-          <p>${texto}</p>
-        </div>`).join('');
-
-  return new Response(`<!DOCTYPE html>
-<html lang="es">
-<head>
+function pageHead(title, description, ogUrl) {
+  return `<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
-<title>Hey Tapp — Dale a tus clientes una razón para volver</title>
-<meta name="description" content="Tarjetas de sellos digitales, 100% personalizadas para tu marca. Un producto de Anaelí Brand.">
+<title>${title}</title>
+<meta name="description" content="${description}">
 <link rel="manifest" href="/site-manifest.json">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" href="/apple-touch-icon.png">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Hey Tapp — Dale a tus clientes una razón para volver">
-<meta property="og:description" content="Tarjetas de sellos digitales, 100% personalizadas para tu marca. Un producto de Anaelí Brand.">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${description}">
 <meta property="og:image" content="https://heytapp.com/og-image.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
-<meta property="og:url" content="https://heytapp.com">
+<meta property="og:url" content="${ogUrl}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Hey Tapp — Dale a tus clientes una razón para volver">
-<meta name="twitter:description" content="Tarjetas de sellos digitales, 100% personalizadas para tu marca. Un producto de Anaelí Brand.">
+<meta name="twitter:title" content="${title}">
+<meta name="twitter:description" content="${description}">
 <meta name="twitter:image" content="https://heytapp.com/og-image.jpg">
 <meta name="theme-color" content="#42281B">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Organization","name":"Hey Tapp","url":"https://heytapp.com","logo":"https://heytapp.com/icon-512.png","description":"Tarjetas de fidelización y sellos digitales personalizadas para negocios.","address":{"@type":"PostalAddress","addressCountry":"EC"},"areaServed":"EC","sameAs":["https://www.instagram.com/heytapp.ec"]}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -3471,8 +3438,11 @@ function renderLandingPage() {
     .duo-card{width:104px;padding:12px;}
     .duo-mascot{width:118px;margin-left:-20px;}
     .duo-tap{bottom:44px;}
-    .hero h1{margin-bottom:20px;}
+    .hero h1{margin-bottom:20px;font-size:28px;}
     .hero-lead{margin-bottom:30px;}
+  }
+  @media (max-width:360px){
+    .hero h1{font-size:12px;}
   }
 
   /* ---------- separación curva entre secciones ---------- */
@@ -3599,32 +3569,271 @@ function renderLandingPage() {
   .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s var(--ease),transform .7s var(--ease);transition-delay:var(--d,0ms);}
   .reveal.in-view{opacity:1;transform:translateY(0);}
 </style>
-</head>
-<body>
+</head>`;
+}
 
-  <nav class="nav" id="siteNav">
+const icons = {
+    palette: '<svg viewBox="0 0 24 24" fill="currentColor"><g transform="rotate(45 12 12)"><path d="M11 24.4C14.36 21.04 13.8 17.4 11 16C8.2 17.4 6.64 21.04 11 24.4Z"/><rect x="8" y="12" width="6" height="4" rx="0.8"/><rect x="9.2" y="1" width="3.6" height="11.5" rx="1.8"/></g></svg>',
+    target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    scan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15.5" r="4"/><path d="m11 12.5 8.5-8.5M16.5 6 19 8.5M14 8.5 16 10.5"/></svg>',
+    staff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8" r="3"/><path d="M3.5 19c0-3 2.2-5 5-5s5 2 5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M14.8 19c.2-2.3 1.9-4 4.2-4 1.4 0 2.6.6 3.4 1.6"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/><path d="M3 20h18"/></svg>',
+    instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
+    cap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m2.5 9.5 9.5-4 9.5 4-9.5 4-9.5-4Z"/><path d="M6.5 11.5v4c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-4M21 9.5v6"/></svg>',
+    shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5 4h14l1 5.5"/><path d="M4 9.5a2.3 2.3 0 0 0 4.4 1 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4-1"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-5h5v5"/></svg>',
+    wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3.2"/><path d="M3 10.5h18"/><path d="M7 15h4.5"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 9.5 17 19 7"/></svg>',
+    gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9.5" width="17" height="10.5" rx="1.5"/><path d="M3.5 9.5h17M12 9.5v10.5"/><path d="M12 9.5c0-3-2-5-4-5-1.4 0-2.3 1-2.3 2.2C5.7 8.3 7.2 9.5 9 9.5H12ZM12 9.5c0-3 2-5 4-5 1.4 0 2.3 1 2.3 2.2 0 1.6-1.5 2.8-3.3 2.8H12Z"/></svg>',
+    layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3.5 8.5 4.8L12 13.1 3.5 8.3 12 3.5Z"/><path d="m3.5 12.5 8.5 4.8 8.5-4.8"/><path d="m3.5 16.7 8.5 4.8 8.5-4.8"/></svg>',
+  };
+
+
+function renderSiteNav(prefix) {
+  const p = prefix || '';
+  return `  <nav class="nav" id="siteNav">
     <div class="nav-inner">
-      <a href="#inicio"><img class="nav-logo" src="data:image/png;base64,${HEY_TAPP_HT_MONO_BASE64}" alt="Hey Tapp"></a>
+      <a href="${p}#inicio"><img class="nav-logo" src="data:image/png;base64,${HEY_TAPP_HT_MONO_BASE64}" alt="Hey Tapp"></a>
       <ul class="nav-links">
-        <li data-section="beneficios"><a href="#beneficios">Beneficios</a></li>
-        <li data-section="como-funciona"><a href="#como-funciona">Cómo funciona</a></li>
-        <li data-section="planes"><a href="#planes">Planes</a></li>
-        <li data-section="contacto"><a href="#contacto">Contacto</a></li>
+        <li data-section="beneficios"><a href="${p}#beneficios">Beneficios</a></li>
+        <li data-section="como-funciona"><a href="${p}#como-funciona">Cómo funciona</a></li>
+        <li data-section="planes"><a href="${p}#planes">Planes</a></li>
+        <li data-section="contacto"><a href="/contacto">Contacto</a></li>
       </ul>
       <div class="nav-cta">
-        <a href="#contacto" class="btn btn-blue">Pide información</a>
+        <a href="/contacto" class="btn btn-blue">Pide información</a>
       </div>
       <button class="nav-burger" id="burgerBtn" aria-label="Abrir menú"><span></span><span></span><span></span></button>
     </div>
   </nav>
 
   <div class="mobile-menu" id="mobileMenu">
-    <a href="#beneficios">Beneficios</a>
-    <a href="#como-funciona">Cómo funciona</a>
-    <a href="#planes">Planes</a>
-    <a href="#contacto">Contacto</a>
-    <a href="#contacto" class="btn btn-blue">Pide información</a>
-  </div>
+    <a href="${p}#beneficios">Beneficios</a>
+    <a href="${p}#como-funciona">Cómo funciona</a>
+    <a href="${p}#planes">Planes</a>
+    <a href="/contacto">Contacto</a>
+    <a href="/contacto" class="btn btn-blue">Pide información</a>
+  </div>`;
+}
+
+function renderSiteFooter(prefix) {
+  const p = prefix || '';
+  return `  <footer>
+    <div class="wrap">
+      <img class="footer-logo" src="data:image/png;base64,${HEY_TAPP_LOGO_CREAM_BASE64}" alt="Hey Tapp">
+      <div class="footer-links">
+        <a href="${p}#inicio">Inicio</a>
+        <a href="${p}#beneficios">Beneficios</a>
+        <a href="${p}#planes">Planes</a>
+        <a href="/contacto">Contacto</a>
+      </div>
+      <a class="footer-social" href="https://www.instagram.com/heytapp.ec" target="_blank" rel="noopener">${icons.instagram}<span>@heytapp.ec</span></a>
+      <p class="footer-credit">Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
+    </div>
+  </footer>`;
+}
+
+function renderContactPage() {
+  return new Response(`<!DOCTYPE html>
+<html lang="es">
+${pageHead(
+  'Pide información — Hey Tapp',
+  'Cuéntanos de tu marca y te escribimos con los precios y todos los detalles de Hey Tapp.',
+  'https://heytapp.com/contacto'
+)}
+<body>
+
+${renderSiteNav('/')}
+
+  <div class="wave-div" style="margin-top:64px;"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#DAE7F1"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#FDFBF2" stroke="#FDFBF2" stroke-width="2"></path></svg></div>
+  <section class="contact" id="contacto" style="padding-top:56px;">
+    <div class="wrap">
+      <div class="eyebrow reveal">Hablemos</div>
+      <h2 class="reveal">Pide información</h2>
+      <p class="contact-sub reveal">Déjanos tus datos y te enviaremos toda la información necesaria para que tu marca no pase nunca desapercibida.</p>
+      <div class="contact-shell reveal">
+        <div class="contact-form">
+          <form id="leadForm">
+            <div class="field">
+              <label for="lf_name">Tu nombre</label>
+              <input type="text" id="lf_name" required>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="lf_phone">Celular</label>
+                <input type="tel" id="lf_phone" inputmode="numeric" placeholder="Ej. 0991234567" required>
+                <p style="margin:6px 0 0;font-size:11.5px;color:var(--brown-soft);">Solo números, sin espacios ni guiones</p>
+              </div>
+              <div class="field">
+                <label for="lf_email">Correo</label>
+                <input type="email" id="lf_email" placeholder="nombre@correo.com" required>
+                <p style="margin:6px 0 0;font-size:11.5px;color:var(--brown-soft);">Debe incluir @ y un dominio (ej. correo.com)</p>
+              </div>
+            </div>
+            <div class="field">
+              <label for="lf_instagram">Instagram de tu negocio</label>
+              <input type="text" id="lf_instagram" placeholder="@tunegocio" required>
+            </div>
+            <div class="field">
+              <label for="lf_type">¿Cuál te interesa más?</label>
+              <select id="lf_type">
+                <option value="">Elige tu tipo de negocio</option>
+                <option value="digital">Plan Fideliza Digital</option>
+                <option value="fisico">Plan Fideliza Físico</option>
+                <option value="wallet">Plan Fideliza Wallet</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Enviar</button>
+          </form>
+          <p class="form-msg" id="formMsg"></p>
+        </div>
+      </div>
+      <p class="reveal" style="text-align:center;margin-top:22px;font-size:12.5px;font-weight:700;letter-spacing:.4px;color:var(--brown-soft);">Made in Ecuador 🇪🇨 for the world</p>
+    </div>
+  </section>
+
+  <div class="wave-div"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#FDFBF2"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#42281B" stroke="#42281B" stroke-width="2"></path></svg></div>
+${renderSiteFooter('/')}
+
+  <script>
+    const nav = document.getElementById('siteNav');
+    nav.classList.add('scrolled');
+
+    const burger = document.getElementById('burgerBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    burger.addEventListener('click', () => { mobileMenu.classList.toggle('open'); burger.classList.toggle('open'); });
+    mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { mobileMenu.classList.remove('open'); burger.classList.remove('open'); }));
+
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      document.querySelectorAll('.reveal').forEach(el => el.classList.add('in-view'));
+    } else {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('in-view'); io.unobserve(entry.target); } });
+      }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+      document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+    }
+
+    document.getElementById('lf_phone').addEventListener('input', (e) => {
+      let onlyDigits = '';
+      for (let i = 0; i < e.target.value.length; i++) {
+        const code = e.target.value.charCodeAt(i);
+        if (code >= 48 && code <= 57) onlyDigits += e.target.value[i];
+      }
+      e.target.value = onlyDigits;
+    });
+    document.getElementById('leadForm').addEventListener('input', () => {
+      const msg = document.getElementById('formMsg');
+      if (msg.classList.contains('err')) { msg.textContent = ''; msg.className = 'form-msg'; }
+    });
+    document.getElementById('leadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('formMsg');
+      const payload = {
+        name: document.getElementById('lf_name').value.trim(),
+        phone: document.getElementById('lf_phone').value.trim(),
+        email: document.getElementById('lf_email').value.trim(),
+        instagram: document.getElementById('lf_instagram').value.trim(),
+        business_type: document.getElementById('lf_type').value,
+      };
+      if (!payload.name || !payload.phone || !payload.email || !payload.instagram) {
+        msg.textContent = 'Completa nombre, celular, correo e Instagram'; msg.className = 'form-msg err';
+        return;
+      }
+      let phoneDigitsOnly = '';
+      for (let i = 0; i < payload.phone.length; i++) {
+        const code = payload.phone.charCodeAt(i);
+        if (code >= 48 && code <= 57) phoneDigitsOnly += payload.phone[i];
+      }
+      payload.phone = phoneDigitsOnly;
+      if (payload.phone.length === 0) {
+        msg.textContent = 'El celular debe tener solo números'; msg.className = 'form-msg err';
+        return;
+      }
+      const atPos = payload.email.indexOf('@');
+      const lastAtPos = payload.email.lastIndexOf('@');
+      const afterAt = atPos > -1 ? payload.email.slice(atPos + 1) : '';
+      const dotPos = afterAt.lastIndexOf('.');
+      const emailLooksValid = atPos > 0 && atPos === lastAtPos && payload.email.indexOf(' ') === -1
+        && dotPos > 0 && dotPos < afterAt.length - 1;
+      if (!emailLooksValid) {
+        msg.textContent = 'Ingresa un correo válido (debe tener un @ y un dominio, ej. nombre@correo.com)'; msg.className = 'form-msg err';
+        return;
+      }
+      msg.textContent = 'Enviando...'; msg.className = 'form-msg';
+
+      const planLabel = payload.business_type === 'digital' ? 'Plan Fideliza Digital'
+        : payload.business_type === 'fisico' ? 'Plan Fideliza Físico'
+        : payload.business_type === 'wallet' ? 'Plan Fideliza Wallet' : 'No especificó';
+
+      let emailedDirectly = false;
+      try {
+        const fsRes = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            nombre: payload.name, celular: payload.phone, correo: payload.email,
+            instagram: payload.instagram || '—', interesado_en: planLabel,
+            _subject: 'Nueva solicitud de info — ' + payload.name,
+            _template: 'table',
+          }),
+        });
+        emailedDirectly = fsRes.ok;
+      } catch (err) { emailedDirectly = false; }
+
+      try {
+        const res = await fetch('/contacto', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ ...payload, emailed: emailedDirectly }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msg.textContent = '✅ ¡Listo! Te escribimos pronto a tu correo.'; msg.className = 'form-msg ok';
+          document.getElementById('leadForm').reset();
+        } else {
+          msg.textContent = data.error || 'No se pudo enviar, intenta de nuevo'; msg.className = 'form-msg err';
+        }
+      } catch (err) {
+        msg.textContent = 'Error de conexión, intenta de nuevo'; msg.className = 'form-msg err';
+      }
+    });
+  </script>
+</body>
+</html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+function renderLandingPage() {
+  const beneficios = [
+    [icons.palette, 'Tarjeta 100% personalizada', 'Con el branding, colores y logo de tu marca. No una plantilla genérica.'],
+    [icons.target, 'Tu negocio, tus reglas', 'Elige el premio y la cantidad de sellos que quieres ofrecer.'],
+    [icons.scan, 'Registro fácil y rápido', 'Escaneando el QR del cliente o escribiendo su código a mano.'],
+    [icons.key, 'Código único por cliente', 'Para llevar su progreso de forma individual, sin confusiones.'],
+    [icons.staff, 'Panel exclusivo para tu staff', 'Desde donde podrán registrar y gestionar los sellos.'],
+    [icons.chart, 'Registro de clientes y compras', 'Para identificar quiénes compran y quiénes están regresando.'],
+    [icons.instagram, 'Botón directo a tu Instagram', 'Para llevar más clientes a tu perfil y mantenerlos conectados.'],
+    [icons.wallet, 'Tarjeta en Apple Wallet', 'Tus clientes la guardan en su iPhone y se actualiza sola con cada sello, sin abrir ninguna app.'],
+    [icons.cap, 'Capacitación + mejoras incluidas', 'Te enseñamos a usarla y recibes actualizaciones sin costo extra.'],
+  ];
+
+  const beneficiosHtml = beneficios.map(([icon, titulo, texto], i) => `
+        <div class="benefit reveal" style="--d:${(i % 3) * 70}ms">
+          <div class="benefit-head">
+            <div class="benefit-icon">${icon}</div>
+            <h3>${titulo}</h3>
+          </div>
+          <p>${texto}</p>
+        </div>`).join('');
+
+  return new Response(`<!DOCTYPE html>
+<html lang="es">
+${pageHead(
+  'Hey Tapp — Tarjetas de fidelización digitales para tu marca',
+  'Tarjetas de fidelización y sellos digitales, 100% personalizadas para tu marca. Hecho en Ecuador. Un producto de Anaelí Brand.',
+  'https://heytapp.com'
+)}
+<body>
+
+${renderSiteNav('')}
 
   <header class="hero" id="inicio">
     <img class="hero-bg-mascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_RED_BASE64}" alt="">
@@ -3648,10 +3857,10 @@ function renderLandingPage() {
         </div>
         <img class="duo-mascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
       </div>
-      <h1>Dale a tus clientes una<br><span class="accent">razón para volver</span></h1>
-      <p class="hero-lead">Haz que esa primera compra no sea la última.<br>Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca, gracias a una tarjeta de sellos digital creada completamente para ti.</p>
+      <h1>Tarjetas de fidelización <span class="accent">digitales</span></h1>
+      <p class="hero-lead">Dale a tus clientes una razón para volver<br>y haz que esa primera compra no sea la última.<br>Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca, gracias a una tarjeta de sellos digital creada completamente para ti.</p>
       <div class="hero-ctas">
-        <a href="#contacto" class="btn btn-primary">Quiero mi tarjeta digital</a>
+        <a href="/contacto" class="btn btn-primary">Quiero mi tarjeta digital</a>
         <a href="#como-funciona" class="btn btn-ghost">Ver cómo funciona</a>
       </div>
     </div>
@@ -3743,7 +3952,7 @@ function renderLandingPage() {
                 <li>${icons.gift}<span>Tu primer mes de servicio ya viene incluido</span></li>
                 <li>${icons.key}<span>Acceso a tu propio espacio de gestión</span></li>
               </ul>
-              <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
+              <a href="/contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
           </div>
         </div>
@@ -3763,7 +3972,7 @@ function renderLandingPage() {
                 <li>${icons.gift}<span>Tu primer mes de servicio ya viene incluido</span></li>
                 <li>${icons.key}<span>Acceso a tu propio espacio de gestión</span></li>
               </ul>
-              <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
+              <a href="/contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
           </div>
         </div>
@@ -3783,7 +3992,7 @@ function renderLandingPage() {
                 <li>${icons.gift}<span>Tu primer mes de servicio ya viene incluido</span></li>
                 <li>${icons.key}<span>Acceso a tu propio espacio de gestión</span></li>
               </ul>
-              <a href="#contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
+              <a href="/contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
           </div>
         </div>
@@ -3808,66 +4017,8 @@ function renderLandingPage() {
     })();
   </script>
 
-  <div class="wave-div"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#DAE7F1"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#FDFBF2" stroke="#FDFBF2" stroke-width="2"></path></svg></div>
-  <section class="contact" id="contacto">
-    <div class="wrap">
-      <div class="eyebrow reveal">Hablemos</div>
-      <h2 class="reveal">Pide información</h2>
-      <p class="contact-sub reveal">Déjanos tus datos y te respondemos por correo con los precios y todos los detalles.</p>
-      <div class="contact-shell reveal">
-        <div class="contact-form">
-          <form id="leadForm">
-            <div class="field">
-              <label for="lf_name">Tu nombre</label>
-              <input type="text" id="lf_name" required>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label for="lf_phone">Celular</label>
-                <input type="tel" id="lf_phone" inputmode="numeric" placeholder="Ej. 0991234567" required>
-                <p style="margin:6px 0 0;font-size:11.5px;color:var(--brown-soft);">Solo números, sin espacios ni guiones</p>
-              </div>
-              <div class="field">
-                <label for="lf_email">Correo</label>
-                <input type="email" id="lf_email" placeholder="nombre@correo.com" required>
-                <p style="margin:6px 0 0;font-size:11.5px;color:var(--brown-soft);">Debe incluir @ y un dominio (ej. correo.com)</p>
-              </div>
-            </div>
-            <div class="field">
-              <label for="lf_instagram">Instagram de tu negocio</label>
-              <input type="text" id="lf_instagram" placeholder="@tunegocio" required>
-            </div>
-            <div class="field">
-              <label for="lf_type">¿Cuál te interesa más?</label>
-              <select id="lf_type">
-                <option value="">Elige tu tipo de negocio</option>
-                <option value="digital">Plan Fideliza Digital</option>
-                <option value="fisico">Plan Fideliza Físico</option>
-                <option value="wallet">Plan Fideliza Wallet</option>
-              </select>
-            </div>
-            <button type="submit" class="btn btn-primary">Enviar</button>
-          </form>
-          <p class="form-msg" id="formMsg"></p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <div class="wave-div"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#FDFBF2"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#42281B" stroke="#42281B" stroke-width="2"></path></svg></div>
-  <footer>
-    <div class="wrap">
-      <img class="footer-logo" src="data:image/png;base64,${HEY_TAPP_LOGO_CREAM_BASE64}" alt="Hey Tapp">
-      <div class="footer-links">
-        <a href="#inicio">Inicio</a>
-        <a href="#beneficios">Beneficios</a>
-        <a href="#planes">Planes</a>
-        <a href="#contacto">Contacto</a>
-      </div>
-      <a class="footer-social" href="https://www.instagram.com/heytapp.ec" target="_blank" rel="noopener">${icons.instagram}<span>@heytapp.ec</span></a>
-      <p class="footer-credit">Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
-    </div>
-  </footer>
+  <div class="wave-div"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#DAE7F1"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#42281B" stroke="#42281B" stroke-width="2"></path></svg></div>
+${renderSiteFooter('')}
 
   <script>
     // nav: fondo sólido + blur al hacer scroll
@@ -3894,7 +4045,7 @@ function renderLandingPage() {
     }
 
     // resalta en el menú la sección donde estás mientras haces scroll
-    const sections = ['beneficios', 'como-funciona', 'planes', 'contacto'].map(id => document.getElementById(id));
+    const sections = ['beneficios', 'como-funciona', 'planes'].map(id => document.getElementById(id));
     const navLinkItems = document.querySelectorAll('.nav-links li');
     const sectionIO = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -3905,110 +4056,6 @@ function renderLandingPage() {
       });
     }, { threshold: 0.4 });
     sections.forEach(s => { if (s) sectionIO.observe(s); });
-
-    // formulario de contacto
-    // mientras escribe el celular, se le quita al vuelo cualquier cosa que no
-    // sea un dígito — sin usar símbolos de expresión regular, carácter por
-    // carácter, para que no se pueda dañar al copiar o subir el archivo
-    document.getElementById('lf_phone').addEventListener('input', (e) => {
-      let onlyDigits = '';
-      for (let i = 0; i < e.target.value.length; i++) {
-        const code = e.target.value.charCodeAt(i);
-        if (code >= 48 && code <= 57) onlyDigits += e.target.value[i];
-      }
-      e.target.value = onlyDigits;
-    });
-    // si ya se había mostrado un error (ej. "solo números"), se borra apenas
-    // la persona vuelve a escribir en cualquier campo, para que no se quede
-    // pegado en pantalla un mensaje viejo que ya no aplica
-    document.getElementById('leadForm').addEventListener('input', () => {
-      const msg = document.getElementById('formMsg');
-      if (msg.classList.contains('err')) { msg.textContent = ''; msg.className = 'form-msg'; }
-    });
-    document.getElementById('leadForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const msg = document.getElementById('formMsg');
-      const payload = {
-        name: document.getElementById('lf_name').value.trim(),
-        phone: document.getElementById('lf_phone').value.trim(),
-        email: document.getElementById('lf_email').value.trim(),
-        instagram: document.getElementById('lf_instagram').value.trim(),
-        business_type: document.getElementById('lf_type').value,
-      };
-      if (!payload.name || !payload.phone || !payload.email || !payload.instagram) {
-        msg.textContent = 'Completa nombre, celular, correo e Instagram'; msg.className = 'form-msg err';
-        return;
-      }
-      // se vuelve a limpiar aquí (no solo en el filtro mientras escribe), por si el
-      // número llegó pegado o autocompletado por el navegador sin pasar por ese filtro.
-      // Sin expresiones regulares — carácter por carácter, para que este chequeo
-      // no se pueda romper por un símbolo dañado al copiar o subir el archivo.
-      let phoneDigitsOnly = '';
-      for (let i = 0; i < payload.phone.length; i++) {
-        const code = payload.phone.charCodeAt(i);
-        if (code >= 48 && code <= 57) phoneDigitsOnly += payload.phone[i];
-      }
-      payload.phone = phoneDigitsOnly;
-      if (payload.phone.length === 0) {
-        msg.textContent = 'El celular debe tener solo números'; msg.className = 'form-msg err';
-        return;
-      }
-      // correo: se revisa sin expresión regular, por la misma razón de arriba —
-      // debe tener un solo @ (ni al principio ni al final) y un punto después,
-      // con texto a los dos lados
-      const atPos = payload.email.indexOf('@');
-      const lastAtPos = payload.email.lastIndexOf('@');
-      const afterAt = atPos > -1 ? payload.email.slice(atPos + 1) : '';
-      const dotPos = afterAt.lastIndexOf('.');
-      const emailLooksValid = atPos > 0 && atPos === lastAtPos && payload.email.indexOf(' ') === -1
-        && dotPos > 0 && dotPos < afterAt.length - 1;
-      if (!emailLooksValid) {
-        msg.textContent = 'Ingresa un correo válido (debe tener un @ y un dominio, ej. nombre@correo.com)'; msg.className = 'form-msg err';
-        return;
-      }
-      msg.textContent = 'Enviando...'; msg.className = 'form-msg';
-
-      const planLabel = payload.business_type === 'digital' ? 'Plan Fideliza Digital'
-        : payload.business_type === 'fisico' ? 'Plan Fideliza Físico'
-        : payload.business_type === 'wallet' ? 'Plan Fideliza Wallet' : 'No especificó';
-
-      // 1) el navegador le habla DIRECTO a FormSubmit (así reconoce que es un
-      // envío real desde heytapp.com, y no un servidor — esto es clave para
-      // que llegue el correo de activación la primera vez)
-      let emailedDirectly = false;
-      try {
-        const fsRes = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({
-            nombre: payload.name, celular: payload.phone, correo: payload.email,
-            instagram: payload.instagram || '—', interesado_en: planLabel,
-            _subject: 'Nueva solicitud de info — ' + payload.name,
-            _template: 'table',
-          }),
-        });
-        emailedDirectly = fsRes.ok;
-      } catch (err) { emailedDirectly = false; }
-
-      // 2) siempre se guarda en tu panel de Solicitudes como respaldo, y si el
-      // paso 1 falló (por ejemplo, un bloqueador de anuncios), el servidor
-      // intenta de nuevo por su cuenta
-      try {
-        const res = await fetch('/contacto', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ ...payload, emailed: emailedDirectly }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          msg.textContent = '✅ ¡Listo! Te escribimos pronto a tu correo.'; msg.className = 'form-msg ok';
-          document.getElementById('leadForm').reset();
-        } else {
-          msg.textContent = data.error || 'No se pudo enviar, intenta de nuevo'; msg.className = 'form-msg err';
-        }
-      } catch (err) {
-        msg.textContent = 'Error de conexión, intenta de nuevo'; msg.className = 'form-msg err';
-      }
-    });
   </script>
 </body>
 </html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
