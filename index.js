@@ -115,6 +115,7 @@ export default {
       if (parts[0] === 'brandpanel') {
         if (parts[1] === 'leads' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteLead(request, env, parts[2]);
         if (parts[1] === 'leads' && parts[2] && parts[3] === 'emailed' && request.method === 'POST') return handleUpdateLeadEmailed(request, env, parts[2]);
+        if (parts[1] === 'leads' && parts[2] === 'bienvenida-link' && request.method === 'POST') return handleGenerateBienvenidaLink(request, env, url);
         if (parts[1] === 'leads') return handleLeadsList(request, env);
         if (parts[1] === 'signup' && request.method === 'POST') return handleAdminSignup(request, env);
         if (parts[1] === 'login' && request.method === 'POST') return handleAdminLogin(request, env);
@@ -2813,6 +2814,7 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
         <span class="tag">Plan Físico</span>
         <label for="hablador_address">Dirección para enviarte tu hablador físico</label>
         <input type="text" id="hablador_address" name="hablador_address" placeholder="Dirección completa, con referencia" maxlength="200" required>
+        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">Te diremos el valor de envío cuando tengamos tu dirección.</p>
       </div>` : '';
 
   const walletSection = plan === 'wallet' ? `
@@ -2894,10 +2896,10 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
         </div>
       </div>
       <div>
-        <p style="font-size:12px;color:#8A5A34;margin:0 0 8px;">Si no tienes una idea para la imagen de tu sello, no te preocupes, nosotros te ayudamos.</p>
+        <p style="font-size:12px;color:#8A5A34;margin:0 0 8px;">Si no tienes una idea para la imagen de tu sello, no te preocupes, nosotros te ayudamos en el siguiente casillero.</p>
         <label for="stamp_idea">Cuéntanos tu idea</label>
         <input type="text" id="stamp_idea" name="stamp_idea" placeholder="Ej. corazones, estrellas..." maxlength="300">
-        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">Corazones, estrellas, cosas así.</p>
+        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">¿Quieres que tus sellos sean corazones, estrellas, una figura específica?</p>
       </div>
       <div>
         <label for="greeting">¿Cómo quieres saludar a tu cliente?</label>
@@ -3010,6 +3012,56 @@ async function handleUpdateLeadEmailed(request, env, id) {
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 }
 
+// genera un código al azar, sin caracteres que se confundan entre sí
+// (0/O, 1/l/I), para el link privado de bienvenida
+function generateBienvenidaCode() {
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  let code = '';
+  for (let i = 0; i < bytes.length; i++) code += alphabet[bytes[i] % alphabet.length];
+  return code;
+}
+
+// crea el link privado de bienvenida (solo tú, ya con sesión iniciada,
+// puedes generarlo). El código es al azar e imposible de adivinar, y la
+// página no aparece en ningún listado ni buscador, así que solo lo ve
+// quien reciba el link directamente de ti
+async function handleGenerateBienvenidaLink(request, env, url) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+  const plan = ['digital', 'fisico', 'wallet'].includes(body.plan) ? body.plan : null;
+  if (!plan) {
+    return new Response(JSON.stringify({ error: 'Elige un plan válido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  const leadId = body.lead_id && /^\d+$/.test(String(body.lead_id)) ? Number(body.lead_id) : null;
+
+  let code = '';
+  let inserted = false;
+  // reintenta si por rarísima casualidad el código ya existe
+  for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
+    code = generateBienvenidaCode();
+    try {
+      await env.DB.prepare(
+        'INSERT INTO onboarding_submissions (code, lead_id, plan, status) VALUES (?, ?, ?, ?)'
+      ).bind(code, leadId, plan, 'pendiente').run();
+      inserted = true;
+    } catch (err) {
+      if (attempt === 4) {
+        console.error('[bienvenida] no se pudo generar un código único', err && err.message);
+        return new Response(JSON.stringify({ error: 'No se pudo generar el link, intenta de nuevo' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+  }
+
+  const link = new URL(`/bienvenida/${code}`, url.origin).toString();
+  return new Response(JSON.stringify({ ok: true, code, url: link }), { headers: { 'Content-Type': 'application/json' } });
+}
+
 async function handleLeadsList(request, env) {
   const cookieVal = getCookie(request, 'admin_session');
   const admin = await getAdminFromSession(env, cookieVal);
@@ -3061,6 +3113,14 @@ async function handleLeadsList(request, env) {
     .empty{padding:30px;text-align:center;color:#6B6259;background:#FDFBF2;border-radius:14px;}
     .warn-box{background:#FBE4E4;border:2px solid #B23A3A;border-radius:14px;padding:18px 20px;color:#7A2020;line-height:1.6;}
     .warn-box code{background:#fff;padding:2px 6px;border-radius:6px;font-size:13px;}
+    .gen-link-box{background:#FDFBF2;border-radius:14px;padding:18px 20px;box-shadow:0 4px 16px rgba(66,40,27,.08);margin-bottom:22px;}
+    .gen-link-box h2{font-family:'Baloo 2',sans-serif;font-size:16px;margin:0 0 4px;}
+    .gen-link-box p{font-size:13px;color:#6B6259;margin:0 0 12px;}
+    .gen-link-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+    .gen-link-row select{padding:9px 10px;border-radius:10px;border:1px solid #DAE7F1;font-family:'Quicksand',sans-serif;font-size:14px;}
+    .gen-link-row button{background:#42281B;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;}
+    .gen-link-result{margin-top:12px;display:none;background:#F5F0E4;border-radius:10px;padding:10px 12px;font-size:13px;word-break:break-all;}
+    .gen-link-result button{margin-top:8px;background:#B0472E;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:12px;}
     @media (max-width:760px) {
       table, thead, tbody, tr { display:block; }
       thead { display:none; }
@@ -3073,12 +3133,58 @@ async function handleLeadsList(request, env) {
   <body>
     <a class="back" href="/brandpanel">← Volver al panel</a>
     <h1>Solicitudes de info ${tableMissing ? '' : `(${results.length})`}</h1>
+    <div class="gen-link-box">
+      <h2>Generar link de bienvenida</h2>
+      <p>Para cuando un cliente ya te pagó. El link es privado: solo existe porque tú lo generas aquí, y solo lo ve quien tú se lo mandes directamente. No aparece en ningún listado ni buscador.</p>
+      <div class="gen-link-row">
+        <select id="genPlanSelect">
+          <option value="digital">Plan Fideliza Digital</option>
+          <option value="fisico">Plan Fideliza Físico</option>
+          <option value="wallet">Plan Fideliza Wallet</option>
+        </select>
+        <button type="button" id="genLinkBtn">Generar link</button>
+      </div>
+      <div class="gen-link-result" id="genLinkResult">
+        <span id="genLinkText"></span><br>
+        <button type="button" id="genLinkCopyBtn">Copiar link</button>
+      </div>
+    </div>
     ${tableMissing
       ? `<div class="warn-box"><b>Todavía falta un paso.</b><br>La tabla "leads" no existe en tu base de datos todavía. Entra a Cloudflare → tu base de datos D1 → pestaña <b>Console</b>, y pega esto:<br><br><code>CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT NOT NULL, instagram TEXT, business_type TEXT, emailed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));</code><br><br>Después de correr eso una sola vez, esta página va a funcionar y vas a poder ver aquí todas las solicitudes que lleguen.</div>`
       : `<p class="sub">El correo automático a hola@heytapp.com está activo por FormSubmit — esto es tu respaldo, revísalo si algún correo no llegó.</p>
         ${results.length ? `<table><thead><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>Instagram</th><th>Interesado en</th><th>Fecha</th><th>Correo enviado</th><th>Borrar</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Todavía no hay solicitudes.</div>'}`
     }
     <script>
+      document.getElementById('genLinkBtn').addEventListener('click', async function() {
+        const btn = this;
+        const plan = document.getElementById('genPlanSelect').value;
+        btn.disabled = true; btn.textContent = 'Generando...';
+        try {
+          const res = await fetch('/brandpanel/leads/bienvenida-link', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan: plan }),
+          });
+          const data = await res.json();
+          if (res.ok && data.url) {
+            document.getElementById('genLinkText').textContent = data.url;
+            document.getElementById('genLinkResult').style.display = 'block';
+          } else {
+            alert(data.error || 'No se pudo generar el link, intenta de nuevo.');
+          }
+        } catch (e) {
+          alert('Error de conexión, intenta de nuevo.');
+        }
+        btn.disabled = false; btn.textContent = 'Generar link';
+      });
+      document.getElementById('genLinkCopyBtn').addEventListener('click', function() {
+        const text = document.getElementById('genLinkText').textContent;
+        navigator.clipboard.writeText(text).then(function() {
+          const btn = document.getElementById('genLinkCopyBtn');
+          const original = btn.textContent;
+          btn.textContent = '¡Copiado!';
+          setTimeout(function() { btn.textContent = original; }, 1500);
+        });
+      });
       document.querySelectorAll('.emailedCheck').forEach(function(cb) {
         cb.addEventListener('change', async function() {
           const id = cb.dataset.id;
