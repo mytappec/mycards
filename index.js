@@ -4751,10 +4751,12 @@ function renderLandingPage() {
     [icons.target, 'Tu negocio, tus reglas', 'Elige el premio y la cantidad de sellos que quieres ofrecer.'],
     [icons.scan, 'Registro fácil y rápido', 'Escaneando el QR del cliente o escribiendo su código a mano.'],
     [icons.key, 'Código único por cliente', 'Para llevar su progreso de forma individual, sin confusiones.'],
-    [icons.staff, 'Panel exclusivo para tu staff', 'Desde donde podrán registrar y gestionar los sellos.'],
-    [icons.chart, 'Registro de clientes y compras', 'Para identificar quiénes compran y quiénes están regresando.'],
+    [icons.staff, 'Panel con modo caja para tu staff', 'Para que registren los sellos de cada cliente sin complicarse.'],
+    [icons.chart, 'Historial de sellos y actividad', 'Para identificar quiénes compran y quiénes están regresando.'],
     [icons.instagram, 'Botón directo a tu Instagram', 'Para llevar más clientes a tu perfil y mantenerlos conectados.'],
-    [icons.wallet, 'Tarjeta en Apple Wallet', 'Tus clientes la guardan en su iPhone y se actualiza sola con cada sello, sin abrir ninguna app.'],
+    [icons.chart, 'Panel de métricas', 'Consulta registros, premios canjeados y descarga tu base en CSV. Incluido en los planes Físico y Wallet.'],
+    [icons.wallet, 'Tarjeta en Apple Wallet', 'Se actualiza sola con cada sello, sin abrir ninguna app. Solo en el Plan Wallet.'],
+    [icons.sparkle, 'Recordatorio automático', 'A los clientes que llevan 14 días sin visitarte, para que vuelvan. Solo en el Plan Wallet.'],
     [icons.cap, 'Capacitación + mejoras incluidas', 'Te enseñamos a usarla y recibes actualizaciones sin costo extra.'],
   ];
 
