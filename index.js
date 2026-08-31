@@ -117,6 +117,8 @@ export default {
         if (parts[1] === 'leads' && parts[2] && parts[3] === 'emailed' && request.method === 'POST') return handleUpdateLeadEmailed(request, env, parts[2]);
         if (parts[1] === 'leads' && parts[2] === 'bienvenida-link' && request.method === 'POST') return handleGenerateBienvenidaLink(request, env, url);
         if (parts[1] === 'leads') return handleLeadsList(request, env);
+        if (parts[1] === 'bienvenidas') return handleBienvenidaQueue(request, env);
+        if (parts[1] === 'bienvenida-archivo' && parts[2]) return handleBienvenidaFile(request, env, parts.slice(2).join('/'));
         if (parts[1] === 'signup' && request.method === 'POST') return handleAdminSignup(request, env);
         if (parts[1] === 'login' && request.method === 'POST') return handleAdminLogin(request, env);
         if (parts[1] === 'logout') return handleAdminLogout(request, env);
@@ -3062,6 +3064,125 @@ async function handleGenerateBienvenidaLink(request, env, url) {
   return new Response(JSON.stringify({ ok: true, code, url: link }), { headers: { 'Content-Type': 'application/json' } });
 }
 
+// sirve un archivo guardado en R2 (logo, paleta, sello, fondo) SOLO si hay
+// sesión de admin activa. El bucket en sí es privado, así que esta es la
+// única forma de verlos, y solo tú puedes hacerlo
+async function handleBienvenidaFile(request, env, key) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response('No autorizado', { status: 401 });
+
+  const allowedPrefixes = ['logos/', 'paletas/', 'sellos/', 'fondos/'];
+  if (!allowedPrefixes.some(p => key.startsWith(p))) {
+    return new Response('Archivo no válido', { status: 400 });
+  }
+  if (!env.LOGOS_BUCKET) return new Response('El bucket de R2 no está conectado', { status: 500 });
+
+  const obj = await env.LOGOS_BUCKET.get(key);
+  if (!obj) return new Response('Archivo no encontrado', { status: 404 });
+
+  return new Response(obj.body, {
+    headers: {
+      'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
+      'Cache-Control': 'private, max-age=600',
+    },
+  });
+}
+
+// bandeja de solicitudes de bienvenida ya llenadas por el cliente, con
+// vista previa de cada archivo subido, para revisarlas antes de convertirlas
+// en negocio real
+async function handleBienvenidaQueue(request, env) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) { const pname = await getPlatformName(env); return new Response(renderAdminLogin(pname), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } }); }
+
+  let results = [];
+  try {
+    const query = await env.DB.prepare(
+      "SELECT * FROM onboarding_submissions WHERE submitted_at IS NOT NULL ORDER BY submitted_at DESC"
+    ).all();
+    results = query.results;
+  } catch (err) {
+    console.error('[bienvenidas] error leyendo onboarding_submissions', err && err.message);
+  }
+
+  const fileThumb = (key, label) => {
+    if (!key) return `<div class="file-slot empty">Sin ${label}</div>`;
+    const src = `/brandpanel/bienvenida-archivo/${key}`;
+    return `<a href="${src}" target="_blank" class="file-slot"><img src="${src}" alt="${label}"><span>${label}</span></a>`;
+  };
+
+  const cards = results.map(s => {
+    const planLabel = s.plan === 'digital' ? 'Plan Fideliza Digital'
+      : s.plan === 'fisico' ? 'Plan Fideliza Físico'
+      : s.plan === 'wallet' ? 'Plan Fideliza Wallet' : 'Sin plan';
+    const sellsLabel = s.sells_mode === 'online' ? 'Solo en línea'
+      : s.sells_mode === 'fisico' ? 'Solo local físico'
+      : s.sells_mode === 'ambos' ? 'Ambos' : '';
+    return `
+    <div class="req-card">
+      <div class="req-head">
+        <div>
+          <h3>${escapeHtml(s.business_name || 'Sin nombre')}</h3>
+          <span class="badge">${planLabel}</span>
+        </div>
+        <span class="date">${escapeHtml(s.submitted_at)}</span>
+      </div>
+      <div class="req-files">
+        ${fileThumb(s.logo_key, 'Logo')}
+        ${fileThumb(s.palette_image_key, 'Colores')}
+        ${fileThumb(s.stamp_icon_key, 'Sello')}
+        ${fileThumb(s.strip_bg_image_key, 'Fondo')}
+      </div>
+      <div class="req-details">
+        <p><b>Sellos para el premio:</b> ${escapeHtml(s.total_stamps || '')}</p>
+        <p><b>Premio:</b> ${escapeHtml(s.reward || '')}</p>
+        ${s.greeting ? `<p><b>Saludo:</b> ${escapeHtml(s.greeting)}</p>` : ''}
+        ${s.stamp_idea ? `<p><b>Idea para el sello:</b> ${escapeHtml(s.stamp_idea)}</p>` : ''}
+        ${s.instagram_user ? `<p><b>Instagram:</b> ${escapeHtml(s.instagram_user)}</p>` : ''}
+        ${s.instagram_link ? `<p><b>Link Instagram:</b> <a href="${escapeHtml(s.instagram_link)}" target="_blank">${escapeHtml(s.instagram_link)}</a></p>` : ''}
+        ${s.hablador_address ? `<p><b>Dirección hablador:</b> ${escapeHtml(s.hablador_address)}</p>` : ''}
+        ${s.maps_link ? `<p><b>Google Maps:</b> <a href="${escapeHtml(s.maps_link)}" target="_blank">Ver ubicación</a></p>` : ''}
+        ${sellsLabel ? `<p><b>Cómo vende:</b> ${escapeHtml(sellsLabel)}</p>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
+  <title>Solicitudes de bienvenida · Hey Tapp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:light;}
+    *{box-sizing:border-box;color-scheme:light;}
+    body{margin:0;padding:24px;font-family:'Quicksand',sans-serif;background:linear-gradient(160deg,#DAE7F1 0%,#F4F1EA 42%);color:#42281B;}
+    h1{font-family:'Baloo 2',sans-serif;font-size:24px;margin:0 0 4px;}
+    p.sub{color:#6B6259;font-size:14px;margin:0 0 20px;}
+    a.back{display:inline-block;margin-bottom:16px;color:#42281B;font-weight:700;text-decoration:none;}
+    .empty-state{padding:30px;text-align:center;color:#6B6259;background:#FDFBF2;border-radius:14px;}
+    .req-card{background:#FDFBF2;border-radius:14px;box-shadow:0 4px 16px rgba(66,40,27,.08);padding:18px 20px;margin-bottom:18px;}
+    .req-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+    .req-head h3{font-family:'Baloo 2',sans-serif;font-size:17px;margin:0 0 4px;}
+    .badge{display:inline-block;background:#DAE7F1;color:#42281B;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;}
+    .date{font-size:12px;color:#6B6259;}
+    .req-files{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+    .file-slot{width:84px;text-align:center;text-decoration:none;color:#42281B;font-size:11px;}
+    .file-slot img{width:84px;height:84px;object-fit:cover;border-radius:10px;border:1px solid #DAE7F1;display:block;margin-bottom:4px;background:#fff;}
+    .file-slot.empty{width:84px;height:84px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px dashed #DAE7F1;color:#B0472E;font-size:11px;padding:4px;}
+    .req-details p{font-size:13px;margin:0 0 6px;line-height:1.5;}
+    .req-details a{color:#B0472E;font-weight:700;}
+    @media (max-width:600px) { .req-head{flex-direction:column;} }
+  </style></head>
+  <body>
+    <a class="back" href="/brandpanel/leads">← Volver a Solicitudes de info</a>
+    <h1>Solicitudes de bienvenida (${results.length})</h1>
+    <p class="sub">Formularios ya llenados por clientes. Los archivos viven en tu bucket de R2, solo tú puedes verlos aquí (con sesión iniciada).</p>
+    ${results.length ? cards : '<div class="empty-state">Todavía no hay solicitudes llenadas.</div>'}
+  </body></html>`;
+
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
 async function handleLeadsList(request, env) {
   const cookieVal = getCookie(request, 'admin_session');
   const admin = await getAdminFromSession(env, cookieVal);
@@ -3148,6 +3269,7 @@ async function handleLeadsList(request, env) {
         <span id="genLinkText"></span><br>
         <button type="button" id="genLinkCopyBtn">Copiar link</button>
       </div>
+      <p style="margin:14px 0 0;"><a href="/brandpanel/bienvenidas" style="color:#B0472E;font-weight:700;">Ver solicitudes de bienvenida ya llenadas →</a></p>
     </div>
     ${tableMissing
       ? `<div class="warn-box"><b>Todavía falta un paso.</b><br>La tabla "leads" no existe en tu base de datos todavía. Entra a Cloudflare → tu base de datos D1 → pestaña <b>Console</b>, y pega esto:<br><br><code>CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT NOT NULL, instagram TEXT, business_type TEXT, emailed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));</code><br><br>Después de correr eso una sola vez, esta página va a funcionar y vas a poder ver aquí todas las solicitudes que lleguen.</div>`
