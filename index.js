@@ -4227,6 +4227,7 @@ ${pageHead(
 
     ${slide('var(--terracotta)', 'var(--cream)', `
       <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp" class="deck-logo deck-logo-big">
+      <p class="deck-eyebrow-title">Planes disponibles</p>
       <h1 class="deck-hero-title">Dale a tus clientes<br>una razón para volver</h1>
       <p class="deck-hero-lead">Haz que esa primera compra no sea la última. Con Hey Tapp, tus clientes acumulan sellos, se acercan a un premio y tienen una razón más para seguir eligiendo tu marca.</p>
       <img src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="" class="deck-mascot">
@@ -4316,6 +4317,7 @@ ${pageHead(
     .slide-card{max-width:600px;width:100%;border-radius:28px;padding:44px 38px;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;color:var(--brown);}
     .deck-logo{height:38px;margin-bottom:22px;}
     .deck-logo-big{height:64px;display:block;margin:0 auto 26px;}
+    .deck-eyebrow-title{font-family:'Baloo 2',sans-serif;font-size:clamp(20px,4vw,28px);font-weight:800;color:var(--terracotta);text-transform:uppercase;letter-spacing:.03em;margin:0 0 10px;}
     .deck-hero-title{font-family:'Baloo 2',sans-serif;font-size:clamp(26px,5vw,38px);margin:0 0 16px;line-height:1.15;}
     .deck-hero-lead{font-size:15.5px;line-height:1.6;color:#6B5645;margin:0 0 22px;}
     .deck-mascot{max-width:170px;margin:0 auto 22px;display:block;}
