@@ -2226,39 +2226,11 @@ async function handleUpdateAppearance(request, env) {
 // handleCreateLead, aparte para poder reutilizarla desde /confirmar-plan
 async function notifyHola(env, { nombre, celular, correo, instagram, interesado_en, subject }) {
   let emailed = false;
-  try {
-    const res = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({
-        nombre, celular: celular || '—', correo: correo || '—', instagram: instagram || '—', interesado_en,
-        _subject: subject,
-        _template: 'table',
-      }),
-    });
-    emailed = res.ok;
-  } catch (err) {
-    emailed = false;
-  }
 
-  if (!emailed && env.FORMSPREE_FORM_ID) {
-    try {
-      const res = await fetch(`https://formspree.io/f/${env.FORMSPREE_FORM_ID}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          name: nombre, phone: celular || '—', email: correo || '—', instagram: instagram || '—', interesado_en,
-          _subject: subject,
-          _replyto: correo || undefined,
-        }),
-      });
-      emailed = res.ok;
-    } catch (err) {
-      emailed = false;
-    }
-  }
-
-  if (!emailed && env.RESEND_API_KEY) {
+  // Resend primero: es el canal confiable, hecho para que un sistema mande
+  // correos solo — a diferencia de FormSubmit, que a veces se queda "a medias"
+  // cuando el envío no viene directo del navegador de una persona.
+  if (env.RESEND_API_KEY) {
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -2272,6 +2244,60 @@ async function notifyHola(env, { nombre, celular, correo, instagram, interesado_
           reply_to: correo || undefined,
           subject,
           text: `${subject}\n\nNombre: ${nombre}\nCelular: ${celular || '—'}\nCorreo: ${correo || '—'}\nInstagram del negocio: ${instagram || '—'}\nInteresado en: ${interesado_en}`,
+        }),
+      });
+      emailed = res.ok;
+      if (!emailed) {
+        const errBody = await res.text().catch(() => '');
+        console.log('[notifyHola] Resend respondió con error. status:', res.status, 'body:', errBody);
+      }
+    } catch (err) {
+      emailed = false;
+      console.log('[notifyHola] error de red con Resend:', err && err.message);
+    }
+  }
+
+  // respaldo 1: FormSubmit, por si Resend no está configurado o falló
+  if (!emailed) {
+    try {
+      const res = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          nombre, celular: celular || '—', correo: correo || '—', instagram: instagram || '—', interesado_en,
+          _subject: subject,
+          _template: 'table',
+        }),
+      });
+      // FormSubmit a veces responde 200 OK con una página HTML (por ejemplo,
+      // pidiendo reactivar el formulario) en vez del JSON de éxito esperado —
+      // si eso pasa, res.ok igual sale true, así que no basta con mirar el
+      // código de estado: hay que confirmar que de verdad vino el JSON de éxito.
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json().catch(() => null);
+        emailed = !!(data && (data.success === 'true' || data.success === true));
+        if (!emailed) console.log('[notifyHola] FormSubmit respondió OK pero sin éxito confirmado:', JSON.stringify(data));
+      } else {
+        emailed = false;
+        console.log('[notifyHola] FormSubmit no devolvió JSON (posible formulario sin activar). status:', res.status, 'content-type:', contentType);
+      }
+    } catch (err) {
+      emailed = false;
+      console.log('[notifyHola] error de red con FormSubmit:', err && err.message);
+    }
+  }
+
+  // respaldo 2: Formspree, si lo tienes configurado
+  if (!emailed && env.FORMSPREE_FORM_ID) {
+    try {
+      const res = await fetch(`https://formspree.io/f/${env.FORMSPREE_FORM_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          name: nombre, phone: celular || '—', email: correo || '—', instagram: instagram || '—', interesado_en,
+          _subject: subject,
+          _replyto: correo || undefined,
         }),
       });
       emailed = res.ok;
@@ -2445,51 +2471,12 @@ async function handleCreateLead(request, env) {
     ? `🎉 ¡Quiere contratar! ${planLabel} — ${name}`
     : `Nueva solicitud de info — ${name}`;
 
-  // si el navegador de la persona ya logró mandarlo directo a FormSubmit
-  // (la forma más confiable, porque así FormSubmit lo reconoce como un
-  // envío real desde heytapp.com), no hace falta que el servidor reintente.
-  // Si por algo falló allá (ej. un bloqueador de anuncios), el servidor
-  // lo intenta de nuevo como respaldo, de la más simple a la más avanzada.
+  // si el navegador de la persona ya logró mandarlo directo a FormSubmit,
+  // no hace falta que el servidor reintente. Si no, el servidor lo intenta
+  // por su cuenta, empezando por el canal más confiable (Resend).
   let emailed = body.emailed === true;
 
-  // opción 1: FormSubmit (respaldo por si el navegador no pudo)
-  if (!emailed) {
-    try {
-      const res = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          nombre: name, celular: phone, correo: email, instagram: instagram || '—', interesado_en: planLabel,
-          _subject: emailSubject,
-          _template: 'table',
-        }),
-      });
-      emailed = res.ok;
-    } catch (err) {
-      emailed = false;
-    }
-  }
-
-  // opción 2: Formspree (por si prefieres esa en vez de FormSubmit — solo
-  // se usa si configuras la variable FORMSPREE_FORM_ID)
-  if (!emailed && env.FORMSPREE_FORM_ID) {
-    try {
-      const res = await fetch(`https://formspree.io/f/${env.FORMSPREE_FORM_ID}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          name, phone, email, instagram: instagram || '—', interesado_en: planLabel,
-          _subject: emailSubject,
-          _replyto: email,
-        }),
-      });
-      emailed = res.ok;
-    } catch (err) {
-      emailed = false;
-    }
-  }
-
-  // opción 3: Resend (necesita dominio heytapp.com verificado en resend.com)
+  // opción 1: Resend (el canal confiable, hecho para envíos automáticos)
   if (!emailed && env.RESEND_API_KEY) {
     try {
       const res = await fetch('https://api.resend.com/emails', {
@@ -2504,6 +2491,58 @@ async function handleCreateLead(request, env) {
           reply_to: email,
           subject: emailSubject,
           text: `Nueva solicitud desde heytapp.com\n\nNombre: ${name}\nCelular: ${phone}\nCorreo: ${email}\nInstagram del negocio: ${instagram || '—'}\nInteresado en: ${planLabel}`,
+        }),
+      });
+      emailed = res.ok;
+      if (!emailed) {
+        const errBody = await res.text().catch(() => '');
+        console.log('[handleCreateLead] Resend respondió con error. status:', res.status, 'body:', errBody);
+      }
+    } catch (err) {
+      emailed = false;
+      console.log('[handleCreateLead] error de red con Resend:', err && err.message);
+    }
+  }
+
+  // opción 2: FormSubmit (respaldo, por si Resend no está configurado o falló)
+  if (!emailed) {
+    try {
+      const res = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          nombre: name, celular: phone, correo: email, instagram: instagram || '—', interesado_en: planLabel,
+          _subject: emailSubject,
+          _template: 'table',
+        }),
+      });
+      // un 200 OK no garantiza que se haya mandado el correo de verdad,
+      // hay que confirmar el JSON de éxito
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json().catch(() => null);
+        emailed = !!(data && (data.success === 'true' || data.success === true));
+        if (!emailed) console.log('[handleCreateLead] FormSubmit respondió OK pero sin éxito confirmado:', JSON.stringify(data));
+      } else {
+        emailed = false;
+        console.log('[handleCreateLead] FormSubmit no devolvió JSON. status:', res.status, 'content-type:', contentType);
+      }
+    } catch (err) {
+      emailed = false;
+      console.log('[handleCreateLead] error de red con FormSubmit:', err && err.message);
+    }
+  }
+
+  // opción 3: Formspree, si lo tienes configurado
+  if (!emailed && env.FORMSPREE_FORM_ID) {
+    try {
+      const res = await fetch(`https://formspree.io/f/${env.FORMSPREE_FORM_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          name, phone, email, instagram: instagram || '—', interesado_en: planLabel,
+          _subject: emailSubject,
+          _replyto: email,
         }),
       });
       emailed = res.ok;
@@ -4723,7 +4762,13 @@ ${renderSiteFooter('/')}
             _template: 'table',
           }),
         });
-        emailedDirectly = fsRes.ok;
+        var fsContentType = fsRes.headers.get('content-type') || '';
+        if (fsRes.ok && fsContentType.indexOf('application/json') !== -1) {
+          var fsData = await fsRes.json().catch(function() { return null; });
+          emailedDirectly = !!(fsData && (fsData.success === 'true' || fsData.success === true));
+        } else {
+          emailedDirectly = false;
+        }
       } catch (err) { emailedDirectly = false; }
 
       try {
