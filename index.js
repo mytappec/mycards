@@ -48,6 +48,9 @@ export default {
       if (parts.length === 1 && parts[0] === 'info-completa-x7k2m' && request.method === 'GET') {
         return await renderFullInfoPage(env, url);
       }
+      if (parts.length === 1 && parts[0] === 'info' && request.method === 'GET') {
+        return await renderFullInfoPage(env, url);
+      }
       if (parts.length === 1 && parts[0] === 'site-manifest.json') {
         const manifest = {
           name: 'Hey Tapp', short_name: 'Hey Tapp', start_url: '/', display: 'standalone',
