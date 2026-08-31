@@ -1671,6 +1671,7 @@ async function renderAdminDashboard(env, admin) {
           };
           reader.readAsDataURL(file);
         });
+      }
       // recorta y escala una imagen para que llene exactamente 750x246 (el
       // tamaño real de la franja de sellos en Apple Wallet), sin dejar bordes
       // vacíos — si la proporción no calza, recorta el sobrante desde el centro
