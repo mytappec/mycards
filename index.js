@@ -51,6 +51,13 @@ export default {
       if (parts.length === 1 && parts[0] === 'info' && request.method === 'GET') {
         return await renderFullInfoPage(env, url);
       }
+      // ---- formulario de bienvenida para clientes que ya pagaron: /bienvenida/:codigo ----
+      if (parts.length === 2 && parts[0] === 'bienvenida' && request.method === 'GET') {
+        return await renderBienvenidaRoute(env, parts[1]);
+      }
+      if (parts.length === 2 && parts[0] === 'bienvenida' && request.method === 'POST') {
+        return await handleBienvenidaSubmit(request, env, parts[1]);
+      }
       if (parts.length === 1 && parts[0] === 'site-manifest.json') {
         const manifest = {
           name: 'Hey Tapp', short_name: 'Hey Tapp', start_url: '/', display: 'standalone',
@@ -2571,6 +2578,323 @@ async function handleCreateLead(request, env) {
   }
 
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// ------------------------------------------------------------
+// formulario de bienvenida (/bienvenida/:codigo): lo llena el cliente
+// después de pagar. No crea el negocio solo — guarda todo en
+// onboarding_submissions como una bandeja, y Anaelí la convierte en
+// negocio real desde el admin cuando la revisa.
+// ------------------------------------------------------------
+
+async function renderBienvenidaRoute(env, code) {
+  let row = null;
+  try {
+    row = await env.DB.prepare('SELECT * FROM onboarding_submissions WHERE code = ?').bind(code).first();
+  } catch (err) {
+    console.error('[bienvenida] error buscando código', err && err.message);
+  }
+
+  if (!row) {
+    return new Response(renderBienvenidaNotFoundPage(), {
+      status: 404,
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+    });
+  }
+
+  if (row.submitted_at) {
+    return new Response(renderBienvenidaThanksPage(row.business_name), {
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+    });
+  }
+
+  return new Response(renderBienvenidaFormPage(code), {
+    headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+  });
+}
+
+async function handleBienvenidaSubmit(request, env, code) {
+  let row = null;
+  try {
+    row = await env.DB.prepare('SELECT * FROM onboarding_submissions WHERE code = ?').bind(code).first();
+  } catch (err) {
+    console.error('[bienvenida] error buscando código', err && err.message);
+  }
+
+  if (!row) {
+    return new Response(renderBienvenidaNotFoundPage(), {
+      status: 404,
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+    });
+  }
+
+  if (row.submitted_at) {
+    return new Response(renderBienvenidaThanksPage(row.business_name), {
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+    });
+  }
+
+  let formData;
+  try {
+    formData = await request.formData();
+  } catch (err) {
+    return new Response(renderBienvenidaFormPage(code, 'No pudimos leer el formulario. Intenta de nuevo.'), {
+      status: 400,
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+    });
+  }
+
+  const str = (v, max) => (v == null ? '' : String(v).trim().slice(0, max));
+  const businessName = str(formData.get('business_name'), 120);
+  const colorPrimary = str(formData.get('color_primary'), 20);
+  const colorSecondary = str(formData.get('color_secondary'), 20);
+  const totalStampsRaw = parseInt(formData.get('total_stamps'), 10);
+  const totalStamps = Number.isFinite(totalStampsRaw) ? Math.max(3, Math.min(50, totalStampsRaw)) : null;
+  const reward = str(formData.get('reward'), 120);
+  const greeting = str(formData.get('greeting'), 120);
+  const instagramUser = str(formData.get('instagram_user'), 60);
+  const instagramLink = str(formData.get('instagram_link'), 200);
+  const sellsMode = str(formData.get('sells_mode'), 20);
+
+  if (!businessName || !colorPrimary || !totalStamps || !reward) {
+    return new Response(renderBienvenidaFormPage(code, 'Faltan datos obligatorios, revisa el formulario e intenta de nuevo.'), {
+      status: 400,
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+    });
+  }
+
+  // el logo se sube a R2, no a la base de datos — así D1 se queda liviano
+  // sin importar cuántos negocios se agreguen
+  let logoKey = null;
+  const logoFile = formData.get('logo');
+  if (logoFile && typeof logoFile === 'object' && typeof logoFile.arrayBuffer === 'function' && logoFile.size > 0) {
+    if (!env.LOGOS_BUCKET) {
+      console.error('[bienvenida] LOGOS_BUCKET no está conectado, el logo no se pudo guardar');
+    } else {
+      const ext = logoFile.type === 'image/jpeg' || logoFile.type === 'image/jpg' ? 'jpg' : 'png';
+      const candidateKey = `logos/${code}-${Date.now()}.${ext}`;
+      try {
+        // solo se guarda el archivo tal cual, sin procesarlo, para no
+        // acercarse al límite de tiempo de procesamiento del plan gratis
+        await env.LOGOS_BUCKET.put(candidateKey, logoFile.stream(), {
+          httpMetadata: { contentType: logoFile.type || 'image/png' },
+        });
+        logoKey = candidateKey;
+      } catch (err) {
+        console.error('[bienvenida] error subiendo logo a R2', err && err.message);
+      }
+    }
+  }
+
+  try {
+    await env.DB.prepare(
+      `UPDATE onboarding_submissions
+       SET business_name = ?, logo_key = ?, color_primary = ?, color_secondary = ?,
+           total_stamps = ?, reward = ?, greeting = ?, instagram_user = ?,
+           instagram_link = ?, sells_mode = ?, submitted_at = datetime('now')
+       WHERE code = ?`
+    ).bind(
+      businessName, logoKey, colorPrimary, colorSecondary || null,
+      totalStamps, reward, greeting || null, instagramUser || null,
+      instagramLink || null, sellsMode || null, code
+    ).run();
+  } catch (err) {
+    console.error('[bienvenida] error guardando en D1', err && err.message);
+    return new Response('Ocurrió un error guardando tu información. Intenta de nuevo en unos segundos.', { status: 500 });
+  }
+
+  // aviso por correo, sin bloquear la respuesta al cliente si falla
+  notifyBienvenidaSubmitted(env, { code, businessName }).catch(() => {});
+
+  return new Response(renderBienvenidaThanksPage(businessName), {
+    headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+  });
+}
+
+async function notifyBienvenidaSubmitted(env, { code, businessName }) {
+  if (!env.RESEND_API_KEY) return;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Hey Tapp <hola@heytapp.com>',
+        to: ['hola@heytapp.com'],
+        subject: `🎉 Nueva solicitud de bienvenida — ${businessName}`,
+        text: `El código ${code} completó su formulario de bienvenida.\n\nMarca: ${businessName}\n\nRevísala en tu bandeja de solicitudes de bienvenida dentro del admin.`,
+      }),
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      console.log('[bienvenida] Resend respondió con error. status:', res.status, 'body:', errBody);
+    }
+  } catch (err) {
+    console.log('[bienvenida] error de red con Resend:', err && err.message);
+  }
+}
+
+function renderBienvenidaFormPage(code, errorMsg) {
+  const safeCode = String(code).replace(/[^a-zA-Z0-9_-]/g, '');
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Bienvenido a Hey Tapp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #F1E9DA; font-family: 'Manrope', sans-serif; color: #3F2A1D; padding: 24px 0 60px; }
+  .card { max-width: 420px; margin: 0 auto; background: #FBF6EE; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(63,42,29,0.12); }
+  .header { background: #C1603C; padding: 28px 22px 26px; text-align: center; }
+  .header h1 { font-family: 'Baloo 2', sans-serif; color: #FBF6EE; font-size: 22px; margin: 0 0 6px; }
+  .header p { color: #F3D9C8; font-size: 13px; margin: 0; }
+  form { padding: 22px 20px 26px; display: flex; flex-direction: column; gap: 16px; }
+  label { font-size: 13px; font-weight: 700; color: #6B4A34; display: block; margin-bottom: 6px; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid #E3D3BE;
+    background: #fff; font-family: 'Manrope', sans-serif; font-size: 14px; color: #3F2A1D;
+  }
+  .colors { display: flex; gap: 12px; }
+  .color-field { flex: 1; display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #E3D3BE; border-radius: 10px; padding: 8px 10px; }
+  .color-field input[type=color] { width: 28px; height: 28px; padding: 0; border: none; background: none; }
+  .row2 { display: flex; gap: 12px; }
+  .row2 > div { flex: 1; }
+  .logo-drop { border: 2px dashed #D8A98C; border-radius: 12px; padding: 18px; text-align: center; background: #fff; }
+  .logo-drop small { display: block; color: #8A6A4D; margin-top: 6px; font-size: 12px; }
+  button { margin-top: 4px; background: #C1603C; color: #FBF6EE; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700; font-family: 'Baloo 2', sans-serif; cursor: pointer; }
+  .error { background: #FBE4E0; color: #A23B2E; border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>¡Bienvenido a Hey Tapp!</h1>
+      <p>Vamos a armar la tarjeta de fidelidad de tu marca</p>
+    </div>
+    <form method="POST" action="/bienvenida/${safeCode}" enctype="multipart/form-data">
+      ${errorMsg ? `<div class="error">${escapeHtml(errorMsg)}</div>` : ''}
+      <div>
+        <label for="logo">Logo de tu marca</label>
+        <div class="logo-drop">
+          <input type="file" id="logo" name="logo" accept="image/png,image/jpeg" required>
+          <small>PNG con fondo transparente, de preferencia</small>
+        </div>
+      </div>
+      <div>
+        <label for="business_name">Nombre de tu marca</label>
+        <input type="text" id="business_name" name="business_name" placeholder="Como quieres que aparezca" maxlength="120" required>
+      </div>
+      <div>
+        <label>Colores de tu marca</label>
+        <div class="colors">
+          <div class="color-field">
+            <input type="color" name="color_primary" value="#C1603C">
+            <span>Principal</span>
+          </div>
+          <div class="color-field">
+            <input type="color" name="color_secondary" value="#F2B94D">
+            <span>Secundario</span>
+          </div>
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label for="total_stamps">Sellos para el premio</label>
+          <input type="number" id="total_stamps" name="total_stamps" min="3" max="50" value="8" required>
+        </div>
+        <div>
+          <label for="reward">Premio</label>
+          <input type="text" id="reward" name="reward" placeholder="2x1 en chochip" maxlength="120" required>
+        </div>
+      </div>
+      <div>
+        <label for="greeting">Saludo en la tarjeta</label>
+        <input type="text" id="greeting" name="greeting" placeholder="Hola, marca lover!" maxlength="120">
+      </div>
+      <div class="row2">
+        <div>
+          <label for="instagram_user">Usuario de Instagram</label>
+          <input type="text" id="instagram_user" name="instagram_user" placeholder="@tumarca" maxlength="60">
+        </div>
+        <div>
+          <label for="sells_mode">Cómo vendes</label>
+          <select id="sells_mode" name="sells_mode">
+            <option value="online">Online</option>
+            <option value="fisico">Punto físico</option>
+            <option value="ambos">Ambos</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label for="instagram_link">Link de tu Instagram</label>
+        <input type="text" id="instagram_link" name="instagram_link" placeholder="https://instagram.com/tumarca" maxlength="200">
+      </div>
+      <button type="submit">Enviar y activar mi Hey Tapp</button>
+    </form>
+  </div>
+</body>
+</html>`;
+}
+
+function renderBienvenidaThanksPage(businessName) {
+  const name = businessName ? escapeHtml(businessName) : 'tu marca';
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Listo — Hey Tapp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #F1E9DA; font-family: 'Manrope', sans-serif; color: #3F2A1D; padding: 24px; }
+  .card { max-width: 380px; background: #FBF6EE; border-radius: 20px; padding: 40px 28px; text-align: center; box-shadow: 0 10px 30px rgba(63,42,29,0.12); }
+  .badge { width: 56px; height: 56px; border-radius: 50%; background: #F2B94D; margin: 0 auto 18px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+  h1 { font-family: 'Baloo 2', sans-serif; font-size: 20px; margin: 0 0 12px; }
+  p { font-size: 14px; line-height: 1.6; color: #6B4A34; margin: 0; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">✓</div>
+    <h1>¡Recibimos tu información, ${name}!</h1>
+    <p>Ya la tenemos en nuestro equipo. En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
+  </div>
+</body>
+</html>`;
+}
+
+function renderBienvenidaNotFoundPage() {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Hey Tapp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #F1E9DA; font-family: 'Manrope', sans-serif; color: #3F2A1D; padding: 24px; }
+  .card { max-width: 380px; background: #FBF6EE; border-radius: 20px; padding: 40px 28px; text-align: center; box-shadow: 0 10px 30px rgba(63,42,29,0.12); }
+  h1 { font-family: 'Baloo 2', sans-serif; font-size: 20px; margin: 0 0 12px; }
+  p { font-size: 14px; line-height: 1.6; color: #6B4A34; margin: 0; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Este link ya no está disponible</h1>
+    <p>Si crees que esto es un error, contáctanos a hola@heytapp.com.</p>
+  </div>
+</body>
+</html>`;
 }
 
 // lista de solicitudes recibidas, para cuando no tengas el correo automático
