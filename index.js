@@ -1660,7 +1660,9 @@ async function renderAdminDashboard(env, admin) {
       // tamaño real de la franja de sellos en Apple Wallet), sin dejar bordes
       // vacíos — si la proporción no calza, recorta el sobrante desde el centro
       function fileToStripBgBase64(file) {
-        const targetW = 750, targetH = 246;
+        const targetW = 450, targetH = 148; // antes 750x246: un PNG de foto a ese tamaño pesaba mucho
+        // (podía tumbar el guardado por el límite de tiempo de Cloudflare). Wallet
+        // ahora estira esta versión más chica suavemente a su tamaño real.
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onerror = reject;
@@ -2737,7 +2739,9 @@ async function handleEditBusinessForm(request, env, slug) {
         });
       }
       function fileToStripBgBase64(file) {
-        const targetW = 750, targetH = 246;
+        const targetW = 450, targetH = 148; // antes 750x246: un PNG de foto a ese tamaño pesaba mucho
+        // (podía tumbar el guardado por el límite de tiempo de Cloudflare). Wallet
+        // ahora estira esta versión más chica suavemente a su tamaño real.
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onerror = reject;
@@ -3197,9 +3201,17 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   const stampsBgStyle = (b.strip_bg_base64 && b.strip_bg_scope !== 'wallet')
     ? `background-image:url('data:image/png;base64,${b.strip_bg_base64}');background-size:cover;background-position:center;border-radius:16px;padding:14px 10px;`
     : '';
+  // "forma libre" solo se activa si: 1) está elegida, 2) hay un sello subido
+  // de verdad (si no, no hay nada que mostrar y se cae sola al círculo), y
+  // 3) el alcance elegido incluye la web — un solo valor, usado tanto para
+  // la clase CSS como para decidir qué sello va en cada posición
+  const isShapeStyle = b.stamp_style === 'shape' && !!b.sello_1_base64 && (b.stamp_style_scope || 'both') !== 'wallet';
   const buildStamp = (i) => {
     const isReward = i === total;
-    const selloKey = selloNames[(i - 1) % 4];
+    // en "forma libre" el ícono ES el sello, así que las 8 posiciones usan
+    // siempre el primero — igual que ya hace Wallet. En círculo se mantiene
+    // el ciclo entre los 4 sellos, como siempre (para quien sí quiera variar)
+    const selloKey = isShapeStyle ? 's1' : selloNames[(i - 1) % 4];
     const isFilled = i <= filled;
     return `<div class="stamp${isFilled ? ' filled' : ''}${isReward ? ' reward' : ''}" data-sello="${selloKey}">
       <div class="stamp-img"></div>
@@ -3347,14 +3359,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
           <span class="progress-pct">${pct}%</span>
         </div>
         <p class="progress-text">${progressText}</p>
-        ${(() => {
-          // "forma libre" solo se activa si: 1) está elegida, 2) hay un sello
-          // subido de verdad (si no, no hay nada que mostrar y se cae sola al
-          // círculo de siempre), y 3) el alcance elegido incluye la web
-          const shapeScope = b.stamp_style_scope || 'both';
-          const useShapeOnWeb = b.stamp_style === 'shape' && !!b.sello_1_base64 && shapeScope !== 'wallet';
-          return `<div class="stamp-rows${useShapeOnWeb ? ' shape-style' : ''}" style="--stamp-cols:${topCount};${stampsBgStyle}">`;
-        })()}
+        <div class="stamp-rows${isShapeStyle ? ' shape-style' : ''}" style="--stamp-cols:${topCount};${stampsBgStyle}">
           <div class="stamp-row">${stampsTopHtml}</div>
           ${bottomCount > 0 ? `<div class="stamp-row">${stampsBottomHtml}</div>` : ''}
         </div>
@@ -5420,6 +5425,28 @@ function walletDrawStar(pixels, width, cx, cy, outerR, innerR, color) {
 }
 // compone un ícono decodificado (con transparencia real) centrado dentro de un
 // círculo, escalado para que quepa — respeta el alpha real del PNG subido
+// estira una imagen (de cualquier tamaño) para llenar exactamente un ancho x
+// alto dado, con la misma interpolación suave que ya se prueba con los
+// íconos — sin esto, una imagen de fondo guardada en un tamaño más chico (para
+// pesar menos) se vería en bloques dentro de Wallet
+function walletStretchToFill(pixels, width, height, src) {
+  const lerp = (a, b, t) => a + (b - a) * t;
+  for (let dy = 0; dy < height; dy++) {
+    const srcYf = Math.min(src.height - 1, (dy / height) * src.height);
+    const y0 = Math.floor(srcYf), y1 = Math.min(src.height - 1, y0 + 1), fy = srcYf - y0;
+    for (let dx = 0; dx < width; dx++) {
+      const srcXf = Math.min(src.width - 1, (dx / width) * src.width);
+      const x0 = Math.floor(srcXf), x1 = Math.min(src.width - 1, x0 + 1), fx = srcXf - x0;
+      const i00 = (y0 * src.width + x0) * 4, i10 = (y0 * src.width + x1) * 4;
+      const i01 = (y1 * src.width + x0) * 4, i11 = (y1 * src.width + x1) * 4;
+      const r = lerp(lerp(src.pixels[i00], src.pixels[i10], fx), lerp(src.pixels[i01], src.pixels[i11], fx), fy);
+      const g = lerp(lerp(src.pixels[i00+1], src.pixels[i10+1], fx), lerp(src.pixels[i01+1], src.pixels[i11+1], fx), fy);
+      const b = lerp(lerp(src.pixels[i00+2], src.pixels[i10+2], fx), lerp(src.pixels[i01+2], src.pixels[i11+2], fx), fy);
+      const a = lerp(lerp(src.pixels[i00+3], src.pixels[i10+3], fx), lerp(src.pixels[i01+3], src.pixels[i11+3], fx), fy);
+      walletSetPixel(pixels, width, dx, dy, r, g, b, a);
+    }
+  }
+}
 function walletCompositeIcon(pixels, width, cx, cy, maxSize, icon, opacityMul) {
   if (!icon) return;
   const om = opacityMul == null ? 1 : opacityMul;
@@ -5520,9 +5547,12 @@ async function walletBuildStampStripImage(business, filled, total) {
   ];
   const bgColor = [br, bg2, bb];
 
-  // fondo: si el negocio subió una imagen para la franja, se usa esa (ya viene
-  // recortada a 750x246 desde el navegador); si no hay, o si algo falla al
-  // leerla, se usa el color plano de siempre — nunca se rompe la tarjeta por esto
+  // fondo: si el negocio subió una imagen para la franja, se usa esa — ya no
+  // hace falta que venga exacta a 750x246: si llega en otro tamaño (para
+  // pesar menos y que el guardado no se pase del límite de tiempo de
+  // Cloudflare), se estira suave hasta el tamaño exacto que pide Wallet.
+  // Si algo falla al leerla, se usa el color plano de siempre — nunca se
+  // rompe la tarjeta por esto
   let usedCustomBg = false;
   if (business.strip_bg_base64 && business.strip_bg_scope !== 'web') {
     try {
@@ -5530,6 +5560,9 @@ async function walletBuildStampStripImage(business, filled, total) {
       const decoded = walletDecodePng(bytes);
       if (decoded.width === width && decoded.height === height) {
         pixels.set(decoded.pixels);
+        usedCustomBg = true;
+      } else if (decoded.width > 0 && decoded.height > 0) {
+        walletStretchToFill(pixels, width, height, decoded);
         usedCustomBg = true;
       }
     } catch (e) { /* se cae al color plano de respaldo, abajo */ }
