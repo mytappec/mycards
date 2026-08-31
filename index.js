@@ -2388,7 +2388,7 @@ ${renderSiteNav('/')}
       <div class="confirm-card reveal">
         <img src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="" class="confirm-mascot">
         <h2 class="confirm-heading">¡Listo!</h2>
-        <p class="confirm-text">En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
+        <p class="confirm-text">En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
       </div>
       <p class="reveal" style="text-align:center;margin-top:22px;font-size:12.5px;font-weight:700;letter-spacing:.4px;color:var(--brown-soft);">Made in Ecuador 🇪🇨 for the world</p>
     </div>
@@ -2845,16 +2845,16 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
       <div class="plan-section">
         <span class="tag">Plan Físico</span>
         <label for="hablador_address">Dirección para enviarte tu hablador físico</label>
+        <p style="font-size:12px;color:#8A5A34;margin:0 0 8px;">Te diremos el valor de envío cuando tengamos tu dirección.</p>
         <input type="text" id="hablador_address" name="hablador_address" placeholder="Dirección completa, con referencia" maxlength="200" required>
-        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">Te diremos el valor de envío cuando tengamos tu dirección.</p>
       </div>` : '';
 
   const walletSection = plan === 'wallet' ? `
       <div class="plan-section">
         <span class="tag">Plan Wallet</span>
         <label for="maps_link">Link de Google Maps de tu local (opcional)</label>
+        <p style="font-size:12px;color:#8A5A34;margin:0 0 8px;">Si lo pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca de tu local.</p>
         <input type="text" id="maps_link" name="maps_link" placeholder="Pega aquí el link de Google Maps" maxlength="300">
-        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">Si lo pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca de tu local.</p>
         <label for="sells_mode" style="margin-top:14px;">¿Cómo vendes?</label>
         <select id="sells_mode" name="sells_mode" required>
           <option value="">Selecciona una opción</option>
@@ -2879,7 +2879,7 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
   <div class="card">
     <div class="header">
       <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
-      <h1>¡Bienvenido a Hey Tapp!</h1>
+      <h1>¡Bienvenido a Hey Tapp!</h1>
       <p>${label ? `${label}. V` : 'V'}amos a armar la tarjeta de fidelidad de tu marca</p>
     </div>
     <form method="POST" action="/bienvenida/${safeCode}" enctype="multipart/form-data">
@@ -2912,8 +2912,8 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
       <div class="row2">
         <div>
           <label for="total_stamps">Sellos para el premio</label>
+          <p style="font-size:11.5px;color:#8A5A34;margin:0 0 6px;">Máximo 10.</p>
           <input type="number" id="total_stamps" name="total_stamps" min="3" max="10" value="8" required>
-          <p style="font-size:11.5px;color:#8A5A34;margin:4px 0 0;">Máximo 10.</p>
         </div>
         <div>
           <label for="reward">Premio</label>
@@ -2928,15 +2928,14 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
         </div>
       </div>
       <div>
-        <p style="font-size:12px;color:#8A5A34;margin:0 0 8px;">Si no tienes una idea para la imagen de tu sello, no te preocupes, nosotros te ayudamos en el siguiente casillero.</p>
         <label for="stamp_idea">Cuéntanos tu idea</label>
+        <p style="font-size:12px;color:#8A5A34;margin:0 0 8px;">Si no tienes una imagen, no te preocupes, nosotros te ayudamos. ¿Quieres que tus sellos sean corazones, estrellas, una figura específica?</p>
         <input type="text" id="stamp_idea" name="stamp_idea" placeholder="Ej. corazones, estrellas..." maxlength="300">
-        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">¿Quieres que tus sellos sean corazones, estrellas, una figura específica?</p>
       </div>
       <div>
         <label for="greeting">¿Cómo quieres saludar a tu cliente?</label>
+        <p style="font-size:12px;color:#8A5A34;margin:0 0 8px;">O simplemente puedes decirle "Hola".</p>
         <input type="text" id="greeting" name="greeting" placeholder="Ej. Hola, cookie lover" maxlength="120">
-        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">O simplemente puedes decirle "Hola".</p>
       </div>
       <div>
         <label for="instagram_user">Usuario de Instagram</label>
@@ -2982,7 +2981,7 @@ function renderBienvenidaThanksPage(businessName) {
   <div class="card">
     <div class="badge">✓</div>
     <h1>¡Recibimos tu información, ${name}!</h1>
-    <p>Ya la tenemos en nuestro equipo. En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
+    <p>Ya la tenemos en nuestro equipo. En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
     <img class="logo" src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
   </div>
 </body>
@@ -4934,13 +4933,13 @@ ${pageHead(
       <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp" class="deck-logo deck-logo-big">
       <p class="deck-eyebrow-title">Planes disponibles</p>
       <h1 class="deck-hero-title">Dale a tus clientes<br>una razón para volver</h1>
-      <p class="deck-hero-lead">Haz que esa primera compra no sea la última. Con Hey Tapp, tus clientes acumulan sellos, se acercan a un premio y tienen una razón más para seguir eligiendo tu marca.</p>
+      <p class="deck-hero-lead">Haz que esa primera compra no sea la última. Con Hey Tapp, tus clientes acumulan sellos, se acercan a un premio y tienen una razón más para seguir eligiendo tu marca.</p>
       <img src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="" class="deck-mascot">
       <a href="#s2" class="deck-next">Ver tu tarjeta ↓</a>
     `, 's1')}
 
     ${slide('var(--pale-blue)', 'var(--cream)', `
-      <span class="plan-tag-solo">Así es tu Hey Tapp</span>
+      <span class="plan-tag-solo">Así es tu Hey Tapp</span>
       <h2>Una tarjeta digital para tu negocio</h2>
       <p class="plan-desc">Tus clientes acumulan sellos y ven su progreso en tiempo real, sin instalar nada.</p>
       <img src="data:image/png;base64,${HEY_TAPP_DUO_PHONES_BASE64}" alt="Tarjeta Hey Tapp en la web y en Apple Wallet" class="duo-phones">
@@ -4972,7 +4971,7 @@ ${pageHead(
             'Plan Fideliza Físico',
             'Para marcas con tienda, local o punto de venta físico',
             `<p class="folder-includes-label">Todo lo que incluye el Plan Digital, más:</p>
-            <p class="wallet-hook">Tu Hey Tapp, siempre visible en tu punto de venta.</p>
+            <p class="wallet-hook">Tu Hey Tapp, siempre visible en tu punto de venta.</p>
             <ul class="folder-extras">
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.scan}</span><span>Hablador físico personalizado con el QR único de tu negocio.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.target}</span><span>Tus clientes pueden escanearlo, registrarse y abrir su tarjeta al momento de pagar.</span></li>
@@ -5193,7 +5192,7 @@ function renderSolicitudPage(url) {
   const formOrThanks = gracias ? `
         <div class="contact-shell reveal" style="text-align:center;padding:40px 24px;">
           <h3 style="margin:0 0 10px;">¡Listo! 🎉</h3>
-          <p class="contact-sub" style="margin:0;">Ya tenemos tus datos. Te contactamos en breve para dejar todo listo con tu ${planLabel || 'Hey Tapp'}.</p>
+          <p class="contact-sub" style="margin:0;">Ya tenemos tus datos. Te contactamos en breve para dejar todo listo con tu ${planLabel || 'Hey Tapp'}.</p>
         </div>` : `
       <div class="contact-shell reveal">
         <div class="contact-form">
@@ -5412,35 +5411,15 @@ ${renderSiteFooter('/')}
       }
       msg.textContent = 'Enviando...'; msg.className = 'form-msg';
 
-      const planLabel = payload.business_type === 'digital' ? 'Plan Fideliza Digital'
-        : payload.business_type === 'fisico' ? 'Plan Fideliza Físico'
-        : payload.business_type === 'wallet' ? 'Plan Fideliza Wallet' : 'No especificó';
-
-      let emailedDirectly = false;
-      try {
-        const fsRes = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({
-            nombre: payload.name, celular: payload.phone, correo: payload.email,
-            instagram: payload.instagram || '—', interesado_en: planLabel,
-            _subject: 'Nueva solicitud de info — ' + payload.name,
-            _template: 'table',
-          }),
-        });
-        var fsContentType = fsRes.headers.get('content-type') || '';
-        if (fsRes.ok && fsContentType.indexOf('application/json') !== -1) {
-          var fsData = await fsRes.json().catch(function() { return null; });
-          emailedDirectly = !!(fsData && (fsData.success === 'true' || fsData.success === true));
-        } else {
-          emailedDirectly = false;
-        }
-      } catch (err) { emailedDirectly = false; }
-
+      // el aviso por correo ahora lo maneja solo el servidor (Resend primero,
+      // FormSubmit de respaldo si Resend falla): antes el navegador también
+      // le mandaba directo a FormSubmit por su cuenta, y cuando esa llamada
+      // no lograba confirmar su propio éxito a tiempo, el servidor lo volvía
+      // a mandar por Resend sin saberlo, y llegaban dos correos duplicados
       try {
         const res = await fetch('/contacto', {
           method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ ...payload, emailed: emailedDirectly }),
+          body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (res.ok) {
@@ -5516,7 +5495,7 @@ ${renderSiteNav('')}
         <img class="duo-mascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
       </div>
       <h1>Tarjetas de fidelización <span class="accent">digitales</span></h1>
-      <p class="hero-lead">Dale a tus clientes una razón para volver<br>y haz que esa primera compra no sea la última.<br>Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca, gracias a una tarjeta de sellos digital creada completamente para ti.</p>
+      <p class="hero-lead">Dale a tus clientes una razón para volver<br>y haz que esa primera compra no sea la última.<br>Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca, gracias a una tarjeta de sellos digital creada completamente para ti.</p>
       <div class="hero-ctas">
         <a href="/contacto" class="btn btn-primary">Quiero mi tarjeta digital</a>
         <a href="#como-funciona" class="btn btn-ghost">Ver cómo funciona</a>
@@ -5528,7 +5507,7 @@ ${renderSiteNav('')}
   <section class="process" id="como-funciona">
     <div class="wrap">
       <div class="eyebrow on-dark reveal">Así de simple</div>
-      <h2 class="reveal">Cómo funciona Hey Tapp</h2>
+      <h2 class="reveal">Cómo funciona Hey Tapp</h2>
       <p class="process-sub reveal">Tres pasos, y tu negocio ya tiene su propio sistema de fidelización.</p>
       <div class="process-steps">
         <div class="process-step reveal">
@@ -5564,8 +5543,8 @@ ${renderSiteNav('')}
   <section class="benefits" id="beneficios">
     <div class="wrap">
       <div class="eyebrow reveal">Todo incluido</div>
-      <h2 class="reveal">¿Qué incluye Hey Tapp?</h2>
-      <p class="benefits-sub reveal">Tus clientes ya te eligieron una vez. Hey Tapp te ayuda a que lo hagan de nuevo.</p>
+      <h2 class="reveal">¿Qué incluye Hey Tapp?</h2>
+      <p class="benefits-sub reveal">Tus clientes ya te eligieron una vez. Hey Tapp te ayuda a que lo hagan de nuevo.</p>
       <div class="benefits-grid">${beneficiosHtml}</div>
     </div>
   </section>
@@ -5599,7 +5578,7 @@ ${renderSiteNav('')}
             <div class="plan-panel-main">
               <span class="plan-tag">Plan Fideliza Digital</span>
               <h3>Para marcas que venden por Instagram, WhatsApp o canales digitales</h3>
-              <p>Tu Hey Tapp no es una tarjeta genérica: la creamos y configuramos especialmente para tu negocio, desde cero.</p>
+              <p>Tu Hey Tapp no es una tarjeta genérica: la creamos y configuramos especialmente para tu negocio, desde cero.</p>
             </div>
             <div class="plan-panel-side">
               <span class="plan-badge">${icons.check} Pago único de implementación</span>
@@ -7437,7 +7416,7 @@ function walletBuildPassJSON(business, customer, env, origin) {
       {
         latitude: business.wallet_location_lat,
         longitude: business.wallet_location_lng,
-        relevantText: `Estás cerca de ${business.name}. Toca para usar tu Hey Tapp y sumar sellos por tus compras.`,
+        relevantText: `Estás cerca de ${business.name}. Toca para usar tu Hey Tapp y sumar sellos por tus compras.`,
       },
     ];
   }
