@@ -2654,23 +2654,34 @@ async function handleBienvenidaSubmit(request, env, code) {
   const str = (v, max) => (v == null ? '' : String(v).trim().slice(0, max));
   const businessName = str(formData.get('business_name'), 120);
   const totalStampsRaw = parseInt(formData.get('total_stamps'), 10);
-  const totalStamps = Number.isFinite(totalStampsRaw) ? Math.max(3, Math.min(50, totalStampsRaw)) : null;
+  // el formulario del cliente tope en 10 sellos (el límite general del
+  // sistema en 50 sigue existiendo, pero solo Anaelí puede pasar de 10
+  // editando el negocio desde el admin)
+  const totalStamps = Number.isFinite(totalStampsRaw) ? Math.max(3, Math.min(10, totalStampsRaw)) : null;
   const reward = str(formData.get('reward'), 120);
   const greeting = str(formData.get('greeting'), 120);
   const instagramUser = str(formData.get('instagram_user'), 60);
   const instagramLink = str(formData.get('instagram_link'), 200);
+  const stampType = str(formData.get('stamp_type'), 20);
 
   // campos que solo aplican según el plan
   const habladorAddress = plan === 'fisico' ? str(formData.get('hablador_address'), 200) : '';
   const mapsLink = plan === 'wallet' ? str(formData.get('maps_link'), 300) : '';
   const sellsMode = plan === 'wallet' ? str(formData.get('sells_mode'), 20) : '';
 
-  const missingCommon = !businessName || !totalStamps || !reward;
+  const stampIconFile = formData.get('stamp_icon');
+  const hasStampIconFile = stampIconFile && typeof stampIconFile === 'object' && typeof stampIconFile.arrayBuffer === 'function' && stampIconFile.size > 0;
+
+  const missingCommon = !businessName || !totalStamps || !reward || !stampType;
+  const missingStampIcon = stampType === 'isologo' && !hasStampIconFile;
   const missingFisico = plan === 'fisico' && !habladorAddress;
   const missingWallet = plan === 'wallet' && !sellsMode;
 
-  if (missingCommon || missingFisico || missingWallet) {
-    return new Response(renderBienvenidaFormPage(code, plan, 'Faltan datos obligatorios, revisa el formulario e intenta de nuevo.'), {
+  if (missingCommon || missingStampIcon || missingFisico || missingWallet) {
+    const msg = missingStampIcon
+      ? 'Elegiste "mi isologo" como tipo de sello, pero falta subir la imagen. Súbela o cambia a "ícono genérico".'
+      : 'Faltan datos obligatorios, revisa el formulario e intenta de nuevo.';
+    return new Response(renderBienvenidaFormPage(code, plan, msg), {
       status: 400,
       headers: { 'Content-Type': 'text/html; charset=UTF-8' },
     });
@@ -2701,6 +2712,8 @@ async function handleBienvenidaSubmit(request, env, code) {
 
   const logoKey = await uploadToR2(formData.get('logo'), 'logos');
   const paletteKey = await uploadToR2(formData.get('palette_image'), 'paletas');
+  const stampIconKey = stampType === 'isologo' ? await uploadToR2(stampIconFile, 'sellos') : null;
+  const stripBgKey = plan === 'wallet' ? await uploadToR2(formData.get('strip_bg_image'), 'fondos') : null;
 
   try {
     await env.DB.prepare(
@@ -2708,12 +2721,14 @@ async function handleBienvenidaSubmit(request, env, code) {
        SET business_name = ?, logo_key = ?, palette_image_key = ?,
            total_stamps = ?, reward = ?, greeting = ?, instagram_user = ?,
            instagram_link = ?, maps_link = ?, sells_mode = ?, hablador_address = ?,
+           stamp_type = ?, stamp_icon_key = ?, strip_bg_image_key = ?,
            submitted_at = datetime('now')
        WHERE code = ?`
     ).bind(
       businessName, logoKey, paletteKey,
       totalStamps, reward, greeting || null, instagramUser || null,
       instagramLink || null, mapsLink || null, sellsMode || null, habladorAddress || null,
+      stampType, stampIconKey, stripBgKey,
       code
     ).run();
   } catch (err) {
@@ -2816,6 +2831,11 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
           <option value="fisico">Solo en un local físico</option>
           <option value="ambos">Ambos</option>
         </select>
+        <label for="strip_bg_image" style="margin-top:14px;">Foto horizontal para el fondo de tu Wallet (opcional)</label>
+        <div class="upload-box">
+          <input type="file" id="strip_bg_image" name="strip_bg_image" accept="image/png,image/jpeg">
+          <small>Formato horizontal, idealmente 750x246 px. También se usa como fondo en tu tarjeta web.</small>
+        </div>
       </div>` : '';
 
   return `<!DOCTYPE html>
@@ -2858,12 +2878,27 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
       </div>
       <div class="row2">
         <div>
-          <label for="total_stamps">Sellos para el premio</label>
-          <input type="number" id="total_stamps" name="total_stamps" min="3" max="50" value="8" required>
+          <label for="total_stamps">Sellos para el premio (máx. 10)</label>
+          <input type="number" id="total_stamps" name="total_stamps" min="3" max="10" value="8" required>
         </div>
         <div>
           <label for="reward">Premio</label>
           <input type="text" id="reward" name="reward" placeholder="2x1 en chochip" maxlength="120" required>
+        </div>
+      </div>
+      <div>
+        <label for="stamp_type">Tipo de sello</label>
+        <select id="stamp_type" name="stamp_type" required>
+          <option value="">Selecciona una opción</option>
+          <option value="isologo">Mi isologo (lo subo abajo)</option>
+          <option value="icono">Ícono genérico — ustedes eligen uno que combine</option>
+        </select>
+      </div>
+      <div>
+        <label for="stamp_icon">Si elegiste "mi isologo", súbelo aquí</label>
+        <div class="upload-box">
+          <input type="file" id="stamp_icon" name="stamp_icon" accept="image/png,image/jpeg">
+          <small>Debe verse bien en tamaño chico y forma circular. Nosotros lo revisamos antes de usarlo, así que si no combina bien te avisamos.</small>
         </div>
       </div>
       <div>
