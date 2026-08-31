@@ -1152,7 +1152,7 @@ async function renderAdminDashboard(env, admin) {
     return `
     <tr>
       <td data-label="Editar tarjeta" style="white-space:nowrap;"><a href="/brandpanel/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
-      <td data-label="Métricas" style="white-space:nowrap;"><a href="/brandpanel/business/${escapeHtml(b.slug)}/metrics">📊 Ver</a></td>
+      <td data-label="Métricas" style="white-space:nowrap;">${(b.plan || 'wallet') === 'digital' ? '<span style="color:#8A6A4D;font-size:12.5px;">No incluido</span>' : `<a href="/brandpanel/business/${escapeHtml(b.slug)}/metrics">📊 Ver</a>`}</td>
       <td data-label="Negocio" style="white-space:nowrap;">${escapeHtml(b.name)}</td>
       <td data-label="Slug" style="white-space:nowrap;">${escapeHtml(b.slug)}</td>
       <td data-label="Código QR" style="white-space:nowrap;"><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
@@ -1458,10 +1458,13 @@ async function renderAdminDashboard(env, admin) {
           <label>Tu recordatorio de este PIN (solo tú lo ves, con tu contraseña)</label>
           <input type="text" id="pin_note" placeholder="Ej. mismo que arriba, o alguna nota para ti">
 
-          <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-            <input type="checkbox" id="wallet_enabled" checked style="width:auto;">
-            Incluye botón de Apple Wallet (según el plan del negocio)
-          </label>
+          <label>Plan del negocio</label>
+          <select id="plan">
+            <option value="digital">Fideliza Digital</option>
+            <option value="fisico">Fideliza Físico</option>
+            <option value="wallet" selected>Fideliza Wallet</option>
+          </select>
+          <p class="hint">Esto controla qué ve el negocio automáticamente: el panel de métricas (incluido en Físico y Wallet, no en Digital), y el botón de Apple Wallet junto con el aviso de ubicación y el recordatorio automático de 14 días (solo en Wallet).</p>
 
           <label>Ubicación del local (opcional)</label>
           <input type="text" id="wallet_location_link" placeholder="Pega aquí el link de Google Maps">
@@ -1764,7 +1767,7 @@ async function renderAdminDashboard(env, admin) {
             instagram_url: document.getElementById('instagram_url').value,
             pin: document.getElementById('pin').value,
             pin_note: document.getElementById('pin_note').value,
-            wallet_enabled: document.getElementById('wallet_enabled').checked,
+            plan: document.getElementById('plan').value,
             wallet_location_link: document.getElementById('wallet_location_link').value.trim()
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
@@ -1973,7 +1976,8 @@ async function handleCreateBusiness(request, env) {
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url), staff_pin_hash: pinHash,
     staff_pin_note: body.pin_note || null,
     instruction_text: body.instruction_text || 'Muestra este código en caja para sumar tu sello en tu compra.',
-    wallet_enabled: body.wallet_enabled === false ? 0 : 1,
+    plan: ['digital', 'fisico', 'wallet'].includes(body.plan) ? body.plan : 'wallet',
+    wallet_enabled: body.plan === 'wallet' ? 1 : 0,
     strip_bg_base64: body.strip_bg_base64 || null,
     strip_bg_scope: ['both', 'wallet', 'web'].includes(body.strip_bg_scope) ? body.strip_bg_scope : 'both',
     client_type: ['cliente', 'influencer'].includes(body.client_type) ? body.client_type : 'cliente',
@@ -2504,6 +2508,14 @@ async function handleEditBusinessForm(request, env, slug) {
               <label>Nombre del negocio</label>
               <input type="text" id="name" value="${escapeHtml(b.name)}" required>
 
+              <label>Plan del negocio</label>
+              <select id="plan">
+                <option value="digital" ${(b.plan || 'wallet') === 'digital' ? 'selected' : ''}>Fideliza Digital</option>
+                <option value="fisico" ${(b.plan || 'wallet') === 'fisico' ? 'selected' : ''}>Fideliza Físico</option>
+                <option value="wallet" ${(b.plan || 'wallet') === 'wallet' ? 'selected' : ''}>Fideliza Wallet</option>
+              </select>
+              <p class="hint">Esto controla qué ve el negocio automáticamente: el panel de métricas (incluido en Físico y Wallet, no en Digital), y el botón de Apple Wallet junto con el aviso de ubicación y el recordatorio automático de 14 días (solo en Wallet).</p>
+
               <p class="hint">El slug (${escapeHtml(b.slug)}) es la parte del link que va después de tu dominio.</p>
               <input type="text" id="slug" value="${escapeHtml(b.slug)}" required pattern="[a-z0-9-]+">
               <p class="hint" style="color:#B23A3A;">⚠️ Si lo cambias, los links y códigos QR que tus clientes ya tienen guardados (con el slug anterior) van a dejar de funcionar. Solo cámbialo si sabes lo que haces.</p>
@@ -2643,10 +2655,7 @@ async function handleEditBusinessForm(request, env, slug) {
           <div class="accordion-section">
             <button type="button" class="accordion-header">🍏 Apple Wallet <span class="chevron">▾</span></button>
             <div class="accordion-body">
-              <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-                <input type="checkbox" id="wallet_enabled" ${b.wallet_enabled ? 'checked' : ''} style="width:auto;">
-                Incluye botón de Apple Wallet (según el plan del negocio)
-              </label>
+              <p class="hint">Esta sección solo tiene efecto si el plan del negocio (arriba) es Fideliza Wallet.</p>
 
               <label>Ubicación del local (opcional)</label>
               <input type="text" id="wallet_location_link" placeholder="Pega aquí el link de Google Maps">
@@ -2823,7 +2832,7 @@ async function handleEditBusinessForm(request, env, slug) {
             reward_text: document.getElementById('reward_text').value,
             instagram_handle: document.getElementById('instagram_handle').value,
             instagram_url: document.getElementById('instagram_url').value,
-            wallet_enabled: document.getElementById('wallet_enabled').checked
+            plan: document.getElementById('plan').value
           };
           document.querySelectorAll('.colorPicker').forEach(picker => { payload[picker.id] = picker.value; });
           const res = await fetch('/brandpanel/business/${slug}/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -2982,7 +2991,8 @@ async function handleUpdateBusiness(request, env, slug) {
     greeting_eyebrow: body.greeting_eyebrow, reward_heading: body.reward_heading, reward_text: body.reward_text,
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url),
     instruction_text: body.instruction_text || business.instruction_text,
-    wallet_enabled: body.wallet_enabled === false ? 0 : 1,
+    plan: ['digital', 'fisico', 'wallet'].includes(body.plan) ? body.plan : (business.plan || 'wallet'),
+    wallet_enabled: (['digital', 'fisico', 'wallet'].includes(body.plan) ? body.plan : (business.plan || 'wallet')) === 'wallet' ? 1 : 0,
     strip_bg_scope: ['both', 'wallet', 'web'].includes(body.strip_bg_scope) ? body.strip_bg_scope : (business.strip_bg_scope || 'both'),
     client_type: ['cliente', 'influencer'].includes(body.client_type) ? body.client_type : (business.client_type || 'cliente'),
     stamp_style: body.stamp_style === 'shape' ? 'shape' : 'circle',
@@ -3921,7 +3931,7 @@ ${pageHead(
       <a href="#s3" class="deck-next">Ver los 3 planes ↓</a>
     `, 's2')}
 
-    <section class="slide" id="s3" style="background:var(--cream);">
+    <section class="slide" id="s3" style="background:var(--pale-blue);">
       <div class="folder-wrap">
         <div class="folder-intro">
           <span class="plan-tag-solo">Elige tu camino</span>
@@ -3975,8 +3985,8 @@ ${pageHead(
       </div>
     </section>
 
-    ${slide('var(--pale-blue)', 'var(--cream)', `
-      <img src="data:image/png;base64,${HEY_TAPP_HT_MONO_BASE64}" alt="Hey Tapp" class="deck-logo-mono">
+    ${slide('var(--terracotta)', 'var(--cream)', `
+      <img src="data:image/png;base64,${HEY_TAPP_MONO_TERRACOTTA_BASE64}" alt="Hey Tapp" class="deck-logo-mono">
       <p class="deck-closing">Actualizamos la interfaz constantemente para que vivas la mejor experiencia junto con tus clientes.</p>
       <p class="deck-choose">¿Cuál plan eliges?</p>
       <p class="deck-credit">Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
@@ -4019,7 +4029,7 @@ ${pageHead(
     .folder-intro{text-align:center;margin-bottom:18px;}
     .folder-intro h2{text-align:center;}
     .folder-tabs{display:flex;align-items:stretch;gap:6px;padding:0 6px;}
-    .folder-tab{position:static!important;flex:1;width:auto;box-shadow:none;font-size:12px;background:color-mix(in srgb, var(--tab) 40%, var(--cream));border-radius:16px 16px 0 0;padding:14px 6px 16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:background .2s;font-family:Manrope,sans-serif;border:1px solid rgba(66,40,27,.08);border-bottom:none;}
+    .folder-tab{position:static!important;flex:1;width:auto;box-shadow:0 -2px 8px rgba(66,40,27,.08);font-size:12px;background:color-mix(in srgb, var(--tab) 40%, var(--cream));border-radius:16px 16px 0 0;padding:14px 6px 16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:background .2s;font-family:Manrope,sans-serif;border:1.5px solid rgba(66,40,27,.18);border-bottom:none;}
     .folder-tab.active{background:var(--tab);}
     .folder-tab-icon{position:static!important;width:26px;height:26px;border-radius:8px;background:rgba(253,251,242,.7);display:flex;align-items:center;justify-content:center;color:var(--brown);}
     .folder-tab.active .folder-tab-icon{color:var(--tab-text);}
@@ -4770,7 +4780,7 @@ function renderStaffPanel(b, platformName) {
       <p class="msg" id="regMsg"></p>
 
       <a class="logout" href="/staff/${b.slug}/clientes">Ver todos los clientes</a>
-      <a class="logout" href="/staff/${b.slug}/metricas">📊 Ver métricas del negocio</a>
+      ${(b.plan || 'wallet') !== 'digital' ? `<a class="logout" href="/staff/${b.slug}/metricas">📊 Ver métricas del negocio</a>` : ''}
       <a class="logout" href="/staff/${b.slug}/logout">Cerrar sesión del local</a>
     </div>
     <div class="footer-brand">
@@ -5002,21 +5012,53 @@ async function handleBusinessMetrics(request, env, slug) {
   }
   const backLink = admin ? '/brandpanel' : `/staff/${slug}`;
 
+  // el Plan Fideliza Digital no incluye panel de métricas
+  const plan = business.plan || 'wallet';
+  if (plan === 'digital') {
+    return new Response(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Métricas — ${escapeHtml(business.name)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --brown:#42281B; --terracotta:#B0472E; --cream:#FDFBF2; --pale-blue:#DAE7F1; }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--pale-blue);font-family:'Manrope',sans-serif;color:var(--brown);padding:24px 16px 60px;}
+  .wrap{max-width:560px;margin:60px auto 0;text-align:center;}
+  a.back{color:var(--brown);text-decoration:none;font-weight:700;font-size:14px;}
+  .card{background:#fff;border-radius:16px;padding:32px 24px;box-shadow:0 4px 14px rgba(66,40,27,.08);margin-top:20px;}
+  h1{font-family:'Baloo 2',sans-serif;font-size:20px;margin:0 0 10px;}
+  p{color:#6B5645;font-size:14.5px;line-height:1.6;margin:0;}
+</style></head><body>
+  <div class="wrap">
+    <a class="back" href="${backLink}">← Volver al panel</a>
+    <div class="card">
+      <h1>El panel de métricas no está incluido en tu plan</h1>
+      <p>El Plan Fideliza Digital no incluye panel de métricas. Está disponible en los planes Físico y Wallet.</p>
+    </div>
+  </div>
+</body></html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+  const showWalletExtras = plan === 'wallet';
+
   const totalCustomers = (await env.DB.prepare('SELECT COUNT(*) as cnt FROM customers WHERE business_id = ?').bind(business.id).first())?.cnt || 0;
-  const walletActive = (await env.DB.prepare('SELECT COUNT(DISTINCT serial_number) as cnt FROM wallet_registrations WHERE serial_number LIKE ?').bind(`${slug}-%`).first())?.cnt || 0;
+  const walletActive = showWalletExtras ? ((await env.DB.prepare('SELECT COUNT(DISTINCT serial_number) as cnt FROM wallet_registrations WHERE serial_number LIKE ?').bind(`${slug}-%`).first())?.cnt || 0) : null;
   const redeemedCount = (await env.DB.prepare('SELECT COUNT(*) as cnt FROM customers WHERE business_id = ? AND redeemed_at IS NOT NULL').bind(business.id).first())?.cnt || 0;
   const visitStats = await env.DB.prepare('SELECT COUNT(*) as totalVisits, COUNT(DISTINCT customer_id) as customersWithVisits FROM visits WHERE business_id = ?').bind(business.id).first();
   const avgVisits = visitStats && visitStats.customersWithVisits > 0 ? (visitStats.totalVisits / visitStats.customersWithVisits) : 0;
 
   const LAPSE_DAYS = 14;
-  const { results: lapsedCustomers } = await env.DB.prepare(`
-    SELECT c.id, c.name, c.code, c.stamps, MAX(v.stamped_at) as last_visit
-    FROM customers c JOIN visits v ON v.customer_id = c.id AND v.cycle = c.cycle
-    WHERE c.business_id = ? AND c.stamps > 0 AND c.stamps < ?
-    GROUP BY c.id
-    HAVING last_visit < datetime('now', '-' || ? || ' days')
-    ORDER BY last_visit ASC
-  `).bind(business.id, business.total_stamps, LAPSE_DAYS).all();
+  let lapsedCustomers = [];
+  if (showWalletExtras) {
+    const query = await env.DB.prepare(`
+      SELECT c.id, c.name, c.code, c.stamps, MAX(v.stamped_at) as last_visit
+      FROM customers c JOIN visits v ON v.customer_id = c.id AND v.cycle = c.cycle
+      WHERE c.business_id = ? AND c.stamps > 0 AND c.stamps < ?
+      GROUP BY c.id
+      HAVING last_visit < datetime('now', '-' || ? || ' days')
+      ORDER BY last_visit ASC
+    `).bind(business.id, business.total_stamps, LAPSE_DAYS).all();
+    lapsedCustomers = query.results;
+  }
 
   const lapsedRows = lapsedCustomers.map(c => `
     <tr>
@@ -5065,17 +5107,17 @@ async function handleBusinessMetrics(request, env, slug) {
 
     <div class="cards">
       <div class="card"><div class="num">${totalCustomers}</div><div class="label">Tarjetas registradas</div></div>
-      <div class="card"><div class="num">${walletActive}</div><div class="label">Activas en Apple Wallet</div></div>
+      ${showWalletExtras ? `<div class="card"><div class="num">${walletActive}</div><div class="label">Activas en Apple Wallet</div></div>` : ''}
       <div class="card"><div class="num">${redeemedCount}</div><div class="label">Premios canjeados</div></div>
       <div class="card"><div class="num">${avgVisits.toFixed(1)}</div><div class="label">Sellos promedio por cliente</div></div>
     </div>
 
-    <div class="section">
+    ${showWalletExtras ? `<div class="section">
       <h2>Clientes que se están enfriando</h2>
       <p class="hint">Llevan ${LAPSE_DAYS} días o más sin volver y todavía no completan su tarjeta — son los mismos que reciben el recordatorio automático.</p>
       ${lapsedCustomers.length ? `<table><thead><tr><th>Nombre</th><th>Código</th><th>Sellos</th><th>Última visita</th></tr></thead><tbody>${lapsedRows}</tbody></table>` : '<p class="empty">Nadie se está enfriando ahorita mismo. 🎉</p>'}
-      <a class="btn-download" href="/brandpanel/business/${slug}/metrics-export">⬇️ Descargar todos los clientes (CSV)</a>
-    </div>
+    </div>` : ''}
+    <a class="btn-download" href="/brandpanel/business/${slug}/metrics-export">⬇️ Descargar todos los clientes (CSV)</a>
   </div>
 </body></html>`;
 
@@ -5091,6 +5133,7 @@ async function handleBusinessMetricsExport(request, env, slug) {
   const staffCookie = getCookie(request, 'staff_session');
   const hasStaffSession = await isValidStaffSession(env, business.id, staffCookie);
   if (!admin && !hasStaffSession) return new Response('No autorizado', { status: 401 });
+  if ((business.plan || 'wallet') === 'digital') return new Response('El Plan Fideliza Digital no incluye panel de métricas.', { status: 403 });
 
   const { results } = await env.DB.prepare(`
     SELECT c.name, c.cedula, c.code, c.stamps, c.cycle, c.redeemed_at,
