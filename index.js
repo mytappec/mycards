@@ -119,6 +119,7 @@ export default {
         if (parts[1] === 'leads') return handleLeadsList(request, env);
         if (parts[1] === 'bienvenidas') return handleBienvenidaQueue(request, env);
         if (parts[1] === 'bienvenida-archivo' && parts[2]) return handleBienvenidaFile(request, env, parts.slice(2).join('/'));
+        if (parts[1] === 'bienvenida-solicitud' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBienvenidaSubmission(request, env, parts[2]);
         if (parts[1] === 'signup' && request.method === 'POST') return handleAdminSignup(request, env);
         if (parts[1] === 'login' && request.method === 'POST') return handleAdminLogin(request, env);
         if (parts[1] === 'logout') return handleAdminLogout(request, env);
@@ -2817,8 +2818,9 @@ function bienvenidaStyles() {
     width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid #B9D3EA;
     background: #fff; font-family: 'Manrope', sans-serif; font-size: 14px; color: #593212;
   }
-  .row2 { display: flex; gap: 12px; }
-  .row2 > div { flex: 1; }
+  .row2 { display: flex; gap: 12px; align-items: stretch; }
+  .row2 > div { flex: 1; display: flex; flex-direction: column; }
+  .row2 > div input { margin-top: auto; }
   .upload-box { border: 2px dashed #B9D3EA; border-radius: 12px; padding: 16px; text-align: center; background: #fff; }
   .upload-box small { display: block; color: #8A5A34; margin-top: 6px; font-size: 12px; line-height: 1.5; }
   .plan-section { border-top: 1px dashed #B9D3EA; padding-top: 14px; margin-top: 2px; }
@@ -3118,6 +3120,36 @@ async function handleBienvenidaFile(request, env, key) {
   });
 }
 
+// borra una solicitud de bienvenida ya revisada: la fila en D1 y, de paso,
+// los archivos que tenía guardados en R2, para no dejar basura en el bucket
+async function handleDeleteBienvenidaSubmission(request, env, id) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  if (!/^\d+$/.test(String(id))) {
+    return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const row = await env.DB.prepare(
+    'SELECT logo_key, palette_image_key, stamp_icon_key, strip_bg_image_key FROM onboarding_submissions WHERE id = ?'
+  ).bind(id).first();
+
+  if (row && env.LOGOS_BUCKET) {
+    const keys = [row.logo_key, row.palette_image_key, row.stamp_icon_key, row.strip_bg_image_key].filter(Boolean);
+    for (const key of keys) {
+      try {
+        await env.LOGOS_BUCKET.delete(key);
+      } catch (err) {
+        console.error('[bienvenidas] error borrando archivo de R2', key, err && err.message);
+      }
+    }
+  }
+
+  await env.DB.prepare('DELETE FROM onboarding_submissions WHERE id = ?').bind(id).run();
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
 // bandeja de solicitudes de bienvenida ya llenadas por el cliente, con
 // vista previa de cada archivo subido, para revisarlas antes de convertirlas
 // en negocio real
@@ -3150,7 +3182,7 @@ async function handleBienvenidaQueue(request, env) {
       : s.sells_mode === 'fisico' ? 'Solo local físico'
       : s.sells_mode === 'ambos' ? 'Ambos' : '';
     return `
-    <div class="req-card">
+    <div class="req-card" data-id="${s.id}">
       <div class="req-head">
         <div>
           <h3>${escapeHtml(s.business_name || 'Sin nombre')}</h3>
@@ -3175,6 +3207,7 @@ async function handleBienvenidaQueue(request, env) {
         ${s.maps_link ? `<p><b>Google Maps:</b> <a href="${escapeHtml(s.maps_link)}" target="_blank">Ver ubicación</a></p>` : ''}
         ${sellsLabel ? `<p><b>Cómo vende:</b> ${escapeHtml(sellsLabel)}</p>` : ''}
       </div>
+      <button type="button" class="deleteReqBtn" data-id="${s.id}">Borrar</button>
     </div>`;
   }).join('');
 
@@ -3200,6 +3233,8 @@ async function handleBienvenidaQueue(request, env) {
     .file-slot.empty{width:84px;height:84px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px dashed #DAE7F1;color:#B0472E;font-size:11px;padding:4px;}
     .req-details p{font-size:13px;margin:0 0 6px;line-height:1.5;}
     .req-details a{color:#B0472E;font-weight:700;}
+    .deleteReqBtn{margin-top:10px;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;font-size:13px;}
+    .deleteReqBtn:disabled{opacity:.6;cursor:default;}
     @media (max-width:600px) { .req-head{flex-direction:column;} }
   </style></head>
   <body>
@@ -3207,6 +3242,28 @@ async function handleBienvenidaQueue(request, env) {
     <h1>Solicitudes de bienvenida (${results.length})</h1>
     <p class="sub">Formularios ya llenados por clientes. Los archivos viven en tu bucket de R2, solo tú puedes verlos aquí (con sesión iniciada).</p>
     ${results.length ? cards : '<div class="empty-state">Todavía no hay solicitudes llenadas.</div>'}
+    <script>
+      document.querySelectorAll('.deleteReqBtn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          if (!confirm('¿Borrar esta solicitud? Se borran también sus imágenes guardadas. No se puede deshacer.')) return;
+          const id = btn.dataset.id;
+          btn.disabled = true; btn.textContent = 'Borrando...';
+          try {
+            const res = await fetch('/brandpanel/bienvenida-solicitud/' + id + '/delete', { method: 'POST' });
+            if (res.ok) {
+              const card = btn.closest('.req-card');
+              card.remove();
+            } else {
+              alert('No se pudo borrar, intenta de nuevo.');
+              btn.disabled = false; btn.textContent = 'Borrar';
+            }
+          } catch (e) {
+            alert('Error de conexión, intenta de nuevo.');
+            btn.disabled = false; btn.textContent = 'Borrar';
+          }
+        });
+      });
+    </script>
   </body></html>`;
 
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
