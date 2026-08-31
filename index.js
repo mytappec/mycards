@@ -4963,6 +4963,7 @@ async function renderFullInfoPage(env, url) {
         </div>
         <div class="folder-divider"></div>
         <p class="folder-note">El servicio se paga antes de iniciar cada mes.</p>
+        <a href="${planBtnHref(plan)}" class="deck-plan-btn folder-cta-btn" style="--btn-color:${tabColor};color:${tabText};">Quiero empezar</a>
       </div>`;
 
   return new Response(`<!DOCTYPE html>
@@ -5096,6 +5097,7 @@ ${pageHead(
     .deck-plan-buttons{display:flex;flex-direction:column;gap:10px;margin:0 0 24px;}
     .deck-plan-btn{display:block;background:var(--btn-color);color:var(--brown);text-decoration:none;font-weight:800;font-size:14px;padding:13px 20px;border-radius:12px;text-align:center;box-shadow:0 6px 16px rgba(66,40,27,.18);transition:transform .15s ease;}
     .deck-plan-btn:hover{transform:translateY(-1px);}
+    .folder-cta-btn{margin-top:18px;}
     .deck-explore-btn{display:inline-block;background:var(--brown);color:var(--cream);text-decoration:none;padding:14px 26px;border-radius:12px;font-weight:800;font-size:15px;margin-bottom:22px;}
     .deck-credit{font-size:12.5px;color:#6B5645;}
     .deck-credit a{color:inherit;}
