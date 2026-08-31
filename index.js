@@ -42,8 +42,11 @@ export default {
       if (parts.length === 1 && parts[0] === 'solicitud' && request.method === 'GET') {
         return renderSolicitudPage(url);
       }
+      if (parts.length === 1 && parts[0] === 'confirmar-plan' && request.method === 'GET') {
+        return handleConfirmarPlan(request, env, url);
+      }
       if (parts.length === 1 && parts[0] === 'info-completa-x7k2m' && request.method === 'GET') {
-        return renderFullInfoPage();
+        return await renderFullInfoPage(env, url);
       }
       if (parts.length === 1 && parts[0] === 'site-manifest.json') {
         const manifest = {
@@ -2215,6 +2218,151 @@ async function handleUpdateAppearance(request, env) {
 // ------------------------------------------------------------
 // formulario de contacto de la página de inicio (heytapp.com)
 // ------------------------------------------------------------
+// avisa a hola@heytapp.com con los datos de un lead, probando FormSubmit primero
+// y cayendo a Formspree/Resend si están configurados — misma lógica que ya usa
+// handleCreateLead, aparte para poder reutilizarla desde /confirmar-plan
+async function notifyHola(env, { nombre, celular, correo, instagram, interesado_en, subject }) {
+  let emailed = false;
+  try {
+    const res = await fetch('https://formsubmit.co/ajax/hola@heytapp.com', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        nombre, celular: celular || '—', correo: correo || '—', instagram: instagram || '—', interesado_en,
+        _subject: subject,
+        _template: 'table',
+      }),
+    });
+    emailed = res.ok;
+  } catch (err) {
+    emailed = false;
+  }
+
+  if (!emailed && env.FORMSPREE_FORM_ID) {
+    try {
+      const res = await fetch(`https://formspree.io/f/${env.FORMSPREE_FORM_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          name: nombre, phone: celular || '—', email: correo || '—', instagram: instagram || '—', interesado_en,
+          _subject: subject,
+          _replyto: correo || undefined,
+        }),
+      });
+      emailed = res.ok;
+    } catch (err) {
+      emailed = false;
+    }
+  }
+
+  if (!emailed && env.RESEND_API_KEY) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Hey Tapp <hola@heytapp.com>',
+          to: ['hola@heytapp.com'],
+          reply_to: correo || undefined,
+          subject,
+          text: `${subject}\n\nNombre: ${nombre}\nCelular: ${celular || '—'}\nCorreo: ${correo || '—'}\nInstagram del negocio: ${instagram || '—'}\nInteresado en: ${interesado_en}`,
+        }),
+      });
+      emailed = res.ok;
+    } catch (err) {
+      emailed = false;
+    }
+  }
+
+  return emailed;
+}
+
+async function handleConfirmarPlan(request, env, url) {
+  const leadIdRaw = url.searchParams.get('lead');
+  const plan = ['digital', 'fisico', 'wallet'].includes(url.searchParams.get('plan')) ? url.searchParams.get('plan') : null;
+
+  // si no hay boleto válido o no reconocemos el plan, mandamos al formulario
+  // completo de siempre — así la persona igual puede escribirnos
+  if (!leadIdRaw || !plan) {
+    return Response.redirect(new URL(`/solicitud?from=info&plan=${plan || ''}`, request.url).toString(), 302);
+  }
+
+  let lead = null;
+  try {
+    lead = await env.DB.prepare('SELECT * FROM leads WHERE id = ?').bind(leadIdRaw).first();
+  } catch (e) {
+    lead = null;
+  }
+
+  if (!lead) {
+    return Response.redirect(new URL(`/solicitud?from=info&plan=${plan}`, request.url).toString(), 302);
+  }
+
+  const planLabel = plan === 'digital' ? 'Plan Fideliza Digital'
+    : plan === 'fisico' ? 'Plan Fideliza Físico' : 'Plan Fideliza Wallet';
+
+  // actualizamos el plan elegido por si cambió de opinión respecto al
+  // primer formulario, y avisamos con un asunto que se note fácil en el inbox
+  try {
+    await env.DB.prepare('UPDATE leads SET business_type = ? WHERE id = ?').bind(plan, lead.id).run();
+  } catch (e) {
+    // si falla, igual mandamos el correo con el plan correcto
+  }
+
+  await notifyHola(env, {
+    nombre: lead.name,
+    celular: lead.phone,
+    correo: lead.email,
+    instagram: lead.instagram,
+    interesado_en: planLabel,
+    subject: `🎯 Confirmó su plan: ${planLabel} — ${lead.name}`,
+  });
+
+  return renderConfirmacionPage(planLabel);
+}
+
+function renderConfirmacionPage(planLabel) {
+  return new Response(`<!DOCTYPE html>
+<html lang="es">
+${pageHead(
+  'Listo — Hey Tapp',
+  'En breve nos ponemos en contacto contigo.',
+  'https://heytapp.com/confirmar-plan'
+)}
+<body>
+
+${renderSiteNav('/')}
+
+  <div class="wave-div" style="margin-top:64px;"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#DAE7F1"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#FDFBF2" stroke="#FDFBF2" stroke-width="2"></path></svg></div>
+  <section class="contact" style="padding-top:56px;">
+    <div class="wrap">
+      <div class="contact-shell reveal" style="text-align:center;padding:48px 24px;">
+        <h2 style="margin:0 0 12px;">Listo</h2>
+        <p class="contact-sub" style="margin:0;">En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
+      </div>
+      <p class="reveal" style="text-align:center;margin-top:22px;font-size:12.5px;font-weight:700;letter-spacing:.4px;color:var(--brown-soft);">Made in Ecuador 🇪🇨 for the world</p>
+    </div>
+  </section>
+
+  <div class="wave-div"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#FDFBF2"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#42281B" stroke="#42281B" stroke-width="2"></path></svg></div>
+${renderSiteFooter('/')}
+
+  <script>
+    const nav = document.getElementById('siteNav');
+    nav.classList.add('scrolled');
+    const burger = document.getElementById('burgerBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    burger.addEventListener('click', () => { mobileMenu.classList.toggle('open'); burger.classList.toggle('open'); });
+    mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { mobileMenu.classList.remove('open'); burger.classList.remove('open'); }));
+    document.querySelectorAll('.reveal').forEach(el => el.classList.add('in-view'));
+  </script>
+</body>
+</html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
 async function handleCreateLead(request, env) {
   const rl = await checkRateLimit(env, request, 'lead', 8);
   const contentType = request.headers.get('content-type') || '';
@@ -2362,9 +2510,13 @@ async function handleCreateLead(request, env) {
   }
 
   if (isTraditionalForm) {
-    const dest = from === 'info'
-      ? new URL(`/solicitud?gracias=1&from=info&plan=${businessType || ''}`, request.url)
-      : new URL('https://heytapp.com/info-completa-x7k2m');
+    let dest;
+    if (from === 'info') {
+      dest = new URL(`/solicitud?gracias=1&from=info&plan=${businessType || ''}`, request.url);
+    } else {
+      dest = new URL('https://heytapp.com/info-completa-x7k2m');
+      if (leadId) dest.searchParams.set('lead', leadId);
+    }
     return Response.redirect(dest.toString(), 302);
   }
 
@@ -3963,7 +4115,21 @@ function renderSiteFooter(prefix) {
   </footer>`;
 }
 
-function renderFullInfoPage() {
+async function renderFullInfoPage(env, url) {
+  const leadIdRaw = url ? url.searchParams.get('lead') : null;
+  let knownLead = null;
+  if (leadIdRaw && env) {
+    try {
+      knownLead = await env.DB.prepare('SELECT id FROM leads WHERE id = ?').bind(leadIdRaw).first();
+    } catch (e) {
+      knownLead = null;
+    }
+  }
+  const leadId = knownLead ? knownLead.id : null;
+  const planBtnHref = (plan) => leadId
+    ? `/confirmar-plan?lead=${leadId}&plan=${plan}`
+    : `/solicitud?from=info&plan=${plan}`;
+
   const generalBenefits = [
     [icons.palette, 'Tarjeta de fidelidad <span class="hl">100% personalizada</span> con la identidad de tu marca'],
     [icons.target, 'Premio y cantidad de sellos <span class="hl">configurables</span>'],
@@ -4123,9 +4289,9 @@ ${pageHead(
       <p class="deck-closing">Actualizamos la interfaz constantemente para que vivas la mejor experiencia junto con tus clientes.</p>
       <p class="deck-choose">¿Cuál plan eliges?</p>
       <div class="deck-plan-buttons">
-        <a href="/solicitud?from=info&plan=digital" class="deck-plan-btn" style="--btn-color:var(--mustard);">Quiero el Plan Digital</a>
-        <a href="/solicitud?from=info&plan=fisico" class="deck-plan-btn" style="--btn-color:var(--blue);">Quiero el Plan Físico</a>
-        <a href="/solicitud?from=info&plan=wallet" class="deck-plan-btn" style="--btn-color:var(--terracotta);color:var(--cream);">Quiero el Plan Wallet</a>
+        <a href="${planBtnHref('digital')}" class="deck-plan-btn" style="--btn-color:var(--mustard);">Quiero el Plan Digital</a>
+        <a href="${planBtnHref('fisico')}" class="deck-plan-btn" style="--btn-color:var(--blue);">Quiero el Plan Físico</a>
+        <a href="${planBtnHref('wallet')}" class="deck-plan-btn" style="--btn-color:var(--terracotta);color:var(--cream);">Quiero el Plan Wallet</a>
       </div>
       <p class="deck-credit">Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
     `, 's4')}
