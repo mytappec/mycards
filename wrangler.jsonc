@@ -10,6 +10,12 @@
       "database_id": "252fa7cf-0936-4ca6-bd91-913fefc3cb51"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "LOGOS_BUCKET",
+      "bucket_name": "heytapp-logos"
+    }
+  ],
   "triggers": {
     "crons": ["0 13 * * *"]
   }
