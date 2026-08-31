@@ -2582,12 +2582,7 @@ async function handleCreateLead(request, env) {
 
 // ------------------------------------------------------------
 // formulario de bienvenida (/bienvenida/:codigo): lo llena el cliente
-// después de pagar. No crea el negocio solo — guarda todo en
-// onboarding_submissions como una bandeja, y Anaelí la convierte en
-// negocio real desde el admin cuando la revisa.
-// ------------------------------------------------------------
-
-// después de pagar. No crea el negocio solo — guarda todo en
+// después de pagar. No crea el negocio solo, guarda todo en
 // onboarding_submissions como una bandeja, y Anaelí la convierte en
 // negocio real desde el admin cuando la revisa.
 // ------------------------------------------------------------
@@ -2662,7 +2657,7 @@ async function handleBienvenidaSubmit(request, env, code) {
   const greeting = str(formData.get('greeting'), 120);
   const instagramUser = str(formData.get('instagram_user'), 60);
   const instagramLink = str(formData.get('instagram_link'), 200);
-  const stampType = str(formData.get('stamp_type'), 20);
+  const stampIdea = str(formData.get('stamp_idea'), 300);
 
   // campos que solo aplican según el plan
   const habladorAddress = plan === 'fisico' ? str(formData.get('hablador_address'), 200) : '';
@@ -2672,14 +2667,14 @@ async function handleBienvenidaSubmit(request, env, code) {
   const stampIconFile = formData.get('stamp_icon');
   const hasStampIconFile = stampIconFile && typeof stampIconFile === 'object' && typeof stampIconFile.arrayBuffer === 'function' && stampIconFile.size > 0;
 
-  const missingCommon = !businessName || !totalStamps || !reward || !stampType;
-  const missingStampIcon = stampType === 'isologo' && !hasStampIconFile;
+  const missingCommon = !businessName || !totalStamps || !reward;
+  const missingStampInfo = !hasStampIconFile && !stampIdea;
   const missingFisico = plan === 'fisico' && !habladorAddress;
   const missingWallet = plan === 'wallet' && !sellsMode;
 
-  if (missingCommon || missingStampIcon || missingFisico || missingWallet) {
-    const msg = missingStampIcon
-      ? 'Elegiste "mi isologo" como tipo de sello, pero falta subir la imagen. Súbela o cambia a "ícono genérico".'
+  if (missingCommon || missingStampInfo || missingFisico || missingWallet) {
+    const msg = missingStampInfo && !missingCommon
+      ? 'Cuéntanos algo sobre el sello: sube una imagen o descríbenos una idea, aunque sea breve.'
       : 'Faltan datos obligatorios, revisa el formulario e intenta de nuevo.';
     return new Response(renderBienvenidaFormPage(code, plan, msg), {
       status: 400,
@@ -2687,7 +2682,7 @@ async function handleBienvenidaSubmit(request, env, code) {
     });
   }
 
-  // el logo y la imagen de paleta se suben a R2, no a la base de datos —
+  // el logo y la imagen de paleta se suben a R2, no a la base de datos:
   // así D1 se queda liviano sin importar cuántos negocios se agreguen
   const uploadToR2 = async (file, folder) => {
     if (!file || typeof file !== 'object' || typeof file.arrayBuffer !== 'function' || !file.size) return null;
@@ -2712,8 +2707,10 @@ async function handleBienvenidaSubmit(request, env, code) {
 
   const logoKey = await uploadToR2(formData.get('logo'), 'logos');
   const paletteKey = await uploadToR2(formData.get('palette_image'), 'paletas');
-  const stampIconKey = stampType === 'isologo' ? await uploadToR2(stampIconFile, 'sellos') : null;
-  const stripBgKey = plan === 'wallet' ? await uploadToR2(formData.get('strip_bg_image'), 'fondos') : null;
+  const stampIconKey = hasStampIconFile ? await uploadToR2(stampIconFile, 'sellos') : null;
+  // el fondo de los sellos aplica a todos los planes (fondo del área de
+  // sellos en la tarjeta web); si el plan incluye Wallet, se reutiliza ahí también
+  const stripBgKey = await uploadToR2(formData.get('strip_bg_image'), 'fondos');
 
   try {
     await env.DB.prepare(
@@ -2721,14 +2718,14 @@ async function handleBienvenidaSubmit(request, env, code) {
        SET business_name = ?, logo_key = ?, palette_image_key = ?,
            total_stamps = ?, reward = ?, greeting = ?, instagram_user = ?,
            instagram_link = ?, maps_link = ?, sells_mode = ?, hablador_address = ?,
-           stamp_type = ?, stamp_icon_key = ?, strip_bg_image_key = ?,
+           stamp_idea = ?, stamp_icon_key = ?, strip_bg_image_key = ?,
            submitted_at = datetime('now')
        WHERE code = ?`
     ).bind(
       businessName, logoKey, paletteKey,
       totalStamps, reward, greeting || null, instagramUser || null,
       instagramLink || null, mapsLink || null, sellsMode || null, habladorAddress || null,
-      stampType, stampIconKey, stripBgKey,
+      stampIdea || null, stampIconKey, stripBgKey,
       code
     ).run();
   } catch (err) {
@@ -2756,7 +2753,7 @@ async function notifyBienvenidaSubmitted(env, { code, businessName }) {
       body: JSON.stringify({
         from: 'Hey Tapp <hola@heytapp.com>',
         to: ['hola@heytapp.com'],
-        subject: `🎉 Nueva solicitud de bienvenida — ${businessName}`,
+        subject: `🎉 Nueva solicitud de bienvenida: ${businessName}`,
         text: `El código ${code} completó su formulario de bienvenida.\n\nMarca: ${businessName}\n\nRevísala en tu bandeja de solicitudes de bienvenida dentro del admin.`,
       }),
     });
@@ -2823,19 +2820,14 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
         <span class="tag">Plan Wallet</span>
         <label for="maps_link">Link de Google Maps de tu local (opcional)</label>
         <input type="text" id="maps_link" name="maps_link" placeholder="Pega aquí el link de Google Maps" maxlength="300">
-        <p style="font-size:12px;color:#8A5A34;margin:4px 0 14px;">Si lo pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca de tu local.</p>
-        <label for="sells_mode">¿Cómo vendes?</label>
+        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">Si lo pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca de tu local.</p>
+        <label for="sells_mode" style="margin-top:14px;">¿Cómo vendes?</label>
         <select id="sells_mode" name="sells_mode" required>
           <option value="">Selecciona una opción</option>
           <option value="online">Solo en línea</option>
           <option value="fisico">Solo en un local físico</option>
           <option value="ambos">Ambos</option>
         </select>
-        <label for="strip_bg_image" style="margin-top:14px;">Foto horizontal para el fondo de tu Wallet (opcional)</label>
-        <div class="upload-box">
-          <input type="file" id="strip_bg_image" name="strip_bg_image" accept="image/png,image/jpeg">
-          <small>Formato horizontal, idealmente 750x246 px. También se usa como fondo en tu tarjeta web.</small>
-        </div>
       </div>` : '';
 
   return `<!DOCTYPE html>
@@ -2854,7 +2846,7 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
     <div class="header">
       <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
       <h1>¡Bienvenido a Hey Tapp!</h1>
-      <p>${label ? `${label} — v` : 'V'}amos a armar la tarjeta de fidelidad de tu marca</p>
+      <p>${label ? `${label}. V` : 'V'}amos a armar la tarjeta de fidelidad de tu marca</p>
     </div>
     <form method="POST" action="/bienvenida/${safeCode}" enctype="multipart/form-data">
       ${errorMsg ? `<div class="error">${escapeHtml(errorMsg)}</div>` : ''}
@@ -2873,13 +2865,21 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
         </div>
       </div>
       <div>
+        <label for="strip_bg_image">Fondo detrás de tus sellos (opcional)</label>
+        <div class="upload-box">
+          <input type="file" id="strip_bg_image" name="strip_bg_image" accept="image/png,image/jpeg">
+          <small>Formato horizontal, idealmente 750x246 px. Va detrás de los sellos en tu tarjeta, y si tu plan incluye Wallet, es la misma que se usa ahí por defecto.</small>
+        </div>
+      </div>
+      <div>
         <label for="business_name">Nombre de tu marca</label>
         <input type="text" id="business_name" name="business_name" placeholder="Como quieres que aparezca" maxlength="120" required>
       </div>
       <div class="row2">
         <div>
-          <label for="total_stamps">Sellos para el premio (máx. 10)</label>
+          <label for="total_stamps">Sellos para el premio</label>
           <input type="number" id="total_stamps" name="total_stamps" min="3" max="10" value="8" required>
+          <p style="font-size:11.5px;color:#8A5A34;margin:4px 0 0;">Máximo 10.</p>
         </div>
         <div>
           <label for="reward">Premio</label>
@@ -2887,19 +2887,16 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
         </div>
       </div>
       <div>
-        <label for="stamp_type">Tipo de sello</label>
-        <select id="stamp_type" name="stamp_type" required>
-          <option value="">Selecciona una opción</option>
-          <option value="isologo">Mi isologo (lo subo abajo)</option>
-          <option value="icono">Ícono genérico — ustedes eligen uno que combine</option>
-        </select>
-      </div>
-      <div>
-        <label for="stamp_icon">Si elegiste "mi isologo", súbelo aquí</label>
+        <label for="stamp_icon">Imagen para tu sello (opcional)</label>
         <div class="upload-box">
           <input type="file" id="stamp_icon" name="stamp_icon" accept="image/png,image/jpeg">
-          <small>Debe verse bien en tamaño chico y forma circular. Nosotros lo revisamos antes de usarlo, así que si no combina bien te avisamos.</small>
+          <small>Debe verse bien en tamaño chico y forma circular.</small>
         </div>
+      </div>
+      <div>
+        <label for="stamp_idea">Si no tienes una imagen, cuéntanos tu idea</label>
+        <input type="text" id="stamp_idea" name="stamp_idea" placeholder="Ej. un croissant, una estrella, mi logo" maxlength="300">
+        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">Nosotros buscamos el ícono que mejor combine, siempre que sea legible en miniatura.</p>
       </div>
       <div>
         <label for="greeting">Saludo en la tarjeta</label>
@@ -2933,7 +2930,7 @@ function renderBienvenidaThanksPage(businessName) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Listo — Hey Tapp</title>
+<title>Listo, Hey Tapp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
