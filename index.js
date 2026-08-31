@@ -2890,17 +2890,19 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
         <label for="stamp_icon">Imagen para tu sello (opcional)</label>
         <div class="upload-box">
           <input type="file" id="stamp_icon" name="stamp_icon" accept="image/png,image/jpeg">
-          <small>Debe verse bien en tamaño chico y forma circular.</small>
+          <small>Debe ser legible en miniatura.</small>
         </div>
       </div>
       <div>
-        <label for="stamp_idea">Si no tienes una imagen, cuéntanos tu idea</label>
-        <input type="text" id="stamp_idea" name="stamp_idea" placeholder="Ej. un croissant, una estrella, mi logo" maxlength="300">
-        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">Nosotros buscamos el ícono que mejor combine, siempre que sea legible en miniatura.</p>
+        <p style="font-size:12px;color:#8A5A34;margin:0 0 8px;">Si no tienes una idea para la imagen de tu sello, no te preocupes, nosotros te ayudamos.</p>
+        <label for="stamp_idea">Cuéntanos tu idea</label>
+        <input type="text" id="stamp_idea" name="stamp_idea" placeholder="Ej. corazones, estrellas..." maxlength="300">
+        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">Corazones, estrellas, cosas así.</p>
       </div>
       <div>
-        <label for="greeting">Saludo en la tarjeta</label>
-        <input type="text" id="greeting" name="greeting" placeholder="Hola, marca lover!" maxlength="120">
+        <label for="greeting">¿Cómo quieres saludar a tu cliente?</label>
+        <input type="text" id="greeting" name="greeting" placeholder="Ej. Hola, cookie lover" maxlength="120">
+        <p style="font-size:12px;color:#8A5A34;margin:4px 0 0;">O simplemente puedes decirle "Hola".</p>
       </div>
       <div>
         <label for="instagram_user">Usuario de Instagram</label>
