@@ -2334,14 +2334,22 @@ ${pageHead(
 )}
 <body>
 
+<style>
+  .confirm-card{max-width:440px;margin:0 auto;background:var(--paper);border-radius:28px;box-shadow:var(--shadow-lg);padding:44px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+  .confirm-mascot{width:130px;height:auto;margin-bottom:18px;display:block;}
+  .confirm-heading{font-family:'Baloo 2',sans-serif;font-size:28px;margin:0 0 14px;color:var(--brown);}
+  .confirm-text{font-size:15.5px;line-height:1.6;color:var(--brown-soft);margin:0;max-width:340px;}
+</style>
+
 ${renderSiteNav('/')}
 
   <div class="wave-div" style="margin-top:64px;"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#DAE7F1"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#FDFBF2" stroke="#FDFBF2" stroke-width="2"></path></svg></div>
   <section class="contact" style="padding-top:56px;">
     <div class="wrap">
-      <div class="contact-shell reveal" style="text-align:center;padding:48px 24px;">
-        <h2 style="margin:0 0 12px;">Listo</h2>
-        <p class="contact-sub" style="margin:0;">En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
+      <div class="confirm-card reveal">
+        <img src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="" class="confirm-mascot">
+        <h2 class="confirm-heading">¡Listo!</h2>
+        <p class="confirm-text">En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
       </div>
       <p class="reveal" style="text-align:center;margin-top:22px;font-size:12.5px;font-weight:700;letter-spacing:.4px;color:var(--brown-soft);">Made in Ecuador 🇪🇨 for the world</p>
     </div>
