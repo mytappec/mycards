@@ -4223,10 +4223,6 @@ ${pageHead(
     <a href="#s4" class="dot" data-label="Listo"></a>
   </nav>
 
-  <div class="scroll-hint" id="scrollHint">
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </div>
-
   <main class="deck">
 
     ${slide('var(--terracotta)', 'var(--cream)', `
@@ -4314,10 +4310,10 @@ ${pageHead(
   </main>
 
   <style>
-    html, body.deck-body{margin:0;height:100%;overflow:hidden;}
-    .deck{height:100vh;overflow-y:scroll;scroll-behavior:smooth;}
-    .slide{scroll-snap-align:start;height:100vh;display:flex;align-items:center;justify-content:center;padding:30px;box-sizing:border-box;position:relative;}
-    .slide-card{max-width:600px;width:100%;max-height:88vh;overflow-y:auto;border-radius:28px;padding:44px 38px;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;color:var(--brown);}
+    html, body.deck-body{margin:0;}
+    .deck{scroll-behavior:smooth;}
+    .slide{scroll-snap-align:start;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px;box-sizing:border-box;position:relative;}
+    .slide-card{max-width:600px;width:100%;border-radius:28px;padding:44px 38px;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;color:var(--brown);}
     .deck-logo{height:38px;margin-bottom:22px;}
     .deck-logo-big{height:64px;display:block;margin:0 auto 26px;}
     .deck-hero-title{font-family:'Baloo 2',sans-serif;font-size:clamp(26px,5vw,38px);margin:0 0 16px;line-height:1.15;}
@@ -4346,13 +4342,8 @@ ${pageHead(
     .dot.active{background:var(--terracotta);}
     .dot:hover:after{content:attr(data-label);position:absolute;right:18px;top:50%;transform:translateY(-50%);background:var(--brown);color:var(--cream);font-size:11px;padding:4px 8px;border-radius:6px;white-space:nowrap;}
 
-    .scroll-hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:20;width:34px;height:34px;border-radius:50%;background:rgba(253,251,242,.85);box-shadow:0 4px 14px rgba(66,40,27,.18);display:flex;align-items:center;justify-content:center;color:var(--terracotta);pointer-events:none;transition:opacity .3s ease;animation:scrollHintBounce 1.8s ease-in-out infinite;}
-    .scroll-hint svg{width:18px;height:18px;}
-    .scroll-hint.hidden{opacity:0;}
-    @keyframes scrollHintBounce{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(6px);}}
-
     /* ---- carpeta con pestañas ---- */
-    .folder-wrap{max-width:560px;width:100%;max-height:94vh;overflow-y:auto;padding:6px;}
+    .folder-wrap{max-width:560px;width:100%;padding:6px;}
     .folder-intro{text-align:center;margin-bottom:18px;}
     .folder-intro h2{text-align:center;}
     .folder-tabs{display:flex;align-items:stretch;gap:6px;padding:0 6px;}
@@ -4443,21 +4434,6 @@ ${pageHead(
           pages.forEach(function(p) { p.classList.toggle('active', p.getAttribute('data-plan') === plan); });
         });
       });
-
-      // una sola flechita, fija en pantalla, que avisa que hay más para ver
-      // abajo en toda la página — se esconde sola al llegar al final
-      var deckEl = document.querySelector('.deck');
-      var scrollHint = document.getElementById('scrollHint');
-      function updateScrollHint() {
-        if (!deckEl || !scrollHint) return;
-        var atBottom = deckEl.scrollTop + deckEl.clientHeight >= deckEl.scrollHeight - 16;
-        scrollHint.classList.toggle('hidden', atBottom);
-      }
-      if (deckEl) {
-        deckEl.addEventListener('scroll', updateScrollHint);
-        window.addEventListener('resize', updateScrollHint);
-        updateScrollHint();
-      }
 
       var phoneWrap = document.getElementById('phoneOutlineWrap');
       if (phoneWrap) {
