@@ -4316,7 +4316,7 @@ ${pageHead(
 
   <style>
     html, body.deck-body{margin:0;height:100%;overflow:hidden;}
-    .deck{height:100vh;overflow-y:scroll;scroll-snap-type:y proximity;scroll-behavior:smooth;}
+    .deck{height:100vh;overflow-y:scroll;scroll-behavior:smooth;}
     .slide{scroll-snap-align:start;height:100vh;display:flex;align-items:center;justify-content:center;padding:30px;box-sizing:border-box;position:relative;}
     .slide-card{max-width:600px;width:100%;max-height:88vh;overflow-y:auto;border-radius:28px;padding:44px 38px;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;color:var(--brown);}
     .deck-logo{height:38px;margin-bottom:22px;}
