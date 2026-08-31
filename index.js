@@ -2587,6 +2587,11 @@ async function handleCreateLead(request, env) {
 // negocio real desde el admin cuando la revisa.
 // ------------------------------------------------------------
 
+// después de pagar. No crea el negocio solo — guarda todo en
+// onboarding_submissions como una bandeja, y Anaelí la convierte en
+// negocio real desde el admin cuando la revisa.
+// ------------------------------------------------------------
+
 async function renderBienvenidaRoute(env, code) {
   let row = null;
   try {
@@ -2608,7 +2613,7 @@ async function renderBienvenidaRoute(env, code) {
     });
   }
 
-  return new Response(renderBienvenidaFormPage(code), {
+  return new Response(renderBienvenidaFormPage(code, row.plan), {
     headers: { 'Content-Type': 'text/html; charset=UTF-8' },
   });
 }
@@ -2634,11 +2639,13 @@ async function handleBienvenidaSubmit(request, env, code) {
     });
   }
 
+  const plan = row.plan;
+
   let formData;
   try {
     formData = await request.formData();
   } catch (err) {
-    return new Response(renderBienvenidaFormPage(code, 'No pudimos leer el formulario. Intenta de nuevo.'), {
+    return new Response(renderBienvenidaFormPage(code, plan, 'No pudimos leer el formulario. Intenta de nuevo.'), {
       status: 400,
       headers: { 'Content-Type': 'text/html; charset=UTF-8' },
     });
@@ -2646,57 +2653,68 @@ async function handleBienvenidaSubmit(request, env, code) {
 
   const str = (v, max) => (v == null ? '' : String(v).trim().slice(0, max));
   const businessName = str(formData.get('business_name'), 120);
-  const colorPrimary = str(formData.get('color_primary'), 20);
-  const colorSecondary = str(formData.get('color_secondary'), 20);
   const totalStampsRaw = parseInt(formData.get('total_stamps'), 10);
   const totalStamps = Number.isFinite(totalStampsRaw) ? Math.max(3, Math.min(50, totalStampsRaw)) : null;
   const reward = str(formData.get('reward'), 120);
   const greeting = str(formData.get('greeting'), 120);
   const instagramUser = str(formData.get('instagram_user'), 60);
   const instagramLink = str(formData.get('instagram_link'), 200);
-  const sellsMode = str(formData.get('sells_mode'), 20);
 
-  if (!businessName || !colorPrimary || !totalStamps || !reward) {
-    return new Response(renderBienvenidaFormPage(code, 'Faltan datos obligatorios, revisa el formulario e intenta de nuevo.'), {
+  // campos que solo aplican según el plan
+  const habladorAddress = plan === 'fisico' ? str(formData.get('hablador_address'), 200) : '';
+  const mapsLink = plan === 'wallet' ? str(formData.get('maps_link'), 300) : '';
+  const sellsMode = plan === 'wallet' ? str(formData.get('sells_mode'), 20) : '';
+
+  const missingCommon = !businessName || !totalStamps || !reward;
+  const missingFisico = plan === 'fisico' && !habladorAddress;
+  const missingWallet = plan === 'wallet' && !sellsMode;
+
+  if (missingCommon || missingFisico || missingWallet) {
+    return new Response(renderBienvenidaFormPage(code, plan, 'Faltan datos obligatorios, revisa el formulario e intenta de nuevo.'), {
       status: 400,
       headers: { 'Content-Type': 'text/html; charset=UTF-8' },
     });
   }
 
-  // el logo se sube a R2, no a la base de datos — así D1 se queda liviano
-  // sin importar cuántos negocios se agreguen
-  let logoKey = null;
-  const logoFile = formData.get('logo');
-  if (logoFile && typeof logoFile === 'object' && typeof logoFile.arrayBuffer === 'function' && logoFile.size > 0) {
+  // el logo y la imagen de paleta se suben a R2, no a la base de datos —
+  // así D1 se queda liviano sin importar cuántos negocios se agreguen
+  const uploadToR2 = async (file, folder) => {
+    if (!file || typeof file !== 'object' || typeof file.arrayBuffer !== 'function' || !file.size) return null;
     if (!env.LOGOS_BUCKET) {
-      console.error('[bienvenida] LOGOS_BUCKET no está conectado, el logo no se pudo guardar');
-    } else {
-      const ext = logoFile.type === 'image/jpeg' || logoFile.type === 'image/jpg' ? 'jpg' : 'png';
-      const candidateKey = `logos/${code}-${Date.now()}.${ext}`;
-      try {
-        // solo se guarda el archivo tal cual, sin procesarlo, para no
-        // acercarse al límite de tiempo de procesamiento del plan gratis
-        await env.LOGOS_BUCKET.put(candidateKey, logoFile.stream(), {
-          httpMetadata: { contentType: logoFile.type || 'image/png' },
-        });
-        logoKey = candidateKey;
-      } catch (err) {
-        console.error('[bienvenida] error subiendo logo a R2', err && err.message);
-      }
+      console.error('[bienvenida] LOGOS_BUCKET no está conectado, no se pudo guardar el archivo');
+      return null;
     }
-  }
+    const ext = file.type === 'image/jpeg' || file.type === 'image/jpg' ? 'jpg' : 'png';
+    const key = `${folder}/${code}-${Date.now()}.${ext}`;
+    try {
+      // solo se guarda el archivo tal cual, sin procesarlo, para no
+      // acercarse al límite de tiempo de procesamiento del plan gratis
+      await env.LOGOS_BUCKET.put(key, file.stream(), {
+        httpMetadata: { contentType: file.type || 'image/png' },
+      });
+      return key;
+    } catch (err) {
+      console.error(`[bienvenida] error subiendo archivo a R2 (${folder})`, err && err.message);
+      return null;
+    }
+  };
+
+  const logoKey = await uploadToR2(formData.get('logo'), 'logos');
+  const paletteKey = await uploadToR2(formData.get('palette_image'), 'paletas');
 
   try {
     await env.DB.prepare(
       `UPDATE onboarding_submissions
-       SET business_name = ?, logo_key = ?, color_primary = ?, color_secondary = ?,
+       SET business_name = ?, logo_key = ?, palette_image_key = ?,
            total_stamps = ?, reward = ?, greeting = ?, instagram_user = ?,
-           instagram_link = ?, sells_mode = ?, submitted_at = datetime('now')
+           instagram_link = ?, maps_link = ?, sells_mode = ?, hablador_address = ?,
+           submitted_at = datetime('now')
        WHERE code = ?`
     ).bind(
-      businessName, logoKey, colorPrimary, colorSecondary || null,
+      businessName, logoKey, paletteKey,
       totalStamps, reward, greeting || null, instagramUser || null,
-      instagramLink || null, sellsMode || null, code
+      instagramLink || null, mapsLink || null, sellsMode || null, habladorAddress || null,
+      code
     ).run();
   } catch (err) {
     console.error('[bienvenida] error guardando en D1', err && err.message);
@@ -2736,8 +2754,70 @@ async function notifyBienvenidaSubmitted(env, { code, businessName }) {
   }
 }
 
-function renderBienvenidaFormPage(code, errorMsg) {
+// estilos compartidos por las 3 páginas del formulario de bienvenida,
+// con los colores reales de la marca: celeste de fondo, crema para las
+// tarjetas, café para texto, y naranja solo como detalle puntual
+function bienvenidaStyles() {
+  return `
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #DCEAF4; font-family: 'Manrope', sans-serif; color: #593212; padding: 24px 0 60px; }
+  .card { max-width: 420px; margin: 0 auto; background: #FFFCF5; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(89,50,18,0.12); }
+  .header { padding: 26px 22px 18px; text-align: center; }
+  .header img { height: 40px; margin-bottom: 14px; }
+  .header h1 { font-family: 'Baloo 2', sans-serif; color: #593212; font-size: 21px; margin: 0 0 6px; }
+  .header p { color: #8A5A34; font-size: 13px; margin: 0; }
+  form { padding: 6px 20px 26px; display: flex; flex-direction: column; gap: 16px; }
+  label { font-size: 13px; font-weight: 700; color: #8A5A34; display: block; margin-bottom: 6px; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid #B9D3EA;
+    background: #fff; font-family: 'Manrope', sans-serif; font-size: 14px; color: #593212;
+  }
+  .row2 { display: flex; gap: 12px; }
+  .row2 > div { flex: 1; }
+  .upload-box { border: 2px dashed #B9D3EA; border-radius: 12px; padding: 16px; text-align: center; background: #fff; }
+  .upload-box small { display: block; color: #8A5A34; margin-top: 6px; font-size: 12px; line-height: 1.5; }
+  .plan-section { border-top: 1px dashed #B9D3EA; padding-top: 14px; margin-top: 2px; }
+  .plan-section .tag { display: inline-block; background: #DCEAF4; color: #593212; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-bottom: 10px; }
+  button[type=submit] { margin-top: 4px; background: #C1502E; color: #FFFCF5; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700; font-family: 'Baloo 2', sans-serif; cursor: pointer; }
+  .error { background: #FBE4E0; color: #A23B2E; border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .footer-logo { text-align: center; padding: 4px 20px 24px; }
+  .footer-logo img { height: 22px; opacity: 0.85; }
+  `;
+}
+
+function planLabelBienvenida(plan) {
+  if (plan === 'digital') return 'Plan Fideliza Digital';
+  if (plan === 'fisico') return 'Plan Fideliza Físico';
+  if (plan === 'wallet') return 'Plan Fideliza Wallet';
+  return '';
+}
+
+function renderBienvenidaFormPage(code, plan, errorMsg) {
   const safeCode = String(code).replace(/[^a-zA-Z0-9_-]/g, '');
+  const label = planLabelBienvenida(plan);
+
+  const habladorSection = plan === 'fisico' ? `
+      <div class="plan-section">
+        <span class="tag">Plan Físico</span>
+        <label for="hablador_address">Dirección para enviarte tu hablador físico</label>
+        <input type="text" id="hablador_address" name="hablador_address" placeholder="Dirección completa, con referencia" maxlength="200" required>
+      </div>` : '';
+
+  const walletSection = plan === 'wallet' ? `
+      <div class="plan-section">
+        <span class="tag">Plan Wallet</span>
+        <label for="maps_link">Link de Google Maps de tu local (opcional)</label>
+        <input type="text" id="maps_link" name="maps_link" placeholder="Pega aquí el link de Google Maps" maxlength="300">
+        <p style="font-size:12px;color:#8A5A34;margin:4px 0 14px;">Si lo pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca de tu local.</p>
+        <label for="sells_mode">¿Cómo vendes?</label>
+        <select id="sells_mode" name="sells_mode" required>
+          <option value="">Selecciona una opción</option>
+          <option value="online">Solo en línea</option>
+          <option value="fisico">Solo en un local físico</option>
+          <option value="ambos">Ambos</option>
+        </select>
+      </div>` : '';
+
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2747,61 +2827,34 @@ function renderBienvenidaFormPage(code, errorMsg) {
 <title>Bienvenido a Hey Tapp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  * { box-sizing: border-box; }
-  body { margin: 0; background: #F1E9DA; font-family: 'Manrope', sans-serif; color: #3F2A1D; padding: 24px 0 60px; }
-  .card { max-width: 420px; margin: 0 auto; background: #FBF6EE; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(63,42,29,0.12); }
-  .header { background: #C1603C; padding: 28px 22px 26px; text-align: center; }
-  .header h1 { font-family: 'Baloo 2', sans-serif; color: #FBF6EE; font-size: 22px; margin: 0 0 6px; }
-  .header p { color: #F3D9C8; font-size: 13px; margin: 0; }
-  form { padding: 22px 20px 26px; display: flex; flex-direction: column; gap: 16px; }
-  label { font-size: 13px; font-weight: 700; color: #6B4A34; display: block; margin-bottom: 6px; }
-  input[type=text], input[type=number], select {
-    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid #E3D3BE;
-    background: #fff; font-family: 'Manrope', sans-serif; font-size: 14px; color: #3F2A1D;
-  }
-  .colors { display: flex; gap: 12px; }
-  .color-field { flex: 1; display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #E3D3BE; border-radius: 10px; padding: 8px 10px; }
-  .color-field input[type=color] { width: 28px; height: 28px; padding: 0; border: none; background: none; }
-  .row2 { display: flex; gap: 12px; }
-  .row2 > div { flex: 1; }
-  .logo-drop { border: 2px dashed #D8A98C; border-radius: 12px; padding: 18px; text-align: center; background: #fff; }
-  .logo-drop small { display: block; color: #8A6A4D; margin-top: 6px; font-size: 12px; }
-  button { margin-top: 4px; background: #C1603C; color: #FBF6EE; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700; font-family: 'Baloo 2', sans-serif; cursor: pointer; }
-  .error { background: #FBE4E0; color: #A23B2E; border-radius: 10px; padding: 10px 12px; font-size: 13px; }
-</style>
+<style>${bienvenidaStyles()}</style>
 </head>
 <body>
   <div class="card">
     <div class="header">
+      <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
       <h1>¡Bienvenido a Hey Tapp!</h1>
-      <p>Vamos a armar la tarjeta de fidelidad de tu marca</p>
+      <p>${label ? `${label} — v` : 'V'}amos a armar la tarjeta de fidelidad de tu marca</p>
     </div>
     <form method="POST" action="/bienvenida/${safeCode}" enctype="multipart/form-data">
       ${errorMsg ? `<div class="error">${escapeHtml(errorMsg)}</div>` : ''}
       <div>
         <label for="logo">Logo de tu marca</label>
-        <div class="logo-drop">
+        <div class="upload-box">
           <input type="file" id="logo" name="logo" accept="image/png,image/jpeg" required>
           <small>PNG con fondo transparente, de preferencia</small>
         </div>
       </div>
       <div>
-        <label for="business_name">Nombre de tu marca</label>
-        <input type="text" id="business_name" name="business_name" placeholder="Como quieres que aparezca" maxlength="120" required>
+        <label for="palette_image">Colores de tu marca</label>
+        <div class="upload-box">
+          <input type="file" id="palette_image" name="palette_image" accept="image/png,image/jpeg" required>
+          <small>Sube tu paleta de colores oficial si la tienes. Si no, sube cualquier foto donde se noten bien los tonos que quieres (tu empaque, tu local, tu Instagram).</small>
+        </div>
       </div>
       <div>
-        <label>Colores de tu marca</label>
-        <div class="colors">
-          <div class="color-field">
-            <input type="color" name="color_primary" value="#C1603C">
-            <span>Principal</span>
-          </div>
-          <div class="color-field">
-            <input type="color" name="color_secondary" value="#F2B94D">
-            <span>Secundario</span>
-          </div>
-        </div>
+        <label for="business_name">Nombre de tu marca</label>
+        <input type="text" id="business_name" name="business_name" placeholder="Como quieres que aparezca" maxlength="120" required>
       </div>
       <div class="row2">
         <div>
@@ -2817,26 +2870,21 @@ function renderBienvenidaFormPage(code, errorMsg) {
         <label for="greeting">Saludo en la tarjeta</label>
         <input type="text" id="greeting" name="greeting" placeholder="Hola, marca lover!" maxlength="120">
       </div>
-      <div class="row2">
-        <div>
-          <label for="instagram_user">Usuario de Instagram</label>
-          <input type="text" id="instagram_user" name="instagram_user" placeholder="@tumarca" maxlength="60">
-        </div>
-        <div>
-          <label for="sells_mode">Cómo vendes</label>
-          <select id="sells_mode" name="sells_mode">
-            <option value="online">Online</option>
-            <option value="fisico">Punto físico</option>
-            <option value="ambos">Ambos</option>
-          </select>
-        </div>
+      <div>
+        <label for="instagram_user">Usuario de Instagram</label>
+        <input type="text" id="instagram_user" name="instagram_user" placeholder="@tumarca" maxlength="60">
       </div>
       <div>
         <label for="instagram_link">Link de tu Instagram</label>
         <input type="text" id="instagram_link" name="instagram_link" placeholder="https://instagram.com/tumarca" maxlength="200">
       </div>
+      ${habladorSection}
+      ${walletSection}
       <button type="submit">Enviar y activar mi Hey Tapp</button>
     </form>
+    <div class="footer-logo">
+      <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
+    </div>
   </div>
 </body>
 </html>`;
@@ -2854,11 +2902,12 @@ function renderBienvenidaThanksPage(businessName) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #F1E9DA; font-family: 'Manrope', sans-serif; color: #3F2A1D; padding: 24px; }
-  .card { max-width: 380px; background: #FBF6EE; border-radius: 20px; padding: 40px 28px; text-align: center; box-shadow: 0 10px 30px rgba(63,42,29,0.12); }
-  .badge { width: 56px; height: 56px; border-radius: 50%; background: #F2B94D; margin: 0 auto 18px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #DCEAF4; font-family: 'Manrope', sans-serif; color: #593212; padding: 24px; }
+  .card { max-width: 380px; background: #FFFCF5; border-radius: 20px; padding: 40px 28px; text-align: center; box-shadow: 0 10px 30px rgba(89,50,18,0.12); }
+  .badge { width: 56px; height: 56px; border-radius: 50%; background: #C1502E; margin: 0 auto 18px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #FFFCF5; }
   h1 { font-family: 'Baloo 2', sans-serif; font-size: 20px; margin: 0 0 12px; }
-  p { font-size: 14px; line-height: 1.6; color: #6B4A34; margin: 0; }
+  p { font-size: 14px; line-height: 1.6; color: #8A5A34; margin: 0 0 22px; }
+  img.logo { height: 22px; opacity: 0.85; }
 </style>
 </head>
 <body>
@@ -2866,6 +2915,7 @@ function renderBienvenidaThanksPage(businessName) {
     <div class="badge">✓</div>
     <h1>¡Recibimos tu información, ${name}!</h1>
     <p>Ya la tenemos en nuestro equipo. En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
+    <img class="logo" src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
   </div>
 </body>
 </html>`;
@@ -2882,10 +2932,10 @@ function renderBienvenidaNotFoundPage() {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #F1E9DA; font-family: 'Manrope', sans-serif; color: #3F2A1D; padding: 24px; }
-  .card { max-width: 380px; background: #FBF6EE; border-radius: 20px; padding: 40px 28px; text-align: center; box-shadow: 0 10px 30px rgba(63,42,29,0.12); }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #DCEAF4; font-family: 'Manrope', sans-serif; color: #593212; padding: 24px; }
+  .card { max-width: 380px; background: #FFFCF5; border-radius: 20px; padding: 40px 28px; text-align: center; box-shadow: 0 10px 30px rgba(89,50,18,0.12); }
   h1 { font-family: 'Baloo 2', sans-serif; font-size: 20px; margin: 0 0 12px; }
-  p { font-size: 14px; line-height: 1.6; color: #6B4A34; margin: 0; }
+  p { font-size: 14px; line-height: 1.6; color: #8A5A34; margin: 0; }
 </style>
 </head>
 <body>
