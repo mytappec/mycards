@@ -1264,6 +1264,20 @@ async function renderAdminDashboard(env, admin) {
     button:hover{transform:translateY(-1px);box-shadow:0 11px 24px rgba(66,40,27,.28)!important;}
     button:active{transform:translateY(1px);}
     .quick-palette{background:#FBF2D8!important;border:1.6px dashed #C9A227!important;border-radius:18px!important;}
+    .accordion-section{border:1.5px solid #EDE4D3;border-radius:16px;margin-top:12px;overflow:hidden;}
+    .accordion-header{width:100%;text-align:left;background:#FBF7EE;border:none;margin:0;padding:15px 18px;font-family:'Baloo 2',sans-serif;font-size:15px;font-weight:800;color:var(--brown);cursor:pointer;display:flex;justify-content:space-between;align-items:center;box-shadow:none!important;border-radius:0!important;transform:none!important;}
+    .accordion-header:hover{background:#F5EEDD;transform:none!important;}
+    .accordion-header .chevron{transition:transform .2s ease;font-size:13px;color:var(--terracotta);flex-shrink:0;margin-left:10px;}
+    .accordion-header.open .chevron{transform:rotate(180deg);}
+    .accordion-body{padding:0 18px;max-height:0;overflow:hidden;transition:max-height .25s ease, padding .25s ease;}
+    .accordion-body.open{padding:16px 18px 4px;max-height:none;}
+    .accordion-header.sub{background:#F7F2E7;padding:12px 14px;font-size:13px;border-radius:10px!important;}
+    .accordion-header.sub:hover{background:#F0EADB;}
+    .accordion-header.sub .chevron{font-size:11px;}
+    .accordion-body.sub{padding:0 14px;}
+    .accordion-body.sub.open{padding:12px 14px 2px;}
+    .plan-preview{background:rgba(176,71,46,.06);border-radius:12px;padding:12px 14px;margin-top:8px;font-size:13px;line-height:1.6;color:#42281B;}
+    .plan-preview b{color:var(--terracotta);}
   </style></head>
   <body>
     <div class="wrap">
@@ -1344,133 +1358,175 @@ async function renderAdminDashboard(env, admin) {
       <div class="form-col">
       <div class="card">
         <form id="bizForm">
-          <label>Nombre del negocio</label>
-          <input type="text" id="name" required placeholder="Ej. Cloud's Cookies">
+          <div class="accordion-section">
+            <button type="button" class="accordion-header open">📝 Información de la marca <span class="chevron">▾</span></button>
+            <div class="accordion-body open">
+              <label>Nombre del negocio</label>
+              <input type="text" id="name" required placeholder="Ej. Cloud's Cookies">
 
-          <label>Slug (va en el link, sin espacios ni tildes)</label>
-          <input type="text" id="slug" required placeholder="Ej. cloudscookies">
+              <label>Plan del negocio</label>
+              <select id="plan">
+                <option value="digital">Fideliza Digital</option>
+                <option value="fisico">Fideliza Físico</option>
+                <option value="wallet" selected>Fideliza Wallet</option>
+              </select>
+              <div class="plan-preview" id="planPreview"></div>
 
-          <label>Tipo de cliente</label>
-          <div style="display:flex;gap:16px;margin-top:4px;">
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="radio" name="client_type" value="cliente" checked style="width:auto;margin:0;"> Cliente</label>
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="radio" name="client_type" value="influencer" style="width:auto;margin:0;"> Influencer</label>
-          </div>
-          <p class="hint">Solo para ti, para organizarte — nunca se le muestra al negocio ni a sus clientes.</p>
+              <label>Slug (va en el link, sin espacios ni tildes)</label>
+              <input type="text" id="slug" required placeholder="Ej. cloudscookies">
 
-          <label>Logo (imagen con fondo transparente)</label>
-          <input type="file" id="logo" accept="image/*" required>
+              <label>Tipo de cliente</label>
+              <div style="display:flex;gap:16px;margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="radio" name="client_type" value="cliente" checked style="width:auto;margin:0;"> Cliente</label>
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="radio" name="client_type" value="influencer" style="width:auto;margin:0;"> Influencer</label>
+              </div>
+              <p class="hint">Solo para ti, para organizarte — nunca se le muestra al negocio ni a sus clientes.</p>
 
-          <label>Sellos (solo el primero es obligatorio, los demás son opcionales)</label>
-          <div class="sellos">
-            <input type="file" id="sello1" accept="image/*" required>
-            <input type="file" id="sello2" accept="image/*">
-            <input type="file" id="sello3" accept="image/*">
-            <input type="file" id="sello4" accept="image/*">
-          </div>
-          <p class="hint">El primer sello se usa también dentro de Apple Wallet, adentro de cada círculo relleno.</p>
+              <label>PIN para el staff de este negocio (4-6 dígitos)</label>
+              <input type="text" id="pin" required placeholder="Ej. 1234">
 
-          <label>Estilo del sello</label>
-          <select id="stamp_style">
-            <option value="circle" selected>Círculo de color, con el ícono adentro</option>
-            <option value="shape">Forma libre: el ícono ES el sello, sin círculo</option>
-          </select>
-          <p class="hint">En "forma libre", el vacío se ve tenue y al sellarlo se ve a color completo — usa el primer sello (arriba) como la forma.</p>
-
-          <label>¿Dónde aplica ese estilo?</label>
-          <select id="stamp_style_scope">
-            <option value="both" selected>En Wallet y en la tarjeta web</option>
-            <option value="wallet">Solo en Wallet</option>
-            <option value="web">Solo en la tarjeta web</option>
-          </select>
-          <p class="hint">Solo aplica si elegiste "forma libre" arriba.</p>
-
-          <label>Imagen de fondo para Apple Wallet (opcional)</label>
-          <input type="file" id="stripBg" accept="image/*">
-          <p class="hint">Se recorta sola para llenar la franja de sellos (750x246). Si no subes nada, se queda con el color plano.</p>
-          <label>¿Dónde se aplica esa imagen de fondo?</label>
-          <select id="stripBgScope">
-            <option value="both">En Wallet y en la tarjeta web</option>
-            <option value="wallet">Solo en Wallet</option>
-            <option value="web">Solo en la tarjeta web</option>
-          </select>
-
-          <label>Colores de marca</label>
-          ${colorGroupsHtml(null)}
-
-          <label>Tipografía</label>
-          <select id="font_family">
-            <option value="Baloo 2" style="font-family:'Baloo 2','Arial Rounded MT Bold',sans-serif;">Baloo 2 — Redondeada y divertida</option>
-            <option value="Poppins" style="font-family:'Poppins',sans-serif;">Poppins — Moderna y minimalista</option>
-            <option value="Playfair Display" style="font-family:'Playfair Display',serif;">Playfair Display — Elegante y clásica</option>
-            <option value="Montserrat" style="font-family:'Montserrat',sans-serif;">Montserrat — Seria y corporativa</option>
-            <option value="Caveat" style="font-family:'Caveat',cursive;">Caveat — Manuscrita y artesanal</option>
-            <option value="Amiko" style="font-family:'Amiko',sans-serif;">Amiko — Limpia y legible</option>
-          </select>
-
-          <label>Estilo del saludo (ej. "¡Hello!")</label>
-          <div style="display:flex;gap:16px;margin-top:4px;">
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_bold" checked style="width:auto;margin:0;"> Negrita</label>
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_italic" style="width:auto;margin:0;"> Cursiva</label>
+              <label>Tu recordatorio de este PIN (solo tú lo ves, con tu contraseña)</label>
+              <input type="text" id="pin_note" placeholder="Ej. mismo que arriba, o alguna nota para ti">
+            </div>
           </div>
 
-          <label>Estilo del nombre del cliente</label>
-          <div style="display:flex;gap:16px;margin-top:4px;">
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" checked style="width:auto;margin:0;"> Negrita</label>
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" style="width:auto;margin:0;"> Cursiva</label>
+          <div class="accordion-section">
+            <button type="button" class="accordion-header">🎨 Apariencia <span class="chevron">▾</span></button>
+            <div class="accordion-body">
+
+              <div class="sub-section">
+                <button type="button" class="accordion-header sub open">Imagen para sello <span class="chevron">▾</span></button>
+                <div class="accordion-body sub open">
+                  <label style="margin-top:0;">Logo (imagen con fondo transparente)</label>
+                  <input type="file" id="logo" accept="image/*" required>
+
+                  <label>Sellos (solo el primero es obligatorio, los demás son opcionales)</label>
+                  <div class="sellos">
+                    <input type="file" id="sello1" accept="image/*" required>
+                    <input type="file" id="sello2" accept="image/*">
+                    <input type="file" id="sello3" accept="image/*">
+                    <input type="file" id="sello4" accept="image/*">
+                  </div>
+                  <p class="hint">El primer sello se usa también dentro de Apple Wallet, adentro de cada círculo relleno.</p>
+
+                  <label>Estilo del sello</label>
+                  <select id="stamp_style">
+                    <option value="circle" selected>Círculo de color, con el ícono adentro</option>
+                    <option value="shape">Forma libre: el ícono ES el sello, sin círculo</option>
+                  </select>
+                  <p class="hint">En "forma libre", el vacío se ve tenue y al sellarlo se ve a color completo — usa el primer sello (arriba) como la forma.</p>
+
+                  <label>¿Dónde aplica ese estilo?</label>
+                  <select id="stamp_style_scope">
+                    <option value="both" selected>En Wallet y en la tarjeta web</option>
+                    <option value="wallet">Solo en Wallet</option>
+                    <option value="web">Solo en la tarjeta web</option>
+                  </select>
+                  <p class="hint">Solo aplica si elegiste "forma libre" arriba.</p>
+                </div>
+              </div>
+
+              <div class="sub-section">
+                <button type="button" class="accordion-header sub">Imagen de fondo para Apple Wallet <span class="chevron">▾</span></button>
+                <div class="accordion-body sub">
+                  <label style="margin-top:0;">Imagen de fondo (opcional)</label>
+                  <input type="file" id="stripBg" accept="image/*">
+                  <p class="hint">Se recorta sola para llenar la franja de sellos (750x246). Si no subes nada, se queda con el color plano.</p>
+                  <label>¿Dónde se aplica esa imagen de fondo?</label>
+                  <select id="stripBgScope">
+                    <option value="both">En Wallet y en la tarjeta web</option>
+                    <option value="wallet">Solo en Wallet</option>
+                    <option value="web">Solo en la tarjeta web</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="sub-section">
+                <button type="button" class="accordion-header sub">Tipografía <span class="chevron">▾</span></button>
+                <div class="accordion-body sub">
+                  <label style="margin-top:0;">Fuente</label>
+                  <select id="font_family">
+                    <option value="Baloo 2" style="font-family:'Baloo 2','Arial Rounded MT Bold',sans-serif;">Baloo 2 — Redondeada y divertida</option>
+                    <option value="Poppins" style="font-family:'Poppins',sans-serif;">Poppins — Moderna y minimalista</option>
+                    <option value="Playfair Display" style="font-family:'Playfair Display',serif;">Playfair Display — Elegante y clásica</option>
+                    <option value="Montserrat" style="font-family:'Montserrat',sans-serif;">Montserrat — Seria y corporativa</option>
+                    <option value="Caveat" style="font-family:'Caveat',cursive;">Caveat — Manuscrita y artesanal</option>
+                    <option value="Amiko" style="font-family:'Amiko',sans-serif;">Amiko — Limpia y legible</option>
+                  </select>
+
+                  <label>Estilo del saludo (ej. "¡Hello!")</label>
+                  <div style="display:flex;gap:16px;margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_bold" checked style="width:auto;margin:0;"> Negrita</label>
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="eyebrow_italic" style="width:auto;margin:0;"> Cursiva</label>
+                  </div>
+
+                  <label>Estilo del nombre del cliente</label>
+                  <div style="display:flex;gap:16px;margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_bold" checked style="width:auto;margin:0;"> Negrita</label>
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="font_italic" style="width:auto;margin:0;"> Cursiva</label>
+                  </div>
+
+                  <label>Estilo del bloque "Tu premio"</label>
+                  <div style="display:flex;gap:16px;margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_bold" checked style="width:auto;margin:0;"> Negrita</label>
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_italic" style="width:auto;margin:0;"> Cursiva</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sub-section">
+                <button type="button" class="accordion-header sub">Colores de marca <span class="chevron">▾</span></button>
+                <div class="accordion-body sub">
+                  ${colorGroupsHtml(null)}
+                </div>
+              </div>
+
+            </div>
           </div>
 
-          <label>Estilo del bloque "Tu premio"</label>
-          <div style="display:flex;gap:16px;margin-top:4px;">
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_bold" checked style="width:auto;margin:0;"> Negrita</label>
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;"><input type="checkbox" id="reward_italic" style="width:auto;margin:0;"> Cursiva</label>
+          <div class="accordion-section">
+            <button type="button" class="accordion-header">🗂️ Datos de la tarjeta <span class="chevron">▾</span></button>
+            <div class="accordion-body">
+              <label>Cuántos sellos para el premio</label>
+              <input type="number" id="total_stamps" value="10" min="3" max="50" required>
+
+              <label>Saludo (arriba del nombre)</label>
+              <input type="text" id="greeting_eyebrow" value="¡Hello!">
+
+              <label>Título del premio</label>
+              <input type="text" id="reward_heading" value="Tu premio, cada vez más cerca">
+
+              <label>Texto del premio</label>
+              <input type="text" id="reward_text" required placeholder="Ej. Al llegar a tu sello #10, recibes tu producto gratis.">
+
+              <label>Instrucción para sumar sellos</label>
+              <select id="instruction_text">
+                <option value="Muestra este código en caja para sumar tu sello en tu compra.">Negocio físico: mostrar en caja</option>
+                <option value="Muestra este código al momento de pagar para sumar tu sello.">Negocio físico: mostrar al pagar</option>
+                <option value="Envía este código al confirmar tu pedido para sumar tu sello.">Negocio digital: al confirmar pedido</option>
+                <option value="Pega este código en el chat al hacer tu compra.">Negocio digital: pegar en el chat</option>
+                <option value="Envía una captura de este código junto a tu comprobante de pago.">Negocio digital: junto al comprobante</option>
+              </select>
+
+              <label>Instagram (usuario)</label>
+              <input type="text" id="instagram_handle" placeholder="@usuario">
+
+              <label>Instagram (link completo)</label>
+              <input type="text" id="instagram_url" placeholder="https://www.instagram.com/usuario">
+            </div>
           </div>
 
-          <label>Cuántos sellos para el premio</label>
-          <input type="number" id="total_stamps" value="10" min="3" max="50" required>
+          <div class="accordion-section">
+            <button type="button" class="accordion-header">🍏 Apple Wallet <span class="chevron">▾</span></button>
+            <div class="accordion-body">
+              <p class="hint">Esta sección solo tiene efecto si el plan del negocio (arriba) es Fideliza Wallet.</p>
+              <label>Ubicación del local (opcional)</label>
+              <input type="text" id="wallet_location_link" placeholder="Pega aquí el link de Google Maps">
+              <p class="hint">Si la pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca del local. Acepta links largos o cortos (maps.app.goo.gl).</p>
+            </div>
+          </div>
 
-          <label>Saludo (arriba del nombre)</label>
-          <input type="text" id="greeting_eyebrow" value="¡Hello!">
-
-          <label>Título del premio</label>
-          <input type="text" id="reward_heading" value="Tu premio, cada vez más cerca">
-
-          <label>Texto del premio</label>
-          <input type="text" id="reward_text" required placeholder="Ej. Al llegar a tu sello #10, recibes tu producto gratis.">
-
-          <label>Instrucción para sumar sellos</label>
-          <select id="instruction_text">
-            <option value="Muestra este código en caja para sumar tu sello en tu compra.">Negocio físico: mostrar en caja</option>
-            <option value="Muestra este código al momento de pagar para sumar tu sello.">Negocio físico: mostrar al pagar</option>
-            <option value="Envía este código al confirmar tu pedido para sumar tu sello.">Negocio digital: al confirmar pedido</option>
-            <option value="Pega este código en el chat al hacer tu compra.">Negocio digital: pegar en el chat</option>
-            <option value="Envía una captura de este código junto a tu comprobante de pago.">Negocio digital: junto al comprobante</option>
-          </select>
-
-          <label>Instagram (usuario)</label>
-          <input type="text" id="instagram_handle" placeholder="@usuario">
-
-          <label>Instagram (link completo)</label>
-          <input type="text" id="instagram_url" placeholder="https://www.instagram.com/usuario">
-
-          <label>PIN para el staff de este negocio (4-6 dígitos)</label>
-          <input type="text" id="pin" required placeholder="Ej. 1234">
-
-          <label>Tu recordatorio de este PIN (solo tú lo ves, con tu contraseña)</label>
-          <input type="text" id="pin_note" placeholder="Ej. mismo que arriba, o alguna nota para ti">
-
-          <label>Plan del negocio</label>
-          <select id="plan">
-            <option value="digital">Fideliza Digital</option>
-            <option value="fisico">Fideliza Físico</option>
-            <option value="wallet" selected>Fideliza Wallet</option>
-          </select>
-          <p class="hint">Esto controla qué ve el negocio automáticamente: el panel de métricas (incluido en Físico y Wallet, no en Digital), y el botón de Apple Wallet junto con el aviso de ubicación y el recordatorio automático de 14 días (solo en Wallet).</p>
-
-          <label>Ubicación del local (opcional)</label>
-          <input type="text" id="wallet_location_link" placeholder="Pega aquí el link de Google Maps">
-          <p class="hint">Si la pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca del local. Acepta links largos o cortos (maps.app.goo.gl).</p>
-
-          <button type="submit">Crear negocio</button>
+          <button type="submit" style="margin-top:16px;">Crear negocio</button>
         </form>
         <p class="msg" id="msg"></p>
       </div>
@@ -1482,6 +1538,25 @@ async function renderAdminDashboard(env, admin) {
     </div>
     ${passwordModalHtml()}
     <script>
+      document.querySelectorAll('.accordion-header').forEach(function(h) {
+        h.addEventListener('click', function() {
+          h.classList.toggle('open');
+          h.nextElementSibling.classList.toggle('open');
+        });
+      });
+      function updatePlanPreview() {
+        var el = document.getElementById('planPreview');
+        if (!el) return;
+        var plan = document.getElementById('plan').value;
+        var texts = {
+          digital: 'Incluye la tarjeta digital, sellos por QR o código manual, panel de staff con modo caja, botón de Instagram y capacitación. <b>No incluye</b> panel de métricas ni Apple Wallet.',
+          fisico: 'Todo lo del Plan Digital, <b>más</b>: hablador físico personalizado con QR para tu punto de venta, y el panel de métricas (sin el aviso de clientes que se están enfriando).',
+          wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet, aviso automático cuando el cliente está cerca de tu local, recordatorio a los 14 días, y el panel de métricas completo.',
+        };
+        el.innerHTML = texts[plan] || texts.wallet;
+      }
+      document.getElementById('plan').addEventListener('change', updatePlanPreview);
+      updatePlanPreview();
       document.getElementById('toggleCreateBtn').addEventListener('click', () => {
         const panel = document.getElementById('createBusinessPanel');
         const showing = panel.style.display !== 'none';
@@ -2495,6 +2570,8 @@ async function handleEditBusinessForm(request, env, slug) {
     .accordion-body.sub{padding:0 14px;}
     .accordion-body.sub.open{padding:12px 14px 2px;}
     .sub-section{border:1.5px solid #EDE4D3;border-radius:12px;margin-top:10px;overflow:hidden;background:#FEFDFB;}
+    .plan-preview{background:rgba(176,71,46,.06);border-radius:12px;padding:12px 14px;margin-top:8px;font-size:13px;line-height:1.6;color:#42281B;}
+    .plan-preview b{color:var(--terracotta);}
   </style></head>
   <body>
     <div class="wrap">
@@ -2510,12 +2587,13 @@ async function handleEditBusinessForm(request, env, slug) {
               <input type="text" id="name" value="${escapeHtml(b.name)}" required>
 
               <label>Plan del negocio</label>
+              <p class="hint" style="margin-top:-2px;">Plan actual: <b style="color:var(--terracotta);">${{digital:'Fideliza Digital', fisico:'Fideliza Físico', wallet:'Fideliza Wallet'}[b.plan || 'wallet']}</b></p>
               <select id="plan">
                 <option value="digital" ${(b.plan || 'wallet') === 'digital' ? 'selected' : ''}>Fideliza Digital</option>
                 <option value="fisico" ${(b.plan || 'wallet') === 'fisico' ? 'selected' : ''}>Fideliza Físico</option>
                 <option value="wallet" ${(b.plan || 'wallet') === 'wallet' ? 'selected' : ''}>Fideliza Wallet</option>
               </select>
-              <p class="hint">Esto controla qué ve el negocio automáticamente: el panel de métricas (incluido en Físico y Wallet, no en Digital), y el botón de Apple Wallet junto con el aviso de ubicación y el recordatorio automático de 14 días (solo en Wallet).</p>
+              <div class="plan-preview" id="planPreview"></div>
 
               <p class="hint">El slug (${escapeHtml(b.slug)}) es la parte del link que va después de tu dominio.</p>
               <input type="text" id="slug" value="${escapeHtml(b.slug)}" required pattern="[a-z0-9-]+">
@@ -2683,6 +2761,19 @@ async function handleEditBusinessForm(request, env, slug) {
         </form>
 
         <script>
+          function updatePlanPreview() {
+            var el = document.getElementById('planPreview');
+            if (!el) return;
+            var plan = document.getElementById('plan').value;
+            var texts = {
+              digital: 'Incluye la tarjeta digital, sellos por QR o código manual, panel de staff con modo caja, botón de Instagram y capacitación. <b>No incluye</b> panel de métricas ni Apple Wallet.',
+              fisico: 'Todo lo del Plan Digital, <b>más</b>: hablador físico personalizado con QR para tu punto de venta, y el panel de métricas (sin el aviso de clientes que se están enfriando).',
+              wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet, aviso automático cuando el cliente está cerca de tu local, recordatorio a los 14 días, y el panel de métricas completo.',
+            };
+            el.innerHTML = texts[plan] || texts.wallet;
+          }
+          document.getElementById('plan').addEventListener('change', updatePlanPreview);
+          updatePlanPreview();
           document.querySelectorAll('.accordion-header').forEach(function(h) {
             h.addEventListener('click', function() {
               h.classList.toggle('open');
