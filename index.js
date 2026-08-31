@@ -36,6 +36,12 @@ export default {
       if (parts.length === 1 && parts[0] === 'contacto' && request.method === 'GET') {
         return renderContactPage();
       }
+      if (parts.length === 1 && parts[0] === 'solicitud' && request.method === 'POST') {
+        return handleCreateLead(request, env);
+      }
+      if (parts.length === 1 && parts[0] === 'solicitud' && request.method === 'GET') {
+        return renderSolicitudPage(url);
+      }
       if (parts.length === 1 && parts[0] === 'info-completa-x7k2m' && request.method === 'GET') {
         return renderFullInfoPage();
       }
@@ -2211,28 +2217,53 @@ async function handleUpdateAppearance(request, env) {
 // ------------------------------------------------------------
 async function handleCreateLead(request, env) {
   const rl = await checkRateLimit(env, request, 'lead', 8);
+  const contentType = request.headers.get('content-type') || '';
+  const isTraditionalForm = contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data');
+
   if (!rl.ok) {
+    if (isTraditionalForm) {
+      return Response.redirect(new URL('/solicitud?error=rate', request.url).toString(), 302);
+    }
     return new Response(JSON.stringify({ error: 'Demasiados intentos. Espera unos minutos e intenta de nuevo.' }), { status: 429, headers: { 'Content-Type': 'application/json' } });
   }
 
-  const body = await request.json().catch(() => ({}));
+  let body;
+  if (isTraditionalForm) {
+    const formData = await request.formData();
+    body = Object.fromEntries(formData.entries());
+  } else {
+    body = await request.json().catch(() => ({}));
+  }
+
   const name = String(body.name || '').trim();
   const phone = digitsOnly(body.phone); // solo dígitos, sin regex
   const email = String(body.email || '').trim();
   const instagram = String(body.instagram || '').trim();
   const businessType = ['digital', 'fisico', 'wallet'].includes(body.business_type) ? body.business_type : null;
+  const from = ['web', 'info'].includes(body.from) ? body.from : 'web';
+
+  const fail = (msg) => {
+    if (isTraditionalForm) {
+      const back = new URL('/solicitud', request.url);
+      back.searchParams.set('error', msg);
+      if (businessType) back.searchParams.set('plan', businessType);
+      back.searchParams.set('from', from);
+      return Response.redirect(back.toString(), 302);
+    }
+    return new Response(JSON.stringify({ error: msg }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  };
 
   if (!name || !phone || !email || !instagram) {
-    return new Response(JSON.stringify({ error: 'Faltan datos: nombre, celular, correo e Instagram son obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    return fail('Faltan datos: nombre, celular, correo e Instagram son obligatorios');
   }
   if (name.length > 80) {
-    return new Response(JSON.stringify({ error: 'El nombre es demasiado largo (máximo 80 caracteres)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    return fail('El nombre es demasiado largo (máximo 80 caracteres)');
   }
   if (phone.length === 0) {
-    return new Response(JSON.stringify({ error: 'El celular debe tener solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    return fail('El celular debe tener solo números');
   }
   if (!looksLikeEmail(email)) {
-    return new Response(JSON.stringify({ error: 'Ese correo no parece válido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    return fail('Ese correo no parece válido');
   }
 
   // se intenta guardar en la base de datos, pero si algo falla aquí (por
@@ -2251,6 +2282,9 @@ async function handleCreateLead(request, env) {
   const planLabel = businessType === 'digital' ? 'Plan Fideliza Digital'
     : businessType === 'fisico' ? 'Plan Fideliza Físico'
     : businessType === 'wallet' ? 'Plan Fideliza Wallet' : 'No especificó';
+  const emailSubject = from === 'info'
+    ? `🎉 ¡Quiere contratar! ${planLabel} — ${name}`
+    : `Nueva solicitud de info — ${name}`;
 
   // si el navegador de la persona ya logró mandarlo directo a FormSubmit
   // (la forma más confiable, porque así FormSubmit lo reconoce como un
@@ -2267,7 +2301,7 @@ async function handleCreateLead(request, env) {
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
           nombre: name, celular: phone, correo: email, instagram: instagram || '—', interesado_en: planLabel,
-          _subject: `Nueva solicitud de info — ${name}`,
+          _subject: emailSubject,
           _template: 'table',
         }),
       });
@@ -2286,7 +2320,7 @@ async function handleCreateLead(request, env) {
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
           name, phone, email, instagram: instagram || '—', interesado_en: planLabel,
-          _subject: `Nueva solicitud de info — ${name}`,
+          _subject: emailSubject,
           _replyto: email,
         }),
       });
@@ -2309,7 +2343,7 @@ async function handleCreateLead(request, env) {
           from: 'Hey Tapp <hola@heytapp.com>',
           to: ['hola@heytapp.com'],
           reply_to: email,
-          subject: `Nueva solicitud de info — ${name}`,
+          subject: emailSubject,
           text: `Nueva solicitud desde heytapp.com\n\nNombre: ${name}\nCelular: ${phone}\nCorreo: ${email}\nInstagram del negocio: ${instagram || '—'}\nInteresado en: ${planLabel}`,
         }),
       });
@@ -2325,6 +2359,13 @@ async function handleCreateLead(request, env) {
     } catch (dbErr) {
       // no pasa nada si esto falla, el correo ya se envió de todas formas
     }
+  }
+
+  if (isTraditionalForm) {
+    const dest = from === 'info'
+      ? new URL(`/solicitud?gracias=1&from=info&plan=${businessType || ''}`, request.url)
+      : new URL('https://heytapp.com/info-completa-x7k2m');
+    return Response.redirect(dest.toString(), 302);
   }
 
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
@@ -4081,6 +4122,11 @@ ${pageHead(
       <img src="data:image/png;base64,${HEY_TAPP_MONO_TERRACOTTA_BASE64}" alt="Hey Tapp" class="deck-logo-mono">
       <p class="deck-closing">Actualizamos la interfaz constantemente para que vivas la mejor experiencia junto con tus clientes.</p>
       <p class="deck-choose">¿Cuál plan eliges?</p>
+      <div class="deck-plan-buttons">
+        <a href="/solicitud?from=info&plan=digital" class="deck-plan-btn" style="--btn-color:var(--mustard);">Quiero el Plan Digital</a>
+        <a href="/solicitud?from=info&plan=fisico" class="deck-plan-btn" style="--btn-color:var(--blue);">Quiero el Plan Físico</a>
+        <a href="/solicitud?from=info&plan=wallet" class="deck-plan-btn" style="--btn-color:var(--terracotta);color:var(--cream);">Quiero el Plan Wallet</a>
+      </div>
       <p class="deck-credit">Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
     `, 's4')}
 
@@ -4106,7 +4152,10 @@ ${pageHead(
     .deck-next{display:inline-block;margin-top:18px;font-size:13px;font-weight:700;color:var(--terracotta);text-decoration:none;}
     .deck-closing{font-size:16px;line-height:1.6;max-width:420px;margin:0 auto 26px;}
     .deck-logo-mono{height:52px;width:auto;margin:0 auto 22px;display:block;}
-    .deck-choose{font-family:'Baloo 2',sans-serif;font-size:20px;color:var(--terracotta);margin:0 0 24px;}
+    .deck-choose{font-family:'Baloo 2',sans-serif;font-size:20px;color:var(--terracotta);margin:0 0 16px;}
+    .deck-plan-buttons{display:flex;flex-direction:column;gap:10px;margin:0 0 24px;}
+    .deck-plan-btn{display:block;background:var(--btn-color);color:var(--brown);text-decoration:none;font-weight:800;font-size:14px;padding:13px 20px;border-radius:12px;text-align:center;box-shadow:0 6px 16px rgba(66,40,27,.18);transition:transform .15s ease;}
+    .deck-plan-btn:hover{transform:translateY(-1px);}
     .deck-explore-btn{display:inline-block;background:var(--brown);color:var(--cream);text-decoration:none;padding:14px 26px;border-radius:12px;font-weight:800;font-size:15px;margin-bottom:22px;}
     .deck-credit{font-size:12.5px;color:#6B5645;}
     .deck-credit a{color:inherit;}
@@ -4236,6 +4285,119 @@ ${pageHead(
 </body>
 </html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
+
+function renderSolicitudPage(url) {
+  const plan = ['digital', 'fisico', 'wallet'].includes(url.searchParams.get('plan')) ? url.searchParams.get('plan') : '';
+  const from = url.searchParams.get('from') === 'info' ? 'info' : 'web';
+  const error = url.searchParams.get('error');
+  const gracias = url.searchParams.get('gracias') === '1';
+
+  const planLabel = plan === 'digital' ? 'Plan Fideliza Digital'
+    : plan === 'fisico' ? 'Plan Fideliza Físico'
+    : plan === 'wallet' ? 'Plan Fideliza Wallet' : '';
+
+  const heading = from === 'info'
+    ? (planLabel ? `Quiero el ${planLabel}` : 'Quiero contratar Hey Tapp')
+    : 'Antes de ver los planes completos';
+  const sub = from === 'info'
+    ? 'Déjanos tus datos y te contactamos para dejar todo listo.'
+    : 'Cuéntanos de tu marca y te llevamos directo a ver los 3 planes, con precios y todos los detalles.';
+
+  const errorMsg = error === 'rate' ? 'Demasiados intentos. Espera unos minutos e intenta de nuevo.'
+    : error ? decodeURIComponent(error) : '';
+
+  const formOrThanks = gracias ? `
+        <div class="contact-shell reveal" style="text-align:center;padding:40px 24px;">
+          <h3 style="margin:0 0 10px;">¡Listo! 🎉</h3>
+          <p class="contact-sub" style="margin:0;">Ya tenemos tus datos. Te contactamos en breve para dejar todo listo con tu ${planLabel || 'Hey Tapp'}.</p>
+        </div>` : `
+      <div class="contact-shell reveal">
+        <div class="contact-form">
+          <form id="solicitudForm" method="POST" action="/solicitud">
+            <input type="hidden" name="from" value="${from}">
+            ${errorMsg ? `<p class="form-msg err">${escapeHtml(errorMsg)}</p>` : ''}
+            <div class="field">
+              <label for="sf_name">Tu nombre</label>
+              <input type="text" id="sf_name" name="name" required>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="sf_phone">Celular</label>
+                <input type="tel" id="sf_phone" name="phone" inputmode="numeric" placeholder="Ej. 0991234567" required>
+                <p style="margin:6px 0 0;font-size:11.5px;color:var(--brown-soft);">Solo números, sin espacios ni guiones</p>
+              </div>
+              <div class="field">
+                <label for="sf_email">Correo</label>
+                <input type="email" id="sf_email" name="email" placeholder="nombre@correo.com" required>
+              </div>
+            </div>
+            <div class="field">
+              <label for="sf_instagram">Instagram de tu negocio</label>
+              <input type="text" id="sf_instagram" name="instagram" placeholder="@tunegocio" required>
+            </div>
+            <div class="field">
+              <label for="sf_type">¿Cuál plan te interesa?</label>
+              <select id="sf_type" name="business_type">
+                <option value="" ${!plan ? 'selected' : ''}>Elige tu tipo de negocio</option>
+                <option value="digital" ${plan === 'digital' ? 'selected' : ''}>Plan Fideliza Digital</option>
+                <option value="fisico" ${plan === 'fisico' ? 'selected' : ''}>Plan Fideliza Físico</option>
+                <option value="wallet" ${plan === 'wallet' ? 'selected' : ''}>Plan Fideliza Wallet</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">${from === 'info' ? 'Enviar' : 'Ver los planes →'}</button>
+          </form>
+        </div>
+      </div>`;
+
+  return new Response(`<!DOCTYPE html>
+<html lang="es">
+${pageHead(
+  `${heading} — Hey Tapp`,
+  sub,
+  'https://heytapp.com/solicitud'
+)}
+<body>
+
+${renderSiteNav('/')}
+
+  <div class="wave-div" style="margin-top:64px;"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#DAE7F1"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#FDFBF2" stroke="#FDFBF2" stroke-width="2"></path></svg></div>
+  <section class="contact" id="solicitud" style="padding-top:56px;">
+    <div class="wrap">
+      <div class="eyebrow reveal">${from === 'info' ? '¡Ya casi!' : 'Antes de seguir'}</div>
+      <h2 class="reveal">${escapeHtml(heading)}</h2>
+      <p class="contact-sub reveal">${escapeHtml(sub)}</p>
+      ${formOrThanks}
+      <p class="reveal" style="text-align:center;margin-top:22px;font-size:12.5px;font-weight:700;letter-spacing:.4px;color:var(--brown-soft);">Made in Ecuador 🇪🇨 for the world</p>
+    </div>
+  </section>
+
+  <div class="wave-div"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><rect x="0" y="0" width="1200" height="60" fill="#FDFBF2"></rect><path d="M0,0 C300,50 900,50 1200,0 L1200,60 L0,60 Z" fill="#42281B" stroke="#42281B" stroke-width="2"></path></svg></div>
+${renderSiteFooter('/')}
+
+  <script>
+    const nav = document.getElementById('siteNav');
+    nav.classList.add('scrolled');
+    const burger = document.getElementById('burgerBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    burger.addEventListener('click', () => { mobileMenu.classList.toggle('open'); burger.classList.toggle('open'); });
+    mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { mobileMenu.classList.remove('open'); burger.classList.remove('open'); }));
+    document.querySelectorAll('.reveal').forEach(el => el.classList.add('in-view'));
+    const phoneInput = document.getElementById('sf_phone');
+    if (phoneInput) {
+      phoneInput.addEventListener('input', (e) => {
+        let onlyDigits = '';
+        for (let i = 0; i < e.target.value.length; i++) {
+          const code = e.target.value.charCodeAt(i);
+          if (code >= 48 && code <= 57) onlyDigits += e.target.value[i];
+        }
+        e.target.value = onlyDigits;
+      });
+    }
+  </script>
+</body>
+</html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
 
 function renderContactPage() {
   return new Response(`<!DOCTYPE html>
@@ -4548,15 +4710,16 @@ ${renderSiteNav('')}
               <p>Tu Hey Tapp no es una tarjeta genérica: la creamos y configuramos especialmente para tu negocio, desde cero.</p>
             </div>
             <div class="plan-panel-side">
-              <span class="plan-badge">${icons.check} Pago único de creación</span>
+              <span class="plan-badge">${icons.check} Pago único de implementación</span>
               <ul class="plan-benefits">
-                <li>${icons.palette}<span>Tu identidad, tus colores y el sistema de sellos que tú decidas</span></li>
-                <li>${icons.target}<span>Tú eliges el premio que reciben tus clientes</span></li>
+                <li>${icons.palette}<span>Tarjeta 100% personalizada con tu marca</span></li>
+                <li>${icons.target}<span>Tú eliges el premio y la cantidad de sellos</span></li>
+                <li>${icons.scan}<span>Registro de sellos por QR o de forma manual</span></li>
+                <li>${icons.staff}<span>Panel con modo caja para tu staff</span></li>
                 <li>${icons.cap}<span>Capacitación incluida para ti y tu equipo</span></li>
-                <li>${icons.gift}<span>Tu primer mes de servicio ya viene incluido</span></li>
-                <li>${icons.key}<span>Acceso a tu propio espacio de gestión</span></li>
+                <li>${icons.gift}<span>Tu primer mes de servicio totalmente gratis</span></li>
               </ul>
-              <a href="/contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
+              <a href="/solicitud?from=web&plan=digital" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
           </div>
         </div>
@@ -4568,15 +4731,15 @@ ${renderSiteNav('')}
               <p>Todo lo del plan Digital, más un hablador físico con QR para tu mostrador, listo para que tus clientes escaneen, se registren y empiecen a sellar al instante.</p>
             </div>
             <div class="plan-panel-side">
-              <span class="plan-badge">${icons.check} Pago único de creación</span>
+              <span class="plan-badge">${icons.check} Pago único de implementación</span>
               <ul class="plan-benefits">
                 <li>${icons.layers}<span>Todo lo incluido en el Plan Digital</span></li>
-                <li>${icons.scan}<span>Hablador físico personalizado con QR para tu punto de venta</span></li>
-                <li>${icons.cap}<span>Capacitación incluida para ti y tu equipo</span></li>
-                <li>${icons.gift}<span>Tu primer mes de servicio ya viene incluido</span></li>
-                <li>${icons.key}<span>Acceso a tu propio espacio de gestión</span></li>
+                <li>${icons.scan}<span>Hablador físico personalizado con QR único, para tu punto de venta</span></li>
+                <li>${icons.target}<span>Tus clientes escanean, se registran y abren su tarjeta al pagar</span></li>
+                <li>${icons.chart}<span>Panel de métricas: registros, premios canjeados y tu base en CSV</span></li>
+                <li>${icons.gift}<span>Tu primer mes de servicio totalmente gratis</span></li>
               </ul>
-              <a href="/contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
+              <a href="/solicitud?from=web&plan=fisico" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
           </div>
         </div>
@@ -4585,18 +4748,18 @@ ${renderSiteNav('')}
             <div class="plan-panel-main">
               <span class="plan-tag">Plan Fideliza Wallet</span>
               <h3>Para marcas que quieren llevar su fidelización un paso más allá</h3>
-              <p>Todo lo del plan Físico y Digital, más la integración con Apple Wallet: tu marca directo en el bolsillo de tus clientes.</p>
+              <p>Todo lo del plan Digital, más Apple Wallet: tu marca directo en el bolsillo de tus clientes. Si tienes punto de venta físico, también recibes tu hablador.</p>
             </div>
             <div class="plan-panel-side">
-              <span class="plan-badge">${icons.check} Pago único de creación</span>
+              <span class="plan-badge">${icons.check} Pago único de implementación</span>
               <ul class="plan-benefits">
-                <li>${icons.layers}<span>Todo lo incluido en los planes Físico y Digital</span></li>
-                <li>${icons.wallet}<span>Tarjeta, sellos y premio directo en Apple Wallet, actualizados solos con cada sello</span></li>
-                <li>${icons.cap}<span>Capacitación incluida para ti y tu equipo</span></li>
-                <li>${icons.gift}<span>Tu primer mes de servicio ya viene incluido</span></li>
-                <li>${icons.key}<span>Acceso a tu propio espacio de gestión</span></li>
+                <li>${icons.layers}<span>Todo lo incluido en el Plan Digital</span></li>
+                <li>${icons.wallet}<span>Tarjeta directo en Apple Wallet, actualizada sola con cada sello</span></li>
+                <li>${icons.pin}<span>Aviso en la pantalla de bloqueo cuando el cliente está cerca de tu local</span></li>
+                <li>${icons.sparkle}<span>Recordatorio automático a los 14 días de inactividad</span></li>
+                <li>${icons.chart}<span>Métricas completas, incluyendo cuántos clientes lo tienen activo en Wallet</span></li>
               </ul>
-              <a href="/contacto" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
+              <a href="/solicitud?from=web&plan=wallet" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
             </div>
           </div>
         </div>
