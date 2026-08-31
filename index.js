@@ -1364,6 +1364,14 @@ async function renderAdminDashboard(env, admin) {
           </select>
           <p class="hint">En "forma libre", el vacío se ve tenue y al sellarlo se ve a color completo — usa el primer sello (arriba) como la forma.</p>
 
+          <label>¿Dónde aplica ese estilo?</label>
+          <select id="stamp_style_scope">
+            <option value="both" selected>En Wallet y en la tarjeta web</option>
+            <option value="wallet">Solo en Wallet</option>
+            <option value="web">Solo en la tarjeta web</option>
+          </select>
+          <p class="hint">Solo aplica si elegiste "forma libre" arriba.</p>
+
           <label>Imagen de fondo para Apple Wallet (opcional)</label>
           <input type="file" id="stripBg" accept="image/*">
           <p class="hint">Se recorta sola para llenar la franja de sellos (750x246). Si no subes nada, se queda con el color plano.</p>
@@ -1725,6 +1733,7 @@ async function renderAdminDashboard(env, admin) {
             strip_bg_base64: stripBgFile ? await fileToStripBgBase64(stripBgFile) : null,
             strip_bg_scope: document.getElementById('stripBgScope').value,
             stamp_style: document.getElementById('stamp_style').value,
+            stamp_style_scope: document.getElementById('stamp_style_scope').value,
             font_family: document.getElementById('font_family').value,
             font_bold: document.getElementById('font_bold').checked,
             font_italic: document.getElementById('font_italic').checked,
@@ -1958,6 +1967,7 @@ async function handleCreateBusiness(request, env) {
     wallet_location_lat: walletLat,
     wallet_location_lng: walletLng,
     stamp_style: body.stamp_style === 'shape' ? 'shape' : 'circle',
+    stamp_style_scope: ['both', 'wallet', 'web'].includes(body.stamp_style_scope) ? body.stamp_style_scope : 'both',
   };
   // casillas de negrita/cursiva, por bloque
   const boldFields = { font_bold: 1, font_italic: 0, eyebrow_bold: 1, eyebrow_italic: 0, reward_bold: 1, reward_italic: 0 };
@@ -2520,6 +2530,14 @@ async function handleEditBusinessForm(request, env, slug) {
                     <option value="shape" ${b.stamp_style === 'shape' ? 'selected' : ''}>Forma libre: el ícono ES el sello, sin círculo</option>
                   </select>
                   <p class="hint">En "forma libre", el vacío se ve tenue y al sellarlo se ve a color completo — usa el primer sello (arriba) como la forma.</p>
+
+                  <label>¿Dónde aplica ese estilo?</label>
+                  <select id="stamp_style_scope">
+                    <option value="both" ${(!b.stamp_style_scope || b.stamp_style_scope === 'both') ? 'selected' : ''}>En Wallet y en la tarjeta web</option>
+                    <option value="wallet" ${b.stamp_style_scope === 'wallet' ? 'selected' : ''}>Solo en Wallet</option>
+                    <option value="web" ${b.stamp_style_scope === 'web' ? 'selected' : ''}>Solo en la tarjeta web</option>
+                  </select>
+                  <p class="hint">Solo aplica si elegiste "forma libre" arriba.</p>
                 </div>
               </div>
 
@@ -2774,6 +2792,7 @@ async function handleEditBusinessForm(request, env, slug) {
             confirm_password: document.getElementById('confirm_password_pin').value,
             strip_bg_scope: document.getElementById('stripBgScope').value,
             stamp_style: document.getElementById('stamp_style').value,
+            stamp_style_scope: document.getElementById('stamp_style_scope').value,
             font_family: document.getElementById('font_family').value,
             font_bold: document.getElementById('font_bold').checked,
             font_italic: document.getElementById('font_italic').checked,
@@ -2951,6 +2970,7 @@ async function handleUpdateBusiness(request, env, slug) {
     strip_bg_scope: ['both', 'wallet', 'web'].includes(body.strip_bg_scope) ? body.strip_bg_scope : (business.strip_bg_scope || 'both'),
     client_type: ['cliente', 'influencer'].includes(body.client_type) ? body.client_type : (business.client_type || 'cliente'),
     stamp_style: body.stamp_style === 'shape' ? 'shape' : 'circle',
+    stamp_style_scope: ['both', 'wallet', 'web'].includes(body.stamp_style_scope) ? body.stamp_style_scope : 'both',
   };
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
   for (const key of boldFieldNames) fixedFields[key] = body[key] ? 1 : 0;
@@ -3277,9 +3297,9 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
      vacío se ve tenue, sellado a color completo (mismo criterio que en Wallet) */
   .stamp-rows.shape-style .stamp{background:none;box-shadow:none;}
   .stamp-rows.shape-style .stamp::before{display:none;}
-  .stamp-rows.shape-style .stamp-img{width:100%;height:100%;opacity:.35;}
+  .stamp-rows.shape-style .stamp:not(.filled) .stamp-img{width:100%;height:100%;opacity:.35;}
   .stamp-rows.shape-style .stamp.filled{box-shadow:none;}
-  .stamp-rows.shape-style .stamp.filled .stamp-img{opacity:1;}
+  .stamp-rows.shape-style .stamp.filled .stamp-img{width:100%;height:100%;opacity:1;}
   .stamp.reward::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2.5px solid var(--butter-mid);opacity:0;z-index:1;}
   .stamp.reward:not(.filled)::after{opacity:1;animation:pulse 1.8s ease-in-out infinite;}
   @keyframes pulse{0%,100%{transform:scale(1);opacity:.55;}50%{transform:scale(1.04);opacity:1;}}
@@ -3327,7 +3347,14 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
           <span class="progress-pct">${pct}%</span>
         </div>
         <p class="progress-text">${progressText}</p>
-        <div class="stamp-rows${b.stamp_style === 'shape' ? ' shape-style' : ''}" style="--stamp-cols:${topCount};${stampsBgStyle}">
+        ${(() => {
+          // "forma libre" solo se activa si: 1) está elegida, 2) hay un sello
+          // subido de verdad (si no, no hay nada que mostrar y se cae sola al
+          // círculo de siempre), y 3) el alcance elegido incluye la web
+          const shapeScope = b.stamp_style_scope || 'both';
+          const useShapeOnWeb = b.stamp_style === 'shape' && !!b.sello_1_base64 && shapeScope !== 'wallet';
+          return `<div class="stamp-rows${useShapeOnWeb ? ' shape-style' : ''}" style="--stamp-cols:${topCount};${stampsBgStyle}">`;
+        })()}
           <div class="stamp-row">${stampsTopHtml}</div>
           ${bottomCount > 0 ? `<div class="stamp-row">${stampsBottomHtml}</div>` : ''}
         </div>
@@ -5534,16 +5561,20 @@ async function walletBuildStampStripImage(business, filled, total) {
 
   const topCount = Math.ceil(total / 2);
   const bottomCount = total - topCount;
+  // mismo respaldo que en la web: "forma libre" solo se usa aquí si de
+  // verdad hay un ícono Y el alcance elegido incluye Wallet
+  const shapeScope = business.stamp_style_scope || 'both';
+  const effectiveStampStyle = (business.stamp_style === 'shape' && iconData && shapeScope !== 'web') ? 'shape' : 'circle';
   if (bottomCount > 0) {
     const topCy = height*0.28, bottomCy = height*0.75; // aire respecto al logo y al nombre, sin sacrificar tamaño
     // FIX #1: el radio máximo se deriva del espacio real entre las dos filas (rowGap),
     // dejando ~15% de aire, en vez del height*0.30 fijo que causaba el encimado.
     const rowGap = bottomCy - topCy;
     const maxRadius = rowGap * 0.42;
-    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData, stampBgColor, ringColor, business.stamp_style);
-    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData, stampBgColor, ringColor, business.stamp_style);
+    walletDrawStampRow(pixels, width, height, topCount, Math.min(filled, topCount), topCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData, stampBgColor, ringColor, effectiveStampStyle);
+    walletDrawStampRow(pixels, width, height, bottomCount, Math.max(0, filled - topCount), bottomCy, 60, fillColor, fillColor, bgColor, maxRadius, iconData, stampBgColor, ringColor, effectiveStampStyle);
   } else {
-    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor, bgColor, height*0.30, iconData, stampBgColor, ringColor, business.stamp_style);
+    walletDrawStampRow(pixels, width, height, topCount, filled, height*0.5, 60, fillColor, fillColor, bgColor, height*0.30, iconData, stampBgColor, ringColor, effectiveStampStyle);
   }
   return walletEncodePNG(width, height, pixels);
 }
