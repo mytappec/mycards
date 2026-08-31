@@ -2,15 +2,15 @@
   "name": "tarjetas-sellos",
   "main": "index.js",
   "compatibility_date": "2026-08-01",
- "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat"],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "tarjetas-db",
       "database_id": "252fa7cf-0936-4ca6-bd91-913fefc3cb51"
     }
-  ]
-}
-"triggers": {
-  "crons": ["0 13 * * *"]
+  ],
+  "triggers": {
+    "crons": ["0 13 * * *"]
+  }
 }
