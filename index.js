@@ -102,6 +102,8 @@ export default {
         if (parts[1] === 'cambiar-password' && request.method === 'POST') return handleAdminChangePassword(request, env);
         if (parts[1] === 'businesses' && request.method === 'POST') return handleCreateBusiness(request, env);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'edit') return handleEditBusinessForm(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'metrics') return handleBusinessMetrics(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'metrics-export') return handleBusinessMetricsExport(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'update' && request.method === 'POST') return handleUpdateBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'unlock' && request.method === 'POST') return handleUnlockBusiness(request, env, parts[2]);
@@ -122,6 +124,8 @@ export default {
         if (parts[2] === 'register' && request.method === 'POST') return handleRegister(request, env, slug);
         if (parts[2] === 'clientes' && parts[3] === 'borrar-varios' && request.method === 'POST') return handleBulkDeleteCustomers(request, env, slug);
         if (parts[2] === 'clientes') return handleClientesList(request, env, slug);
+        if (parts[2] === 'metricas') return handleBusinessMetrics(request, env, slug);
+        if (parts[2] === 'metricas-export') return handleBusinessMetricsExport(request, env, slug);
         if (parts[2] === 'cliente' && parts[3] && parts[4] === 'delete' && request.method === 'POST') return handleDeleteCustomer(request, env, slug, parts[3]);
         if (parts[2] === 'historial' && parts[3]) return handleHistorial(request, env, slug, parts[3]);
         if (parts[2] === 'logout') return handleLogout(request, env, slug);
@@ -1141,6 +1145,7 @@ async function renderAdminDashboard(env, admin) {
     return `
     <tr>
       <td data-label="Editar tarjeta" style="white-space:nowrap;"><a href="/brandpanel/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
+      <td data-label="Métricas" style="white-space:nowrap;"><a href="/brandpanel/business/${escapeHtml(b.slug)}/metrics">📊 Ver</a></td>
       <td data-label="Negocio" style="white-space:nowrap;">${escapeHtml(b.name)}</td>
       <td data-label="Slug" style="white-space:nowrap;">${escapeHtml(b.slug)}</td>
       <td data-label="Código QR" style="white-space:nowrap;"><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
@@ -1314,10 +1319,10 @@ async function renderAdminDashboard(env, admin) {
       <div style="overflow-x:auto;">
       <table>
         <thead>
-        <tr><th>Editar<br>tarjeta</th><th>Negocio</th><th>Slug</th><th>Código<br>QR</th><th>PIN</th><th>Ver<br>PIN</th><th>Panel<br>staff</th><th>Link<br>registro</th><th>Suscripción</th><th>Estado<br>de pago</th><th>Borrar</th></tr>
+        <tr><th>Editar<br>tarjeta</th><th>Métricas</th><th>Negocio</th><th>Slug</th><th>Código<br>QR</th><th>PIN</th><th>Ver<br>PIN</th><th>Panel<br>staff</th><th>Link<br>registro</th><th>Suscripción</th><th>Estado<br>de pago</th><th>Borrar</th></tr>
         </thead>
         <tbody>
-        ${rows || '<tr><td colspan="11">Todavía no has creado ningún negocio</td></tr>'}
+        ${rows || '<tr><td colspan="12">Todavía no has creado ningún negocio</td></tr>'}
         </tbody>
       </table>
       </div>
@@ -4440,6 +4445,7 @@ function renderStaffPanel(b, platformName) {
       <p class="msg" id="regMsg"></p>
 
       <a class="logout" href="/staff/${b.slug}/clientes">Ver todos los clientes</a>
+      <a class="logout" href="/staff/${b.slug}/metricas">📊 Ver métricas del negocio</a>
       <a class="logout" href="/staff/${b.slug}/logout">Cerrar sesión del local</a>
     </div>
     <div class="footer-brand">
@@ -4653,6 +4659,140 @@ async function handleRegister(request, env, slug) {
   const url = new URL(request.url);
   const cardUrl = `${url.origin}/${slug}/${code}`;
   return new Response(JSON.stringify({ ok: true, code, url: cardUrl }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleBusinessMetrics(request, env, slug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response('Negocio no encontrado', { status: 404 });
+
+  // esta pantalla la puede ver la dueña desde su panel de admin, O cualquiera
+  // que tenga el PIN del negocio desde el panel de staff — igual que ya pasa
+  // con la lista de clientes
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
+  const staffCookie = getCookie(request, 'staff_session');
+  const hasStaffSession = await isValidStaffSession(env, business.id, staffCookie);
+  if (!admin && !hasStaffSession) {
+    return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+  const backLink = admin ? '/brandpanel' : `/staff/${slug}`;
+
+  const totalCustomers = (await env.DB.prepare('SELECT COUNT(*) as cnt FROM customers WHERE business_id = ?').bind(business.id).first())?.cnt || 0;
+  const walletActive = (await env.DB.prepare('SELECT COUNT(DISTINCT serial_number) as cnt FROM wallet_registrations WHERE serial_number LIKE ?').bind(`${slug}-%`).first())?.cnt || 0;
+  const redeemedCount = (await env.DB.prepare('SELECT COUNT(*) as cnt FROM customers WHERE business_id = ? AND redeemed_at IS NOT NULL').bind(business.id).first())?.cnt || 0;
+  const visitStats = await env.DB.prepare('SELECT COUNT(*) as totalVisits, COUNT(DISTINCT customer_id) as customersWithVisits FROM visits WHERE business_id = ?').bind(business.id).first();
+  const avgVisits = visitStats && visitStats.customersWithVisits > 0 ? (visitStats.totalVisits / visitStats.customersWithVisits) : 0;
+
+  const LAPSE_DAYS = 14;
+  const { results: lapsedCustomers } = await env.DB.prepare(`
+    SELECT c.id, c.name, c.code, c.stamps, MAX(v.stamped_at) as last_visit
+    FROM customers c JOIN visits v ON v.customer_id = c.id AND v.cycle = c.cycle
+    WHERE c.business_id = ? AND c.stamps > 0 AND c.stamps < ?
+    GROUP BY c.id
+    HAVING last_visit < datetime('now', '-' || ? || ' days')
+    ORDER BY last_visit ASC
+  `).bind(business.id, business.total_stamps, LAPSE_DAYS).all();
+
+  const lapsedRows = lapsedCustomers.map(c => `
+    <tr>
+      <td data-label="Nombre">${escapeHtml(c.name)}</td>
+      <td data-label="Código">${escapeHtml(c.code)}</td>
+      <td data-label="Sellos">${c.stamps}/${business.total_stamps}</td>
+      <td data-label="Última visita">${escapeHtml(c.last_visit)}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Métricas — ${escapeHtml(business.name)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --brown:#42281B; --terracotta:#B0472E; --cream:#FDFBF2; --pale-blue:#DAE7F1; }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--pale-blue);font-family:'Manrope',sans-serif;color:var(--brown);padding:24px 16px 60px;}
+  .wrap{max-width:900px;margin:0 auto;}
+  a.back{color:var(--brown);text-decoration:none;font-weight:700;font-size:14px;}
+  h1{font-family:'Baloo 2',sans-serif;font-size:24px;margin:14px 0 4px;}
+  p.sub{color:#6B5645;margin:0 0 22px;font-size:14px;}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px;}
+  .card{background:#fff;border-radius:16px;padding:18px;box-shadow:0 4px 14px rgba(66,40,27,.08);}
+  .card .num{font-family:'Baloo 2',sans-serif;font-size:30px;color:var(--terracotta);}
+  .card .label{font-size:12.5px;color:#6B5645;font-weight:600;margin-top:2px;}
+  .section{background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 14px rgba(66,40,27,.08);margin-bottom:20px;}
+  .section h2{font-family:'Baloo 2',sans-serif;font-size:17px;margin:0 0 4px;}
+  .section p.hint{font-size:13px;color:#6B5645;margin:0 0 14px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;padding:8px;background:#FBF7EE;font-size:11.5px;text-transform:uppercase;color:#6B5645;}
+  td{padding:8px;border-top:1px solid #F0E9DA;}
+  .empty{color:#6B5645;font-size:13.5px;padding:10px 0;}
+  .btn-download{display:inline-block;background:var(--brown);color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px;font-weight:700;font-size:13.5px;margin-top:8px;}
+  @media (max-width:600px){
+    table, thead, tbody, th, td, tr{display:block;}
+    thead{display:none;}
+    tr{margin-bottom:10px;border:1px solid #F0E9DA;border-radius:10px;padding:6px 10px;}
+    td{border:none;padding:4px 0;}
+    td::before{content:attr(data-label) ": ";font-weight:700;color:#6B5645;}
+  }
+</style></head><body>
+  <div class="wrap">
+    <a class="back" href="${backLink}">← Volver al panel</a>
+    <h1>Métricas — ${escapeHtml(business.name)}</h1>
+    <p class="sub">Con lo que ya tienes guardado, sin necesidad de precios ni montos.</p>
+
+    <div class="cards">
+      <div class="card"><div class="num">${totalCustomers}</div><div class="label">Tarjetas registradas</div></div>
+      <div class="card"><div class="num">${walletActive}</div><div class="label">Activas en Apple Wallet</div></div>
+      <div class="card"><div class="num">${redeemedCount}</div><div class="label">Premios canjeados</div></div>
+      <div class="card"><div class="num">${avgVisits.toFixed(1)}</div><div class="label">Sellos promedio por cliente</div></div>
+    </div>
+
+    <div class="section">
+      <h2>Clientes que se están enfriando</h2>
+      <p class="hint">Llevan ${LAPSE_DAYS} días o más sin volver y todavía no completan su tarjeta — son los mismos que reciben el recordatorio automático.</p>
+      ${lapsedCustomers.length ? `<table><thead><tr><th>Nombre</th><th>Código</th><th>Sellos</th><th>Última visita</th></tr></thead><tbody>${lapsedRows}</tbody></table>` : '<p class="empty">Nadie se está enfriando ahorita mismo. 🎉</p>'}
+      <a class="btn-download" href="/brandpanel/business/${slug}/metrics-export">⬇️ Descargar todos los clientes (CSV)</a>
+    </div>
+  </div>
+</body></html>`;
+
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+async function handleBusinessMetricsExport(request, env, slug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response('Negocio no encontrado', { status: 404 });
+
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
+  const staffCookie = getCookie(request, 'staff_session');
+  const hasStaffSession = await isValidStaffSession(env, business.id, staffCookie);
+  if (!admin && !hasStaffSession) return new Response('No autorizado', { status: 401 });
+
+  const { results } = await env.DB.prepare(`
+    SELECT c.name, c.cedula, c.code, c.stamps, c.cycle, c.redeemed_at,
+      (SELECT MAX(v.stamped_at) FROM visits v WHERE v.customer_id = c.id AND v.cycle = c.cycle) as last_visit,
+      EXISTS(SELECT 1 FROM wallet_registrations w WHERE w.serial_number = ? || '-' || c.code) as en_wallet
+    FROM customers c WHERE c.business_id = ? ORDER BY c.id DESC
+  `).bind(slug, business.id).all();
+
+  // CSV a mano, sin librerías — escapamos comillas dobles duplicándolas, que
+  // es la regla estándar del formato CSV
+  const escapeCsv = (val) => {
+    const s = String(val == null ? '' : val);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = ['Nombre', 'Cédula', 'Código', 'Sellos', 'Total del negocio', 'Ciclo', 'Última visita', 'Canjeó premio', 'En Apple Wallet'];
+  const rows = results.map(c => [
+    c.name, c.cedula || '', c.code, c.stamps, business.total_stamps, c.cycle,
+    c.last_visit || '', c.redeemed_at ? 'Sí' : 'No', c.en_wallet ? 'Sí' : 'No',
+  ].map(escapeCsv).join(','));
+  const csv = [header.map(escapeCsv).join(','), ...rows].join('\r\n');
+
+  return new Response('\uFEFF' + csv, {
+    headers: {
+      'Content-Type': 'text/csv; charset=UTF-8',
+      'Content-Disposition': `attachment; filename="${slug}-clientes.csv"`,
+    },
+  });
 }
 
 async function handleClientesList(request, env, slug) {
