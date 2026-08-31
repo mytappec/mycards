@@ -4297,7 +4297,6 @@ ${pageHead(
         </div>
         <a href="#s4" class="deck-next" style="display:block;text-align:center;margin-top:16px;">Listo ↓</a>
       </div>
-      <div class="scroll-hint" id="scrollHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
     </section>
 
     ${slide('var(--terracotta)', 'var(--cream)', `
@@ -4354,10 +4353,6 @@ ${pageHead(
 
     /* ---- carpeta con pestañas ---- */
     .folder-wrap{max-width:560px;width:100%;max-height:94vh;overflow-y:auto;padding:6px;}
-    .scroll-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:34px;height:34px;border-radius:50%;background:var(--cream);color:var(--terracotta);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(66,40,27,.2);animation:scrollHintBounce 1.6s ease-in-out infinite;opacity:1;transition:opacity .3s ease;pointer-events:none;z-index:5;}
-    .scroll-hint svg{width:17px;height:17px;}
-    .scroll-hint.is-hidden{opacity:0;}
-    @keyframes scrollHintBounce{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(6px);}}
     .folder-intro{text-align:center;margin-bottom:18px;}
     .folder-intro h2{text-align:center;}
     .folder-tabs{display:flex;align-items:stretch;gap:6px;padding:0 6px;}
@@ -4429,14 +4424,11 @@ ${pageHead(
     (function() {
       var dots = document.querySelectorAll('.deck-dots .dot');
       var slides = document.querySelectorAll('.slide');
-      var scrollHint = document.getElementById('scrollHint');
-      var lastSlideId = slides.length ? slides[slides.length - 1].id : null;
       var io = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {
           if (entry.isIntersecting) {
             var id = entry.target.id;
             dots.forEach(function(d) { d.classList.toggle('active', d.getAttribute('href') === '#' + id); });
-            if (scrollHint) scrollHint.classList.toggle('hidden', id === lastSlideId);
           }
         });
       }, { threshold: 0.6 });
@@ -4449,19 +4441,20 @@ ${pageHead(
           var plan = tab.getAttribute('data-plan');
           tabs.forEach(function(t) { t.classList.toggle('active', t === tab); });
           pages.forEach(function(p) { p.classList.toggle('active', p.getAttribute('data-plan') === plan); });
-          setTimeout(updateScrollHint, 50);
         });
       });
 
-      var folderWrap = document.querySelector('#s3 .folder-wrap');
+      // una sola flechita, fija en pantalla, que avisa que hay más para ver
+      // abajo en toda la página — se esconde sola al llegar al final
+      var deckEl = document.querySelector('.deck');
       var scrollHint = document.getElementById('scrollHint');
       function updateScrollHint() {
-        if (!folderWrap || !scrollHint) return;
-        var atBottom = folderWrap.scrollTop + folderWrap.clientHeight >= folderWrap.scrollHeight - 16;
-        scrollHint.classList.toggle('is-hidden', atBottom);
+        if (!deckEl || !scrollHint) return;
+        var atBottom = deckEl.scrollTop + deckEl.clientHeight >= deckEl.scrollHeight - 16;
+        scrollHint.classList.toggle('hidden', atBottom);
       }
-      if (folderWrap) {
-        folderWrap.addEventListener('scroll', updateScrollHint);
+      if (deckEl) {
+        deckEl.addEventListener('scroll', updateScrollHint);
         window.addEventListener('resize', updateScrollHint);
         updateScrollHint();
       }
