@@ -151,6 +151,13 @@ export default {
       }
       return new Response('Ocurrió un error del servidor. Intenta de nuevo en unos segundos.', { status: 500 });
     }
+  },
+
+  // se ejecuta solo, una vez al día, a la hora que se configure en
+  // wrangler.jsonc (ver el bloque "triggers":{"crons":[...]}). No lo llama
+  // nadie por su cuenta, ni una persona ni un botón — lo dispara Cloudflare.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(handleWinBackReminders(env));
   }
 };
 
@@ -5650,6 +5657,18 @@ function walletBuildPassJSON(business, customer, env, origin) {
         { key: 'reward_full', label: 'Tu premio', value: rewardFull },
         { key: 'info', label: 'Cómo funciona', value: business.instruction_text || 'Muestra este código en caja en cada compra para sumar un sello.' },
         { key: 'business', label: 'Negocio', value: business.name },
+        // recordatorio de "hace tiempo no vienes" — solo aparece si alguna vez
+        // se le mandó uno (ver handleWinBackReminders). El "%@" en changeMessage
+        // es lo que le dice a Apple "cuando este campo cambie, avisa en la
+        // pantalla de bloqueo con el texto nuevo tal cual" — documentado por
+        // Apple, es la única forma real de mandar un aviso con texto propio
+        // que no sea por ubicación.
+        ...(customer.reminder_text ? [{
+          key: 'reminder',
+          label: 'Recordatorio',
+          value: customer.reminder_text + '\u200B'.repeat((customer.reminder_nonce || 0) % 8),
+          changeMessage: '%@',
+        }] : []),
       ],
     },
     barcodes: [
@@ -5950,5 +5969,63 @@ async function walletNotifyDevices(env, slug, code) {
     }
   } catch (e) {
     console.error('[wallet] error en walletNotifyDevices:', e && e.message ? e.message : e);
+  }
+}
+
+// se ejecuta sola, una vez al día (ver el "scheduled" al inicio del archivo).
+// busca clientes que llevan 14 días sin volver y todavía no completan su
+// tarjeta, les guarda un mensaje de recordatorio, y usa el mismo sistema de
+// avisos de Wallet que ya existe para mandárselo — sin repetir el mismo aviso
+// antes de que pasen otros 14 días.
+async function handleWinBackReminders(env) {
+  if (!env.WALLET_APNS_KEY || !env.WALLET_APNS_KEY_ID) {
+    console.log('[winback] faltan credenciales de Wallet, no se manda nada hoy');
+    return;
+  }
+
+  const LAPSE_DAYS = 14;
+  let results;
+  try {
+    const query = await env.DB.prepare(`
+      SELECT c.id, c.code, c.name, c.stamps, c.reminder_nonce, b.slug, b.name AS business_name, b.total_stamps
+      FROM customers c
+      JOIN businesses b ON b.id = c.business_id
+      WHERE c.stamps > 0
+        AND c.stamps < b.total_stamps
+        AND b.is_suspended = 0
+        AND b.wallet_enabled = 1
+        AND (c.last_reminder_sent_at IS NULL OR c.last_reminder_sent_at < datetime('now', '-' || ? || ' days'))
+        AND c.id IN (
+          SELECT v.customer_id FROM visits v
+          WHERE v.customer_id = c.id AND v.cycle = c.cycle
+          GROUP BY v.customer_id
+          HAVING MAX(v.stamped_at) < datetime('now', '-' || ? || ' days')
+        )
+    `).bind(LAPSE_DAYS, LAPSE_DAYS).all();
+    results = query.results;
+  } catch (e) {
+    console.error('[winback] error consultando clientes lapsos:', e && e.message ? e.message : e);
+    return;
+  }
+
+  console.log(`[winback] ${results.length} cliente(s) califican para recordatorio hoy`);
+
+  for (const row of results) {
+    const missing = row.total_stamps - row.stamps;
+    const reminderText = `¡Te extrañamos en ${row.business_name}! Te ${missing === 1 ? 'falta 1 sello' : `faltan ${missing} sellos`} para tu premio.`;
+    const newNonce = (row.reminder_nonce || 0) + 1;
+
+    try {
+      await env.DB.prepare("UPDATE customers SET reminder_text = ?, reminder_nonce = ?, last_reminder_sent_at = datetime('now') WHERE id = ?")
+        .bind(reminderText, newNonce, row.id).run();
+    } catch (e) {
+      console.error(`[winback] no se pudo guardar el recordatorio del cliente ${row.id}:`, e && e.message ? e.message : e);
+      continue;
+    }
+
+    // si esta persona nunca agregó su tarjeta a Wallet, esto simplemente no
+    // encuentra ningún dispositivo y no manda nada — el mensaje queda
+    // guardado igual, listo para la próxima vez que sí la agregue
+    await walletNotifyDevices(env, row.slug, row.code);
   }
 }
