@@ -1176,36 +1176,38 @@ async function renderAdminDashboard(env, admin) {
     const isLocked = b.staff_login_locked_until && new Date(b.staff_login_locked_until + 'Z') > now;
     const isOverdue = b.next_payment_date && b.next_payment_date < today;
     return `
-    <tr>
-      <td data-label="Editar tarjeta" style="white-space:nowrap;"><a href="/brandpanel/business/${escapeHtml(b.slug)}/edit">Editar</a></td>
-      <td data-label="Métricas" style="white-space:nowrap;">${(b.plan || 'wallet') === 'digital' ? '<span style="color:#8A6A4D;font-size:12.5px;">No incluido</span>' : `<a href="/brandpanel/business/${escapeHtml(b.slug)}/metrics">📊 Ver</a>`}</td>
-      <td data-label="Negocio" style="white-space:nowrap;">${escapeHtml(b.name)}</td>
-      <td data-label="Slug" style="white-space:nowrap;">${escapeHtml(b.slug)}</td>
-      <td data-label="Código QR" style="white-space:nowrap;"><a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a></td>
-      <td data-label="PIN" style="white-space:nowrap;"><span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span></td>
-      <td data-label="Ver PIN" style="white-space:nowrap;">${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;font-weight:700;">🔒 Desbloquear</a>` : '—'}</td>
-      <td data-label="Panel staff" style="white-space:nowrap;"><a href="/staff/${escapeHtml(b.slug)}" target="_blank">Link para staff</a></td>
-      <td data-label="Link registro" style="white-space:nowrap;"><a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link para clientes</a></td>
-      <td data-label="Suscripción" style="white-space:nowrap;">
-        <div class="payment-cell" data-slug="${escapeHtml(b.slug)}">
-          <div style="margin-bottom:4px;">
-            <label style="font-size:10px;font-weight:400;margin:0;">Pagó:</label>
-            <input type="date" class="last-payment-input" value="${b.last_payment_date || ''}" style="font-size:11px;padding:3px 5px;width:120px;">
-          </div>
-          <div>
-            <label style="font-size:10px;font-weight:400;margin:0;">Próximo:</label>
-            <input type="date" class="next-payment-input" value="${b.next_payment_date || ''}" style="font-size:11px;padding:3px 5px;width:120px;${isOverdue ? 'border-color:#B23A3A;color:#B23A3A;font-weight:700;' : ''}">
-          </div>
-          <button type="button" class="save-payment-btn" style="width:auto;margin-top:4px;padding:4px 10px;font-size:11px;">Guardar</button>
+    <div class="biz-card">
+      <div class="biz-card-head">
+        <div>
+          <h3>${escapeHtml(b.name)}</h3>
+          <span class="biz-slug">${escapeHtml(b.slug)}</span>
         </div>
-      </td>
-      <td data-label="Estado de pago" style="white-space:nowrap;">
-        <a href="#" class="toggle-suspend" data-slug="${escapeHtml(b.slug)}" data-suspended="${b.is_suspended}" style="color:${b.is_suspended ? '#215A34' : '#B26A00'};font-weight:700;">
+        <a href="#" class="toggle-suspend biz-status" data-slug="${escapeHtml(b.slug)}" data-suspended="${b.is_suspended}" style="color:${b.is_suspended ? '#215A34' : '#B26A00'};">
           ${b.is_suspended ? '▶️ Activar' : '⏸️ Suspender'}
         </a>
-      </td>
-      <td data-label="Borrar" style="white-space:nowrap;"><a href="#" class="delete-biz" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}" style="color:#B23A3A;">Borrar</a></td>
-    </tr>`;
+      </div>
+      <div class="biz-actions">
+        <a href="/brandpanel/business/${escapeHtml(b.slug)}/edit">Editar tarjeta</a>
+        ${(b.plan || 'wallet') === 'digital' ? '<span class="biz-action-disabled">Métricas no incluidas</span>' : `<a href="/brandpanel/business/${escapeHtml(b.slug)}/metrics">📊 Métricas</a>`}
+        <a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a>
+        <span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span>
+        ${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;">🔒 Desbloquear staff</a>` : ''}
+        <a href="/staff/${escapeHtml(b.slug)}" target="_blank">Panel staff</a>
+        <a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a>
+      </div>
+      <div class="payment-cell" data-slug="${escapeHtml(b.slug)}">
+        <div class="payment-field">
+          <label>Pagó</label>
+          <input type="date" class="last-payment-input" value="${b.last_payment_date || ''}">
+        </div>
+        <div class="payment-field">
+          <label>Próximo</label>
+          <input type="date" class="next-payment-input" value="${b.next_payment_date || ''}" style="${isOverdue ? 'border-color:#B23A3A;color:#B23A3A;font-weight:700;' : ''}">
+        </div>
+        <button type="button" class="save-payment-btn">Guardar</button>
+      </div>
+      <a href="#" class="delete-biz biz-delete" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Borrar negocio</a>
+    </div>`;
   }).join('');
 
   return new Response(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
@@ -1225,6 +1227,23 @@ async function renderAdminDashboard(env, admin) {
     h2::before{content:'';width:5px;height:16px;border-radius:3px;background:#B0472E;display:inline-block;}
     table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;font-size:13px;margin-bottom:10px;}
     th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #eee;white-space:nowrap;}
+    .biz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:10px;}
+    .biz-card{background:white;border:1px solid #EDE4D3;border-radius:18px;padding:18px 20px;box-shadow:0 4px 16px rgba(66,40,27,.07);display:flex;flex-direction:column;gap:14px;}
+    .biz-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+    .biz-card-head h3{font-family:'Baloo 2',sans-serif;font-size:17px;margin:0;color:#42281B;}
+    .biz-slug{font-size:12px;color:#8A6F4E;}
+    .biz-status{font-size:12.5px;font-weight:700;white-space:nowrap;}
+    .biz-actions{display:flex;flex-wrap:wrap;gap:8px;}
+    .biz-actions a{font-size:12.5px;font-weight:700;background:#FBF7EE;border:1px solid #E2D9C8;border-radius:99px;padding:6px 12px;text-decoration:none;}
+    .biz-action-disabled{font-size:12.5px;color:#8A6A4D;background:#F4F1EA;border-radius:99px;padding:6px 12px;}
+    .pin-cell{font-size:12.5px;font-weight:700;background:#FBF7EE;border:1px solid #E2D9C8;border-radius:99px;padding:6px 12px;display:inline-flex;align-items:center;gap:3px;}
+    .pin-cell a{background:none!important;border:none!important;padding:0!important;}
+    .payment-cell{display:flex;flex-wrap:wrap;align-items:end;gap:12px;background:#FBF7EE;border-radius:12px;padding:12px 14px;}
+    .payment-field label{font-size:10px;font-weight:700;margin:0 0 3px;color:#8A6F4E;text-transform:uppercase;letter-spacing:.3px;}
+    .payment-field input{font-size:12.5px;padding:6px 8px;width:130px;}
+    .payment-cell .save-payment-btn{width:auto!important;margin-top:0!important;padding:8px 14px!important;font-size:12.5px!important;}
+    .biz-delete{font-size:12.5px;color:#B23A3A!important;font-weight:700;align-self:flex-start;}
+    .empty-state{color:#8A6F4E;font-size:14px;padding:20px 0;}
     @media (max-width: 900px) {
       .create-flex{flex-direction:column;}
       .preview-col{width:100%;position:static;}
@@ -1236,6 +1255,7 @@ async function renderAdminDashboard(env, admin) {
       tr{background:white;border:2px solid #2B2320;border-radius:14px;margin-bottom:14px;padding:10px 4px;}
       td{border:none;padding:7px 12px;white-space:normal;}
       td::before{content:attr(data-label);display:block;font-size:10px;font-weight:700;color:#8A6F4E;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+      .biz-grid{grid-template-columns:1fr;}
     }
     th{font-size:12px;}
     th{background:#2B2320;color:white;}
@@ -1283,6 +1303,8 @@ async function renderAdminDashboard(env, admin) {
     table{border-radius:16px!important;box-shadow:0 8px 24px rgba(66,40,27,.09);}
     th{background:var(--brown)!important;color:var(--cream)!important;font-weight:700!important;letter-spacing:.3px;}
     tbody tr:hover td{background:rgba(218,231,241,.35);}
+    .biz-card{transition:box-shadow .15s ease;}
+    .biz-card:hover{box-shadow:0 8px 26px rgba(66,40,27,.13);}
     input[type=text]:focus,input[type=number]:focus,input[type=email]:focus,select:focus{border-color:var(--terracotta)!important;box-shadow:0 0 0 3px rgba(176,71,46,.12)!important;}
     a{color:var(--terracotta)!important;font-weight:700;}
     a.logout{color:var(--brown)!important;opacity:.75;font-weight:600;}
@@ -1363,15 +1385,8 @@ async function renderAdminDashboard(env, admin) {
       </div>
 
       <h2>Tus negocios (${results.length})</h2>
-      <div style="overflow-x:auto;">
-      <table>
-        <thead>
-        <tr><th>Editar<br>tarjeta</th><th>Métricas</th><th>Negocio</th><th>Slug</th><th>Código<br>QR</th><th>PIN</th><th>Ver<br>PIN</th><th>Panel<br>staff</th><th>Link<br>registro</th><th>Suscripción</th><th>Estado<br>de pago</th><th>Borrar</th></tr>
-        </thead>
-        <tbody>
-        ${rows || '<tr><td colspan="12">Todavía no has creado ningún negocio</td></tr>'}
-        </tbody>
-      </table>
+      <div class="biz-grid">
+        ${rows || '<p class="empty-state">Todavía no has creado ningún negocio</p>'}
       </div>
       <p id="deleteMsg" class="msg"></p>
 
