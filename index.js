@@ -5945,7 +5945,8 @@ function renderStaffPanel(b, platformName) {
   <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
   <style>${baseStaffStyles(b)}
     .scan-btn{background:${b.color_pink};margin-bottom:12px;}
-    .secondary-btn{width:100%;padding:10px;border:2px dashed ${b.color_brown};border-radius:12px;background:transparent;color:${b.color_brown};font-weight:700;font-size:13px;cursor:pointer;margin-top:14px;}
+    .secondary-btn{width:100%;padding:10px;border:2px solid ${b.color_brown};border-radius:12px;background:transparent;color:${b.color_brown};font-weight:700;font-size:13px;cursor:pointer;margin-top:14px;}
+    .register-hint{font-size:12px;color:${b.color_brown};opacity:.75;margin:14px 0 8px;line-height:1.4;text-align:center;}
     #registerForm{margin-top:10px;}
     #preview{width:100%;border-radius:14px;border:2px solid ${b.color_brown};margin-bottom:12px;display:none;}
     .scan-hint{font-size:11px;color:${b.color_brown_soft};text-align:center;margin:-4px 0 12px;}
@@ -5967,6 +5968,7 @@ function renderStaffPanel(b, platformName) {
       <button type="button" id="unstampBtn" class="secondary-btn">− Quitar un sello (por error)</button>
       <p class="msg" id="msg"></p>
 
+      <p class="register-hint">Cuando un cliente no tenga su celular o acceso a internet, intenta agregarlo manualmente con sus datos.</p>
       <button type="button" id="toggleRegisterBtn" class="secondary-btn">+ Registrar cliente nuevo</button>
       <form id="registerForm" style="display:none;">
         <input type="text" id="regName" placeholder="Nombre completo">
