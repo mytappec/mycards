@@ -1331,7 +1331,7 @@ async function renderAdminDashboard(env, admin) {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
         <div style="display:flex;align-items:center;gap:10px;">
           <img class="panel-logo" src="data:image/png;base64,${adminLogo}" alt="${escapeHtml(platformName)}">
-          <h1 style="white-space:nowrap;margin:0;">${escapeHtml(platformName)} by Anaelí Brand</h1>
+          <h1 style="white-space:nowrap;margin:0;">${escapeHtml(platformName)}</h1>
         </div>
         <div style="display:flex;align-items:center;gap:14px;">
           <a href="/brandpanel/leads" style="text-decoration:none;font-size:12px;font-weight:700;color:#42281B;background:#EBDA8B;padding:8px 14px;border-radius:8px;">📬 Solicitudes${leadsCount > 0 ? ` (${leadsCount})` : ''}</a>
@@ -1390,8 +1390,7 @@ async function renderAdminDashboard(env, admin) {
       <p id="deleteMsg" class="msg"></p>
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:34px;">
-        <h2 style="margin:0;">Crear negocio nuevo</h2>
-        <button type="button" id="toggleCreateBtn" style="width:auto;margin:0;padding:10px 18px;font-size:13px;">+ Nuevo negocio</button>
+        <h2 id="toggleCreateBtn" style="margin:0;cursor:pointer;user-select:none;">Crear negocio nuevo</h2>
       </div>
       <div id="createBusinessPanel" style="display:none;margin-top:10px;">
       <div class="create-flex">
@@ -1601,7 +1600,6 @@ async function renderAdminDashboard(env, admin) {
         const panel = document.getElementById('createBusinessPanel');
         const showing = panel.style.display !== 'none';
         panel.style.display = showing ? 'none' : 'block';
-        document.getElementById('toggleCreateBtn').textContent = showing ? '+ Nuevo negocio' : '– Ocultar formulario';
       });
       document.getElementById('toggleSettingsBtn').addEventListener('click', () => {
         const card = document.getElementById('settingsCard');
