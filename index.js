@@ -4454,16 +4454,16 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .stamp.reward:not(.filled)::after{opacity:1;animation:pulse 1.8s ease-in-out infinite;}
   @keyframes pulse{0%,100%{transform:scale(1);opacity:.55;}50%{transform:scale(1.04);opacity:1;}}
   .reward-tag{position:absolute;bottom:-13px;left:0;right:0;width:max-content;margin:0 auto;background:var(--butter-mid);border:1.5px solid var(--border-reward);color:var(--reward-heading);font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;white-space:nowrap;text-align:center;z-index:3;}
-  .reward-note{margin-top:27px;background:var(--butter-mid);border-radius:12px;padding:9px 14px;color:var(--reward-body);font-size:14px;line-height:1.35;}
+  .reward-note{margin-top:16px;background:var(--butter-mid);border-radius:12px;padding:7px 14px;color:var(--reward-body);font-size:14px;line-height:1.35;}
   .reward-note strong{display:block;font-family:var(--font-display);font-weight:var(--font-weight-reward);font-style:var(--font-style-reward);font-size:14.5px;margin-bottom:1px;color:var(--reward-heading);}
-  .qr-section{margin-top:10px;border-top:2px dashed var(--page-bg);padding-top:10px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;}
-  .qr-box{width:136px;height:136px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:16px;padding:8px;}
+  .qr-section{margin-top:14px;padding-top:0;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;}
+  .qr-box{width:116px;height:116px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:14px;padding:7px;margin-top:4px;}
   .qr-box canvas{width:100%!important;height:100%!important;border-radius:8px;display:block;}
-  .qr-copy{font-size:13px;color:var(--text-qr-instruction);line-height:1.4;max-width:290px;}
-  .qr-copy b{display:block;font-family:var(--font-display);font-weight:700;font-style:normal;font-size:16px;color:var(--text-qr-code);letter-spacing:.3px;margin-bottom:4px;}
-  .social-link{display:flex;align-items:center;justify-content:center;gap:7px;width:fit-content;margin:12px auto 0;padding:7px 14px;background:var(--instagram-bg);border-radius:99px;color:var(--text-instagram);text-decoration:none;font-size:12px;font-weight:700;}
-  .wallet-btn{display:block;width:fit-content;margin:12px auto 0;padding:6px;}
-  .wallet-btn img{display:block;width:150px;height:auto;}
+  .qr-instruction{font-size:13px;color:var(--text-qr-instruction);line-height:1.4;max-width:290px;margin:0;}
+  .qr-code-label{font-family:var(--font-display);font-weight:700;font-style:normal;font-size:16px;color:var(--text-qr-code);letter-spacing:.3px;margin:0;}
+  .social-link{display:flex;align-items:center;justify-content:center;gap:6px;width:fit-content;margin:10px auto 0;padding:6px 12px;background:var(--instagram-bg);border-radius:99px;color:var(--text-instagram);text-decoration:none;font-size:11px;font-weight:700;}
+  .wallet-btn{display:block;width:fit-content;margin:8px auto 0;padding:5px;}
+  .wallet-btn img{display:block;width:130px;height:auto;}
   .card{opacity:0;transform:translateY(10px);}
   .intro-bg{position:fixed;inset:0;background:#FDFBF2;z-index:100;}
   .intro-mascot{position:fixed;top:44%;left:50%;width:180px;height:auto;z-index:101;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18));animation:introWiggle .6s ease-in-out 1 forwards;}
@@ -4473,7 +4473,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     75%{transform:translate(-50%,-50%) translateX(9px) rotate(4deg);}
     100%{transform:translate(-50%,-50%) translateX(0) rotate(0deg);}
   }
-  .footer-brand{text-align:center;margin:22px 0 0;}
+  .footer-brand{text-align:center;margin:14px 0 0;}
   .footer-brand a{display:inline-block;}
   .footer-brand img{width:30%;min-width:105px;max-width:160px;height:auto;display:block;margin:0 auto;}
   @media (max-width:460px){ .intro-mascot{width:150px;} .footer-brand img{width:34%;min-width:98px;} }
@@ -4506,11 +4506,9 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
           <strong>${escapeHtml(b.reward_heading)}</strong>${escapeHtml(b.reward_text)}
         </div>
         <div class="qr-section">
+          <p class="qr-instruction">${escapeHtml(b.instruction_text)}</p>
+          <p class="qr-code-label">#${escapeHtml(customer.code)}</p>
           <div class="qr-box"><canvas id="qrCanvas"></canvas></div>
-          <div class="qr-copy">
-            <b>#${escapeHtml(customer.code)}</b>
-            ${escapeHtml(b.instruction_text)}
-          </div>
         </div>
         ${b.instagram_url ? `<a class="social-link" href="${escapeHtml(b.instagram_url)}" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
