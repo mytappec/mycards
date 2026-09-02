@@ -4255,12 +4255,54 @@ async function handleCustomerCard(env, slug, code, origin) {
 
   const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?')
     .bind(code, business.id).first();
-  if (!customer) return new Response('Tarjeta no encontrada', { status: 404 });
+  if (!customer) {
+    return new Response(renderCardNotFoundPage(business, slug), {
+      status: 404,
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+    });
+  }
 
   const platformName = await getPlatformName(env);
   return new Response(renderCustomerCard(business, customer, slug, origin, platformName), {
     headers: { 'Content-Type': 'text/html; charset=UTF-8' }
   });
+}
+
+// pantalla que se muestra cuando el código de la tarjeta ya no existe (lo más
+// común: el cliente completó su tarjeta, se le generó un código nuevo, y
+// volvió a entrar al link viejo guardado en sus favoritos). En vez de un
+// error feo a secas, es una pantalla con la marca del negocio que lo felicita
+// y lo guía a cómo seguir sumando sellos.
+function renderCardNotFoundPage(b, slug) {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
+  <title>¡Qué emoción! · ${escapeHtml(b.name)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;min-height:100vh;background:${b.color_page_bg};font-family:'Quicksand',sans-serif;padding:24px;display:flex;align-items:center;}
+    .wrap{width:100%;max-width:380px;margin:0 auto;}
+    .box{background:${b.color_card_bg};border:2px solid ${b.color_border_card};border-radius:24px;padding:36px 26px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.08);}
+    .box img.logo{max-width:130px;width:50%;height:auto;display:block;margin:0 auto 22px;}
+    .box h1{font-size:20px;color:${b.color_brown};margin:0 0 12px;line-height:1.3;}
+    .box p{font-size:14.5px;color:${b.color_brown};line-height:1.6;margin:0;opacity:.9;}
+    .box a{color:${b.color_brown};font-weight:700;}
+    .footer-brand{text-align:center;margin:22px 0 0;}
+    .footer-brand img{width:26%;min-width:95px;max-width:150px;height:auto;display:block;margin:0 auto;}
+  </style></head>
+  <body>
+    <div class="wrap">
+      <div class="box">
+        ${b.logo_base64 ? `<img class="logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">` : ''}
+        <h1>¡Qué emoción! Completaste tu primera Hey&nbsp;Tapp.</h1>
+        <p>Acumula más sellos escaneando nuevamente el código QR, o a través del <a href="/${slug}/nuevo">link de registro</a>.</p>
+      </div>
+      <div class="footer-brand">
+        <a href="https://heytapp.com" target="_blank" rel="noopener">
+          <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
+        </a>
+      </div>
+    </div>
+  </body></html>`;
 }
 
 function renderCustomerCard(b, customer, slug, origin, platformName) {
