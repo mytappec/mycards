@@ -1541,7 +1541,7 @@ async function renderAdminDashboard(env, admin) {
 
               <label>Instrucción para sumar sellos</label>
               <select id="instruction_text">
-                <option value="Muestra este código en caja para sumar tu sello en tu compra.">Negocio físico: mostrar en caja</option>
+                <option value="Muestra este código al vendedor / caja">Negocio físico: mostrar en caja</option>
                 <option value="Muestra este código al momento de pagar para sumar tu sello.">Negocio físico: mostrar al pagar</option>
                 <option value="Envía este código al confirmar tu pedido para sumar tu sello.">Negocio digital: al confirmar pedido</option>
                 <option value="Pega este código en el chat al hacer tu compra.">Negocio digital: pegar en el chat</option>
@@ -2091,7 +2091,7 @@ async function handleCreateBusiness(request, env) {
     reward_text: body.reward_text, reward_emoji: '⭐',
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url), staff_pin_hash: pinHash,
     staff_pin_note: body.pin_note || null,
-    instruction_text: body.instruction_text || 'Muestra este código en caja para sumar tu sello en tu compra.',
+    instruction_text: body.instruction_text || 'Muestra este código al vendedor / caja',
     plan: ['digital', 'fisico', 'wallet'].includes(body.plan) ? body.plan : 'wallet',
     wallet_enabled: body.plan === 'wallet' ? 1 : 0,
     strip_bg_base64: body.strip_bg_base64 || null,
@@ -3698,7 +3698,7 @@ async function handleEditBusinessForm(request, env, slug) {
 
               <label>Instrucción para sumar sellos</label>
               <select id="instruction_text">
-                <option value="Muestra este código en caja para sumar tu sello en tu compra."${b.instruction_text === 'Muestra este código en caja para sumar tu sello en tu compra.' ? ' selected' : ''}>Negocio físico: mostrar en caja</option>
+                <option value="Muestra este código al vendedor / caja"${b.instruction_text === 'Muestra este código al vendedor / caja' ? ' selected' : ''}>Negocio físico: mostrar en caja</option>
                 <option value="Muestra este código al momento de pagar para sumar tu sello."${b.instruction_text === 'Muestra este código al momento de pagar para sumar tu sello.' ? ' selected' : ''}>Negocio físico: mostrar al pagar</option>
                 <option value="Envía este código al confirmar tu pedido para sumar tu sello."${b.instruction_text === 'Envía este código al confirmar tu pedido para sumar tu sello.' ? ' selected' : ''}>Negocio digital: al confirmar pedido</option>
                 <option value="Pega este código en el chat al hacer tu compra."${b.instruction_text === 'Pega este código en el chat al hacer tu compra.' ? ' selected' : ''}>Negocio digital: pegar en el chat</option>
@@ -4456,10 +4456,10 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .reward-tag{position:absolute;bottom:-13px;left:0;right:0;width:max-content;margin:0 auto;background:var(--butter-mid);border:1.5px solid var(--border-reward);color:var(--reward-heading);font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;white-space:nowrap;text-align:center;z-index:3;}
   .reward-note{margin-top:16px;background:var(--butter-mid);border-radius:12px;padding:7px 14px;color:var(--reward-body);font-size:14px;line-height:1.35;}
   .reward-note strong{display:block;font-family:var(--font-display);font-weight:var(--font-weight-reward);font-style:var(--font-style-reward);font-size:14.5px;margin-bottom:1px;color:var(--reward-heading);}
-  .qr-section{margin-top:14px;padding-top:0;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;}
-  .qr-box{width:116px;height:116px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:14px;padding:7px;margin-top:4px;}
+  .qr-section{margin-top:10px;padding-top:0;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;}
+  .qr-box{width:116px;height:116px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:14px;padding:7px;margin-top:2px;}
   .qr-box canvas{width:100%!important;height:100%!important;border-radius:8px;display:block;}
-  .qr-instruction{font-size:13px;color:var(--text-qr-instruction);line-height:1.4;max-width:290px;margin:0;}
+  .qr-instruction{font-size:14.5px;font-weight:700;color:var(--text-qr-instruction);line-height:1.4;max-width:290px;margin:0;}
   .qr-code-label{font-family:var(--font-display);font-weight:700;font-style:normal;font-size:16px;color:var(--text-qr-code);letter-spacing:.3px;margin:0;}
   .social-link{display:flex;align-items:center;justify-content:center;gap:6px;width:fit-content;margin:10px auto 0;padding:6px 12px;background:var(--instagram-bg);border-radius:99px;color:var(--text-instagram);text-decoration:none;font-size:11px;font-weight:700;}
   .wallet-btn{display:block;width:fit-content;margin:8px auto 0;padding:5px;}
@@ -7609,7 +7609,7 @@ function walletBuildPassJSON(business, customer, env, origin) {
       backFields: [
         // FIX #2: el texto completo, sin recortar, siempre disponible al voltear la tarjeta
         { key: 'reward_full', label: 'Tu premio', value: rewardFull },
-        { key: 'info', label: 'Cómo funciona', value: business.instruction_text || 'Muestra este código en caja en cada compra para sumar un sello.' },
+        { key: 'info', label: 'Cómo funciona', value: business.instruction_text || 'Muestra este código al vendedor / caja' },
         { key: 'business', label: 'Negocio', value: business.name },
         // recordatorio de "hace tiempo no vienes" — solo aparece si alguna vez
         // se le mandó uno (ver handleWinBackReminders). El "%@" en changeMessage
