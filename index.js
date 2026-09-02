@@ -1191,17 +1191,16 @@ async function renderAdminDashboard(env, admin) {
         <a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a>
         <a href="/staff/${escapeHtml(b.slug)}" target="_blank">Panel staff</a>
         <a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a>
-        <span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span>
-        ${(b.plan || 'wallet') === 'digital' ? '<span class="biz-action-disabled">Métricas no incluidas</span>' : `<a href="/brandpanel/business/${escapeHtml(b.slug)}/metrics">📊 Métricas</a>`}
+        <span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">PIN</a></span>
         ${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;">🔒 Desbloquear staff</a>` : ''}
       </div>
       <div class="payment-cell" data-slug="${escapeHtml(b.slug)}">
         <div class="payment-field">
-          <label>Pagó</label>
+          <label>Inició el servicio</label>
           <input type="date" class="last-payment-input" value="${b.last_payment_date || ''}">
         </div>
         <div class="payment-field">
-          <label>Próximo</label>
+          <label>Próximo pago</label>
           <input type="date" class="next-payment-input" value="${b.next_payment_date || ''}" style="${isOverdue ? 'border-color:#B23A3A;color:#B23A3A;font-weight:700;' : ''}">
         </div>
         <button type="button" class="save-payment-btn">Guardar</button>
