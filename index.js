@@ -1188,12 +1188,12 @@ async function renderAdminDashboard(env, admin) {
       </div>
       <div class="biz-actions">
         <a href="/brandpanel/business/${escapeHtml(b.slug)}/edit">Editar tarjeta</a>
-        ${(b.plan || 'wallet') === 'digital' ? '<span class="biz-action-disabled">Métricas no incluidas</span>' : `<a href="/brandpanel/business/${escapeHtml(b.slug)}/metrics">📊 Métricas</a>`}
         <a href="#" class="download-qr" data-slug="${escapeHtml(b.slug)}" data-name="${escapeHtml(b.name)}">Descargar QR</a>
-        <span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span>
-        ${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;">🔒 Desbloquear staff</a>` : ''}
         <a href="/staff/${escapeHtml(b.slug)}" target="_blank">Panel staff</a>
         <a href="/${escapeHtml(b.slug)}/nuevo" target="_blank">Link registro</a>
+        <span class="pin-cell" data-slug="${escapeHtml(b.slug)}">🔒 <a href="#" class="reveal-pin">Ver PIN</a></span>
+        ${(b.plan || 'wallet') === 'digital' ? '<span class="biz-action-disabled">Métricas no incluidas</span>' : `<a href="/brandpanel/business/${escapeHtml(b.slug)}/metrics">📊 Métricas</a>`}
+        ${isLocked ? `<a href="#" class="unlock-biz" data-slug="${escapeHtml(b.slug)}" style="color:#B26A00;">🔒 Desbloquear staff</a>` : ''}
       </div>
       <div class="payment-cell" data-slug="${escapeHtml(b.slug)}">
         <div class="payment-field">
