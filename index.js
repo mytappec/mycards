@@ -6675,15 +6675,15 @@ async function handleHistorial(request, env, slug, code) {
   <style>
     :root{color-scheme:light;}
     *{box-sizing:border-box;color-scheme:light;}
-    body{margin:0;padding:24px;font-family:'Quicksand',sans-serif;background:${business.color_page_bg};}
+    body{margin:0;padding:24px;font-family:'Quicksand',sans-serif;background:${HEY_TAPP_BRAND.paleBlue};}
     .wrap{max-width:640px;margin:0 auto;}
-    h1{font-family:'Baloo 2',sans-serif;color:${business.color_brown};font-size:23px;margin-bottom:3px;}
-    p.sub{color:${business.color_brown_soft};font-size:14.5px;margin-top:0;}
-    table{width:100%;border-collapse:collapse;background:${business.color_card_bg};border-radius:12px;overflow:hidden;font-size:15px;box-shadow:0 3px 12px rgba(0,0,0,.06);}
-    th,td{padding:12px 14px;text-align:left;border-bottom:1px solid ${business.color_page_bg};color:${business.color_brown};background:${business.color_card_bg};}
-    th{background:${business.color_brown};color:#FFFFFF!important;font-size:14px;}
-    a.back{display:inline-block;margin-bottom:16px;color:${business.color_brown};font-weight:700;text-decoration:none;font-size:15px;}
-    .resumen{background:${business.color_butter_mid};border:2px solid ${business.color_brown};border-radius:12px;padding:14px 18px;margin-bottom:18px;font-size:15px;color:${business.color_brown};line-height:1.7;}
+    h1{font-family:'Baloo 2',sans-serif;color:${HEY_TAPP_BRAND.brown};font-size:23px;margin-bottom:3px;}
+    p.sub{color:${HEY_TAPP_BRAND.brown};opacity:.75;font-size:14.5px;margin-top:0;}
+    table{width:100%;border-collapse:collapse;background:${HEY_TAPP_BRAND.cream};border-radius:12px;overflow:hidden;font-size:15px;box-shadow:0 3px 12px rgba(0,0,0,.06);}
+    th,td{padding:12px 14px;text-align:left;border-bottom:1px solid ${HEY_TAPP_BRAND.paleBlue};color:${HEY_TAPP_BRAND.brown};background:${HEY_TAPP_BRAND.cream};}
+    th{background:${HEY_TAPP_BRAND.brown};color:#FFFFFF!important;font-size:14px;}
+    a.back{display:inline-block;margin-bottom:16px;color:${HEY_TAPP_BRAND.brown};font-weight:700;text-decoration:none;font-size:15px;}
+    .resumen{background:${HEY_TAPP_BRAND.mustard};border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:12px;padding:14px 18px;margin-bottom:18px;font-size:15px;color:${HEY_TAPP_BRAND.brown};line-height:1.7;}
     .footer-brand{text-align:center;margin:24px 0 0;}
     .footer-brand a{display:inline-block;}
     .footer-brand img{width:24%;min-width:90px;max-width:130px;height:auto;display:block;margin:0 auto;}
@@ -6691,9 +6691,9 @@ async function handleHistorial(request, env, slug, code) {
       table, thead, tbody, th, td, tr { display:block; }
       thead { display:none; }
       table{background:none;box-shadow:none;}
-      tr{background:${business.color_card_bg};border:2px solid ${business.color_brown};border-radius:14px;margin-bottom:12px;padding:10px 6px;}
+      tr{background:${HEY_TAPP_BRAND.cream};border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:14px;margin-bottom:12px;padding:10px 6px;}
       td{border:none;padding:8px 14px;font-size:16px;}
-      td::before{content:attr(data-label);display:block;font-size:11px;font-weight:700;color:${business.color_brown_soft};text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;}
+      td::before{content:attr(data-label);display:block;font-size:11px;font-weight:700;color:${HEY_TAPP_BRAND.brown};opacity:.75;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;}
     }
   </style></head>
   <body>
