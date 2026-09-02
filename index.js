@@ -4456,10 +4456,10 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .reward-tag{position:absolute;bottom:-13px;left:0;right:0;width:max-content;margin:0 auto;background:var(--butter-mid);border:1.5px solid var(--border-reward);color:var(--reward-heading);font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;white-space:nowrap;text-align:center;z-index:3;}
   .reward-note{margin-top:16px;background:var(--butter-mid);border-radius:12px;padding:7px 14px;color:var(--reward-body);font-size:14px;line-height:1.35;}
   .reward-note strong{display:block;font-family:var(--font-display);font-weight:var(--font-weight-reward);font-style:var(--font-style-reward);font-size:14.5px;margin-bottom:1px;color:var(--reward-heading);}
-  .qr-section{margin-top:10px;padding-top:0;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;}
+  .qr-section{margin-top:12px;border-top:1px dashed var(--page-bg);padding-top:12px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;}
   .qr-box{width:116px;height:116px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:14px;padding:7px;margin-top:2px;}
   .qr-box canvas{width:100%!important;height:100%!important;border-radius:8px;display:block;}
-  .qr-instruction{font-size:14.5px;font-weight:700;color:var(--text-qr-instruction);line-height:1.4;max-width:290px;margin:0;}
+  .qr-instruction{font-size:13px;font-weight:700;color:var(--text-qr-instruction);line-height:1.4;white-space:nowrap;margin:0;}
   .qr-code-label{font-family:var(--font-display);font-weight:700;font-style:normal;font-size:16px;color:var(--text-qr-code);letter-spacing:.3px;margin:0;}
   .social-link{display:flex;align-items:center;justify-content:center;gap:6px;width:fit-content;margin:10px auto 0;padding:6px 12px;background:var(--instagram-bg);border-radius:99px;color:var(--text-instagram);text-decoration:none;font-size:11px;font-weight:700;}
   .wallet-btn{display:block;width:fit-content;margin:8px auto 0;padding:5px;}
