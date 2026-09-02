@@ -147,6 +147,7 @@ export default {
         const slug = parts[1];
         if (parts[2] === 'login' && request.method === 'POST') return handleLogin(request, env, slug);
         if (parts[2] === 'stamp' && request.method === 'POST') return handleStamp(request, env, slug);
+        if (parts[2] === 'unstamp' && request.method === 'POST') return handleUnstamp(request, env, slug);
         if (parts[2] === 'register' && request.method === 'POST') return handleRegister(request, env, slug);
         if (parts[2] === 'clientes' && parts[3] === 'borrar-varios' && request.method === 'POST') return handleBulkDeleteCustomers(request, env, slug);
         if (parts[2] === 'clientes') return handleClientesList(request, env, slug);
@@ -954,26 +955,28 @@ function sanitizeTotalStamps(value, fallback) {
   return n;
 }
 
-function generateCode(slug) {
-  const prefix = slug.slice(0, 2).toUpperCase();
-  // antes: 6 caracteres hexadecimales (mezcla de números y letras A-F) — tedioso de
-  // escribir a mano. Ahora: solo dígitos, mucho más fácil de dictar/teclear.
-  const rand = crypto.getRandomValues(new Uint8Array(6));
-  const suffix = [...rand].map(b => b % 10).join('');
-  return `${prefix}${suffix}`;
+function generateCode() {
+  // 4 dígitos, más fácil de dictar y teclear a mano. Único solo dentro de
+  // cada negocio (no en toda la plataforma), así que 10,000 combinaciones
+  // por negocio alcanzan de sobra.
+  const rand = crypto.getRandomValues(new Uint8Array(4));
+  return [...rand].map(b => b % 10).join('');
 }
 
-// el código es único en TODA la base de datos (no solo por negocio), así que antes de
-// usarlo comprobamos que no exista ya. Con el azar disponible esto casi nunca se repite,
-// pero si algún día pasa, aquí se reintenta en vez de fallar.
+// el código es único solo DENTRO del negocio (dos negocios distintos pueden
+// tener, cada uno, un cliente con el código "4821" sin ningún problema,
+// porque el staff siempre busca dentro de su propio negocio)
 async function generateUniqueCode(env, slug) {
   for (let attempt = 0; attempt < 5; attempt++) {
-    const code = generateCode(slug);
-    const existing = await env.DB.prepare('SELECT id FROM customers WHERE code = ?').bind(code).first();
+    const code = generateCode();
+    const existing = await env.DB.prepare(
+      'SELECT c.id FROM customers c JOIN businesses b ON c.business_id = b.id WHERE c.code = ? AND b.slug = ?'
+    ).bind(code, slug).first();
     if (!existing) return code;
   }
-  // si en 5 intentos seguidos hubo choque (prácticamente imposible), se agrega algo de tiempo para forzar diferencia
-  return generateCode(slug) + Date.now().toString(36).slice(-2).toUpperCase();
+  // si en 5 intentos seguidos hubo choque (prácticamente imposible con 10,000
+  // combinaciones por negocio), se agrega algo de tiempo para forzar diferencia
+  return generateCode() + Date.now().toString(36).slice(-2).toUpperCase();
 }
 
 function getCookie(request, name) {
@@ -5961,6 +5964,7 @@ function renderStaffPanel(b, platformName) {
         <input type="text" id="code" placeholder="Código del cliente" autocapitalize="characters">
         <button type="submit">Sumar sello</button>
       </form>
+      <button type="button" id="unstampBtn" class="secondary-btn">➖ Quitar un sello (por error)</button>
       <p class="msg" id="msg"></p>
 
       <button type="button" id="toggleRegisterBtn" class="secondary-btn">➕ Registrar cliente nuevo</button>
@@ -6028,6 +6032,29 @@ function renderStaffPanel(b, platformName) {
       document.getElementById('stampForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         await submitStamp(codeInput.value.trim());
+      });
+
+      document.getElementById('unstampBtn').addEventListener('click', async () => {
+        const code = codeInput.value.trim();
+        if (!code) {
+          msg.textContent = 'Escribe o escanea el código del cliente primero.';
+          msg.className = 'msg err';
+          return;
+        }
+        if (!confirm('¿Quitar un sello a este cliente? Es para corregir un error (por ejemplo, si se selló dos veces).')) return;
+        msg.textContent = 'Quitando...'; msg.className = 'msg';
+        const res = await fetch(location.pathname + '/unstamp', {
+          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msg.textContent = '↩️ Sello quitado: ' + data.stamps + '/' + data.total;
+          msg.className = 'msg ok';
+          codeInput.value = '';
+        } else {
+          msg.textContent = data.error || 'No se pudo quitar el sello';
+          msg.className = 'msg err';
+        }
       });
 
       document.getElementById('scanBtn').addEventListener('click', async () => {
@@ -6397,7 +6424,8 @@ async function handleClientesList(request, env, slug) {
     tr:nth-child(even) td{background:${HEY_TAPP_BRAND.paleBlue};}
     a{color:${HEY_TAPP_BRAND.brown};font-weight:700;}
     a.back{display:inline-block;margin-bottom:16px;color:${HEY_TAPP_BRAND.brown};font-weight:700;text-decoration:none;font-size:15px;}
-    .toolbar{display:flex;align-items:center;gap:12px;margin:14px 0;}
+    .toolbar{display:flex;align-items:center;gap:12px;margin:14px 0;flex-wrap:wrap;}
+    .search-input{flex:1;min-width:200px;padding:10px 14px;border-radius:10px;border:1.5px solid ${HEY_TAPP_BRAND.brown};font-family:'Quicksand',sans-serif;font-size:14px;background:${HEY_TAPP_BRAND.cream};color:${HEY_TAPP_BRAND.brown};}
     button#deleteSelectedBtn{background:#B23A3A;color:white;border:none;border-radius:10px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;}
     button#deleteSelectedBtn:disabled{background:#ccc;cursor:not-allowed;}
     .msg{font-size:14px;margin:0;}
@@ -6441,9 +6469,11 @@ async function handleClientesList(request, env, slug) {
       <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
     </div>
     <div class="toolbar">
+      <input type="text" id="searchInput" placeholder="Buscar por nombre o cédula..." class="search-input">
       <button type="button" id="deleteSelectedBtn" disabled>Borrar seleccionados (0)</button>
       <p class="msg" id="deleteMsg"></p>
     </div>
+    <p class="msg" id="noResultsMsg" style="display:none;">No se encontró ningún cliente con ese nombre o cédula.</p>
     <table>
       <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Nombre</th><th>Cédula</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr></thead>
       <tbody>
@@ -6451,6 +6481,28 @@ async function handleClientesList(request, env, slug) {
       </tbody>
     </table>
     <script>
+      const searchInput = document.getElementById('searchInput');
+      const noResultsMsg = document.getElementById('noResultsMsg');
+      function normalize(str) {
+        return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      }
+      function filterRows() {
+        const q = normalize(searchInput.value.trim());
+        const trs = Array.from(document.querySelectorAll('tbody tr'));
+        let visibleCount = 0;
+        trs.forEach(function(tr) {
+          const nameCell = tr.querySelector('td[data-label="Nombre"]');
+          const cedulaCell = tr.querySelector('td[data-label="Cédula"]');
+          if (!nameCell) return; // fila de "todavía no hay clientes"
+          const haystack = normalize((nameCell.textContent || '') + ' ' + (cedulaCell ? cedulaCell.textContent : ''));
+          const match = !q || haystack.indexOf(q) !== -1;
+          tr.style.display = match ? '' : 'none';
+          if (match) visibleCount++;
+        });
+        noResultsMsg.style.display = (q && visibleCount === 0) ? 'block' : 'none';
+      }
+      searchInput.addEventListener('input', filterRows);
+
       const checkboxes = () => Array.from(document.querySelectorAll('.row-check'));
       const deleteBtn = document.getElementById('deleteSelectedBtn');
       function updateButton() {
@@ -6658,6 +6710,55 @@ async function handleStamp(request, env, slug) {
   await env.DB.prepare('UPDATE customers SET stamps = ? WHERE id = ?').bind(newStamps, customer.id).run();
   await walletNotifyDevices(env, slug, code);
   return new Response(JSON.stringify({ ok: true, redeemed: false, stamps: newStamps, total: business.total_stamps }),
+    { headers: { 'Content-Type': 'application/json' } });
+}
+
+// corrige un sello puesto por error (p. ej. sellaron dos veces por accidente).
+// Solo resta, nunca agrega (para eso ya está "Sumar sello"), y nunca baja de
+// cero. También borra la visita más reciente de ese ciclo para que el
+// historial de compras quede igual de correcto que el conteo de sellos.
+// No deshace un premio ya canjeado (eso ya cerró el ciclo y generó un código
+// nuevo), solo corrige sellos dentro del ciclo actual.
+async function handleUnstamp(request, env, slug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  if (business.is_suspended) {
+    const platformName = await getPlatformName(env);
+    return new Response(JSON.stringify({ error: `Este negocio está suspendido. Contacta a la administradora de ${platformName}.` }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const cookieVal = getCookie(request, 'staff_session');
+  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
+    return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a ingresar el PIN' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const body = await request.json();
+  const code = (body.code || '').trim().toUpperCase();
+  const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?')
+    .bind(code, business.id).first();
+  if (!customer) {
+    return new Response(JSON.stringify({ error: 'No se encontró ese código de cliente' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  if (customer.stamps <= 0) {
+    return new Response(JSON.stringify({ error: 'Este cliente no tiene sellos en su ciclo actual para quitar.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const newStamps = customer.stamps - 1;
+  await env.DB.prepare('UPDATE customers SET stamps = ? WHERE id = ?').bind(newStamps, customer.id).run();
+
+  // borra la visita más reciente de este ciclo (la que corresponde al sello que se quita),
+  // para que el historial de compras no quede con una visita "fantasma"
+  const lastVisit = await env.DB.prepare(
+    'SELECT id FROM visits WHERE customer_id = ? AND cycle = ? ORDER BY id DESC LIMIT 1'
+  ).bind(customer.id, customer.cycle).first();
+  if (lastVisit) {
+    await env.DB.prepare('DELETE FROM visits WHERE id = ?').bind(lastVisit.id).run();
+  }
+
+  await walletNotifyDevices(env, slug, code);
+  return new Response(JSON.stringify({ ok: true, stamps: newStamps, total: business.total_stamps }),
     { headers: { 'Content-Type': 'application/json' } });
 }
 
