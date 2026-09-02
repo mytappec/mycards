@@ -4293,7 +4293,7 @@ function renderCardNotFoundPage(b, slug) {
     <div class="wrap">
       <div class="box">
         ${b.logo_base64 ? `<img class="logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">` : ''}
-        <h1>¡Qué emoción! Completaste tu primera Hey&nbsp;Tapp.</h1>
+        <h1>¡Qué emoción! Completaste tu primer Hey&nbsp;Tapp.</h1>
         <p>Acumula más sellos escaneando nuevamente el código QR, o a través del <a href="/${slug}/nuevo">link de registro</a>.</p>
       </div>
       <div class="footer-brand">
