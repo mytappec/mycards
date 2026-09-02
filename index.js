@@ -5964,10 +5964,10 @@ function renderStaffPanel(b, platformName) {
         <input type="text" id="code" placeholder="Código del cliente" autocapitalize="characters">
         <button type="submit">Sumar sello</button>
       </form>
-      <button type="button" id="unstampBtn" class="secondary-btn">➖ Quitar un sello (por error)</button>
+      <button type="button" id="unstampBtn" class="secondary-btn">− Quitar un sello (por error)</button>
       <p class="msg" id="msg"></p>
 
-      <button type="button" id="toggleRegisterBtn" class="secondary-btn">➕ Registrar cliente nuevo</button>
+      <button type="button" id="toggleRegisterBtn" class="secondary-btn">+ Registrar cliente nuevo</button>
       <form id="registerForm" style="display:none;">
         <input type="text" id="regName" placeholder="Nombre completo">
         <input type="text" id="regCedula" placeholder="Cédula">
