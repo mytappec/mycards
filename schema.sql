@@ -122,26 +122,51 @@ CREATE TABLE IF NOT EXISTS customers (
   code TEXT UNIQUE NOT NULL,              -- ej. 'CC-JB2317', va en el link y en el QR
   name TEXT NOT NULL,
   phone TEXT,
-  cedula TEXT,
   stamps INTEGER NOT NULL DEFAULT 0,
   cycle INTEGER NOT NULL DEFAULT 1,       -- se suma 1 cada vez que canjea el premio
   redeemed_at TEXT,                       -- fecha del último canje, NULL si no ha canjeado este ciclo
-  last_visit TEXT,
-
-  -- Apple Wallet
-  en_wallet INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  cedula TEXT,
   wallet_auth_token TEXT,
 
   -- recordatorios automáticos a clientes inactivos
-  reminder_text TEXT,
-  reminder_nonce INTEGER NOT NULL DEFAULT 0,
   last_reminder_sent_at TEXT,
-
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  reminder_nonce INTEGER NOT NULL DEFAULT 0,
+  reminder_text TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_customers_code ON customers(code);
 CREATE INDEX IF NOT EXISTS idx_customers_business ON customers(business_id);
+
+-- ============================================================
+-- Un registro por cada vez que un cliente suma un sello (para el
+-- historial de "última visita" y las métricas del negocio)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS visits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL REFERENCES customers(id),
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  cycle INTEGER NOT NULL,
+  stamped_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_visits_customer ON visits(customer_id);
+CREATE INDEX IF NOT EXISTS idx_visits_business ON visits(business_id);
+
+-- ============================================================
+-- Un registro por cada dispositivo que agregó la tarjeta a Apple Wallet
+-- (Apple registra/desregistra dispositivos y manda pushes con esto)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS wallet_registrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  device_library_identifier TEXT NOT NULL,
+  pass_type_identifier TEXT NOT NULL,
+  serial_number TEXT NOT NULL,            -- ej. 'cloudscookies-CC-JB2317'
+  push_token TEXT NOT NULL,
+  UNIQUE(device_library_identifier, pass_type_identifier, serial_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_reg_serial ON wallet_registrations(serial_number);
 
 -- ============================================================
 -- Tabla de solicitudes de info / leads (se agregó después, por eso
@@ -155,7 +180,7 @@ CREATE TABLE IF NOT EXISTS leads (
   instagram TEXT,
   business_type TEXT,
   emailed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
   payment_email_sent_at TEXT,
-  plan_confirmed_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  plan_confirmed_at TEXT
 );
