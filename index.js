@@ -3468,12 +3468,16 @@ async function handleLeadsList(request, env) {
     const planLabel = l.business_type === 'digital' ? 'Emprende Digital'
       : l.business_type === 'fisico' ? 'Emprende Físico'
       : l.business_type === 'wallet' ? 'Plan Fideliza Wallet' : '—';
+    const confirmoPlan = !!l.business_type;
     return `
     <tr data-id="${l.id}">
       <td data-label="Nombre">${escapeHtml(l.name)}</td>
       <td data-label="Celular"><a href="tel:${escapeHtml(l.phone)}">${escapeHtml(l.phone)}</a></td>
       <td data-label="Correo"><a href="mailto:${escapeHtml(l.email)}">${escapeHtml(l.email)}</a></td>
       <td data-label="Instagram">${l.instagram ? escapeHtml(l.instagram) : '—'}</td>
+      <td data-label="Estado">${confirmoPlan
+        ? `<span style="display:inline-block;font-size:11px;font-weight:800;color:#215A34;background:#DCEEDC;padding:4px 10px;border-radius:99px;white-space:nowrap;">✓ Confirmó plan</span>`
+        : `<span style="display:inline-block;font-size:11px;font-weight:700;color:#6B6259;background:#F0EEE6;padding:4px 10px;border-radius:99px;white-space:nowrap;">Solo interesado</span>`}</td>
       <td data-label="Interesado en">${planLabel}</td>
       <td data-label="Fecha">${escapeHtml(l.created_at)}</td>
       <td data-label="Correo enviado"><input type="checkbox" class="emailedCheck" data-id="${l.id}" ${l.emailed ? 'checked' : ''} style="width:20px;height:20px;cursor:pointer;"></td>
@@ -3552,7 +3556,7 @@ async function handleLeadsList(request, env) {
     ${tableMissing
       ? `<div class="warn-box"><b>Todavía falta un paso.</b><br>La tabla "leads" no existe en tu base de datos todavía. Entra a Cloudflare → tu base de datos D1 → pestaña <b>Console</b>, y pega esto:<br><br><code>CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT NOT NULL, instagram TEXT, business_type TEXT, emailed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));</code><br><br>Después de correr eso una sola vez, esta página va a funcionar y vas a poder ver aquí todas las solicitudes que lleguen.</div>`
       : `<p class="sub">El correo automático a hola@heytapp.com está activo por FormSubmit — esto es tu respaldo, revísalo si algún correo no llegó.</p>
-        ${results.length ? `<table><thead><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>Instagram</th><th>Interesado en</th><th>Fecha</th><th>Correo enviado</th><th>Confirmación de pago</th><th>Borrar</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Todavía no hay solicitudes.</div>'}`
+        ${results.length ? `<table><thead><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>Instagram</th><th>Estado</th><th>Interesado en</th><th>Fecha</th><th>Correo enviado</th><th>Confirmación de pago</th><th>Borrar</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Todavía no hay solicitudes.</div>'}`
     }
     <script>
       document.getElementById('genLinkBtn').addEventListener('click', async function() {
