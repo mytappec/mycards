@@ -2368,12 +2368,12 @@ function buildPaymentConfirmationEmailHtml(lead, plan) {
 
           <!-- logo arriba, sin caja, encima del naranja -->
           <tr><td align="center" style="padding-bottom:22px;">
-            <img src="https://pub-38ca15c9de654a109a103b84c09d4722.r2.dev/logo-cream.png" alt="Hey Tapp" style="width:130px;height:auto;display:block;margin:0 auto;">
+            <img src="https://pub-38ca15c9de654a109a103b84c09d4722.r2.dev/logo-cream.png" alt="Hey Tapp" width="130" height="71" style="width:130px;height:auto;display:block;margin:0 auto;">
           </td></tr>
 
           <!-- encabezado sobre el naranja -->
-          <tr><td align="center" style="padding:0 20px 26px;">
-            <p style="font-family:'Baloo 2',-apple-system,sans-serif;font-size:24px;font-weight:800;color:#FDFBF2;margin:0 0 10px;line-height:1.3;">¡Tomaste una excelente decisión!</p>
+          <tr><td align="center" style="padding:0 12px 26px;">
+            <p style="font-family:'Baloo 2',-apple-system,sans-serif;font-size:18px;font-weight:800;color:#89CFF0;margin:0 0 10px;line-height:1.3;letter-spacing:-0.3px;">¡Tomaste una excelente decisión!</p>
             <p style="font-size:14.5px;line-height:1.65;color:#FDFBF2;opacity:.94;margin:0 auto;max-width:400px;">Gracias por confiar en Hey Tapp para fidelizar a tus clientes. Desde ahora, cada compra los acerca un poco más a su recompensa, y esas visitas que antes eran ocasionales se van a volver toda una costumbre.</p>
           </td></tr>
 
@@ -2407,7 +2407,7 @@ function buildPaymentConfirmationEmailHtml(lead, plan) {
 
               <tr><td style="padding:0 30px 20px;">
                 <p style="font-size:14px;font-weight:700;color:#42281B;margin:0 0 8px;">Datos bancarios para realizar el pago:</p>
-                <img src="https://pub-38ca15c9de654a109a103b84c09d4722.r2.dev/datos-bancarios.png" alt="Datos bancarios Hey Tapp" style="width:100%;max-width:460px;height:auto;border-radius:18px;display:block;">
+                <img src="https://pub-38ca15c9de654a109a103b84c09d4722.r2.dev/datos-bancarios.png" alt="Datos bancarios Hey Tapp" width="460" height="460" style="width:100%;max-width:460px;height:auto;border-radius:18px;display:block;">
               </td></tr>
 
               <tr><td style="padding:0 30px 30px;">
@@ -2419,10 +2419,10 @@ function buildPaymentConfirmationEmailHtml(lead, plan) {
 
           <!-- pie: texto y mascota completa sobre el naranja -->
           <tr><td align="center" style="padding-top:26px;">
-            <p style="font-size:11.5px;color:#FDFBF2;opacity:.75;margin:0;">Hey Tapp · hola@heytapp.com</p>
+            <p style="font-size:11.5px;color:#FDFBF2;opacity:.75;margin:0;">Hey Tapp · <a href="mailto:hola@heytapp.com" style="color:#FDFBF2;text-decoration:underline;">hola@heytapp.com</a></p>
           </td></tr>
           <tr><td align="center" style="padding-top:24px;">
-            <img src="https://pub-38ca15c9de654a109a103b84c09d4722.r2.dev/mascota-izq.png" alt="" style="width:190px;height:auto;display:block;">
+            <img src="https://pub-38ca15c9de654a109a103b84c09d4722.r2.dev/mascota-izq.png" alt="" width="190" height="210" style="width:190px;height:auto;display:block;margin:0 auto;">
           </td></tr>
 
         </table>
@@ -3496,7 +3496,7 @@ async function handleLeadsList(request, env) {
       : l.business_type === 'wallet' ? 'Plan Fideliza Wallet' : '—';
     const confirmoPlan = !!l.plan_confirmed_at;
     return `
-    <tr data-id="${l.id}">
+    <tr data-id="${l.id}" data-confirmado="${confirmoPlan ? '1' : '0'}">
       <td data-label="Nombre">${escapeHtml(l.name)}</td>
       <td data-label="Celular"><a href="tel:${escapeHtml(l.phone)}">${escapeHtml(l.phone)}</a></td>
       <td data-label="Correo"><a href="mailto:${escapeHtml(l.email)}">${escapeHtml(l.email)}</a></td>
@@ -3523,6 +3523,9 @@ async function handleLeadsList(request, env) {
       <td data-label="Borrar"><button type="button" class="deleteLeadBtn" data-id="${l.id}" style="background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;">Borrar</button></td>
     </tr>`;
   }).join('');
+
+  const confirmadosCount = results.filter(l => !!l.plan_confirmed_at).length;
+  const interesadosCount = results.length - confirmadosCount;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
   <title>Solicitudes · Hey Tapp</title>
@@ -3582,6 +3585,11 @@ async function handleLeadsList(request, env) {
     ${tableMissing
       ? `<div class="warn-box"><b>Todavía falta un paso.</b><br>La tabla "leads" no existe en tu base de datos todavía. Entra a Cloudflare → tu base de datos D1 → pestaña <b>Console</b>, y pega esto:<br><br><code>CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT NOT NULL, instagram TEXT, business_type TEXT, emailed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));</code><br><br>Después de correr eso una sola vez, esta página va a funcionar y vas a poder ver aquí todas las solicitudes que lleguen.</div>`
       : `<p class="sub">El correo automático a hola@heytapp.com está activo por FormSubmit — esto es tu respaldo, revísalo si algún correo no llegó.</p>
+        ${results.length ? `<div class="estadoFilterTabs" style="display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap;">
+          <div role="button" tabindex="0" class="estadoFilterBtn" data-filter="all" style="cursor:pointer;font-size:13px;font-weight:700;padding:8px 14px;border-radius:99px;background:#42281B;color:#fff;">Todos (${results.length})</div>
+          <div role="button" tabindex="0" class="estadoFilterBtn" data-filter="confirmado" style="cursor:pointer;font-size:13px;font-weight:700;padding:8px 14px;border-radius:99px;background:#F0EEE6;color:#42281B;">✓ Confirmaron plan (${confirmadosCount})</div>
+          <div role="button" tabindex="0" class="estadoFilterBtn" data-filter="interesado" style="cursor:pointer;font-size:13px;font-weight:700;padding:8px 14px;border-radius:99px;background:#F0EEE6;color:#42281B;">Solo interesados (${interesadosCount})</div>
+        </div>` : ''}
         ${results.length ? `<table><thead><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>Instagram</th><th>Estado</th><th>Interesado en</th><th>Fecha</th><th>Correo enviado</th><th>Confirmación de pago</th><th>Borrar</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Todavía no hay solicitudes.</div>'}`
     }
     <script>
@@ -3629,6 +3637,21 @@ async function handleLeadsList(request, env) {
           cb.disabled = false;
         });
       });
+      document.querySelectorAll('.estadoFilterBtn').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.estadoFilterBtn').forEach(function(t) {
+            t.style.background = '#F0EEE6'; t.style.color = '#42281B';
+          });
+          tab.style.background = '#42281B'; tab.style.color = '#fff';
+          const filter = tab.dataset.filter;
+          document.querySelectorAll('tbody tr[data-confirmado]').forEach(function(row) {
+            if (filter === 'all') { row.style.display = ''; return; }
+            const isConfirmado = row.dataset.confirmado === '1';
+            const show = (filter === 'confirmado' && isConfirmado) || (filter === 'interesado' && !isConfirmado);
+            row.style.display = show ? '' : 'none';
+          });
+        });
+      });
       document.querySelectorAll('.toggleConfirmadoBtn').forEach(function(el) {
         el.addEventListener('click', async function() {
           const id = el.dataset.id;
@@ -3643,9 +3666,11 @@ async function handleLeadsList(request, env) {
               if (data.confirmed) {
                 el.textContent = '✓ Confirmó plan';
                 el.setAttribute('style', 'display:inline-block;cursor:pointer;font-size:11px;font-weight:800;color:#215A34;background:#DCEEDC;padding:4px 10px;border-radius:99px;white-space:nowrap;');
+                el.closest('tr').dataset.confirmado = '1';
               } else {
                 el.textContent = 'Solo interesado';
                 el.setAttribute('style', 'display:inline-block;cursor:pointer;font-size:11px;font-weight:700;color:#6B6259;background:#F0EEE6;padding:4px 10px;border-radius:99px;white-space:nowrap;');
+                el.closest('tr').dataset.confirmado = '0';
               }
             } else {
               el.textContent = original; el.setAttribute('style', originalStyle);
