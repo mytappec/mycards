@@ -2491,6 +2491,7 @@ async function handleToggleConfirmado(request, env, id) {
 }
 
 
+async function handleSendPaymentConfirmation(request, env, id) {
   const cookieVal = getCookie(request, 'admin_session');
   const admin = await getAdminFromSession(env, cookieVal);
   if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
