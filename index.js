@@ -2670,14 +2670,35 @@ async function handleCreateLead(request, env) {
   // se intenta guardar en la base de datos, pero si algo falla aquí (por
   // ejemplo, si todavía no corriste la migración de la tabla "leads") no
   // debe tumbar el envío completo — igual intentamos mandar el correo.
+  // si viene de la página de info (from=info) con un plan elegido, es una
+  // confirmación real (le dieron clic a "Elijo este plan"), no solo interés
   let leadId = null;
+  const isConfirmedIntent = from === 'info' && !!businessType;
   try {
-    const { meta } = await env.DB.prepare(
-      'INSERT INTO leads (name, phone, email, instagram, business_type) VALUES (?, ?, ?, ?, ?)'
-    ).bind(name, phone, email, instagram || null, businessType).run();
-    leadId = meta.last_row_id;
+    if (isConfirmedIntent) {
+      const { meta } = await env.DB.prepare(
+        "INSERT INTO leads (name, phone, email, instagram, business_type, plan_confirmed_at) VALUES (?, ?, ?, ?, ?, datetime('now'))"
+      ).bind(name, phone, email, instagram || null, businessType).run();
+      leadId = meta.last_row_id;
+    } else {
+      const { meta } = await env.DB.prepare(
+        'INSERT INTO leads (name, phone, email, instagram, business_type) VALUES (?, ?, ?, ?, ?)'
+      ).bind(name, phone, email, instagram || null, businessType).run();
+      leadId = meta.last_row_id;
+    }
   } catch (dbErr) {
-    // seguimos igual: la solicitud se manda por correo aunque no se haya podido guardar
+    // si falló porque todavía no existe la columna plan_confirmed_at,
+    // reintentamos sin ella para no perder el lead
+    if (isConfirmedIntent) {
+      try {
+        const { meta } = await env.DB.prepare(
+          'INSERT INTO leads (name, phone, email, instagram, business_type) VALUES (?, ?, ?, ?, ?)'
+        ).bind(name, phone, email, instagram || null, businessType).run();
+        leadId = meta.last_row_id;
+      } catch (dbErr2) {
+        // seguimos igual: la solicitud se manda por correo aunque no se haya podido guardar
+      }
+    }
   }
 
   const planLabel = businessType === 'digital' ? 'Plan Fideliza Digital'
