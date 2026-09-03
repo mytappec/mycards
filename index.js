@@ -117,6 +117,7 @@ export default {
         if (parts[1] === 'leads' && parts[2] && parts[3] === 'emailed' && request.method === 'POST') return handleUpdateLeadEmailed(request, env, parts[2]);
         if (parts[1] === 'leads' && parts[2] === 'bienvenida-link' && request.method === 'POST') return handleGenerateBienvenidaLink(request, env, url);
         if (parts[1] === 'leads' && parts[2] && parts[3] === 'enviar-pago' && request.method === 'POST') return handleSendPaymentConfirmation(request, env, parts[2]);
+        if (parts[1] === 'leads' && parts[2] && parts[3] === 'toggle-confirmado' && request.method === 'POST') return handleToggleConfirmado(request, env, parts[2]);
         if (parts[1] === 'leads') return handleLeadsList(request, env);
         if (parts[1] === 'bienvenidas') return handleBienvenidaQueue(request, env);
         if (parts[1] === 'bienvenida-archivo' && parts[2]) return handleBienvenidaFile(request, env, parts.slice(2).join('/'));
@@ -2448,9 +2449,6 @@ async function sendPaymentConfirmationEmail(env, lead, plan) {
         reply_to: 'hola@heytapp.com',
         subject: `Confirma tu pago y activa tu ${planLabel}`,
         html: buildPaymentConfirmationEmailHtml(lead, plan),
-        attachments: [
-          { filename: 'datos-bancarios-hey-tapp.png', content: BANK_DETAILS_IMAGE_BASE64 },
-        ],
       }),
     });
     if (!res.ok) {
@@ -2468,7 +2466,31 @@ async function sendPaymentConfirmationEmail(env, lead, plan) {
 // admin-only: dispara el correo de arriba para un lead puntual (viejo o
 // nuevo, da igual). Si el lead no tiene plan guardado, hay que mandarlo en
 // el body (la persona lo elige a mano desde el panel)
-async function handleSendPaymentConfirmation(request, env, id) {
+// admin-only: para corregir a mano el estado de "Confirmó plan" en leads
+// donde no quedó registro (por ejemplo, los que confirmaron antes de que
+// existiera la columna plan_confirmed_at). Si ya estaba confirmado, lo
+// quita; si no, lo marca con la fecha de ahora.
+async function handleToggleConfirmado(request, env, id) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  if (!/^\d+$/.test(String(id))) {
+    return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const lead = await env.DB.prepare('SELECT * FROM leads WHERE id = ?').bind(id).first();
+  if (!lead) return new Response(JSON.stringify({ error: 'No se encontró esa solicitud' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  const nowConfirmed = !lead.plan_confirmed_at;
+  await env.DB.prepare('UPDATE leads SET plan_confirmed_at = ? WHERE id = ?')
+    .bind(nowConfirmed ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null, id)
+    .run();
+
+  return new Response(JSON.stringify({ ok: true, confirmed: nowConfirmed }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+
   const cookieVal = getCookie(request, 'admin_session');
   const admin = await getAdminFromSession(env, cookieVal);
   if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
@@ -3479,8 +3501,8 @@ async function handleLeadsList(request, env) {
       <td data-label="Correo"><a href="mailto:${escapeHtml(l.email)}">${escapeHtml(l.email)}</a></td>
       <td data-label="Instagram">${l.instagram ? escapeHtml(l.instagram) : '—'}</td>
       <td data-label="Estado">${confirmoPlan
-        ? `<span style="display:inline-block;font-size:11px;font-weight:800;color:#215A34;background:#DCEEDC;padding:4px 10px;border-radius:99px;white-space:nowrap;">✓ Confirmó plan</span>`
-        : `<span style="display:inline-block;font-size:11px;font-weight:700;color:#6B6259;background:#F0EEE6;padding:4px 10px;border-radius:99px;white-space:nowrap;">Solo interesado</span>`}</td>
+        ? `<div role="button" tabindex="0" class="toggleConfirmadoBtn" data-id="${l.id}" style="display:inline-block;cursor:pointer;font-size:11px;font-weight:800;color:#215A34;background:#DCEEDC;padding:4px 10px;border-radius:99px;white-space:nowrap;">✓ Confirmó plan</div>`
+        : `<div role="button" tabindex="0" class="toggleConfirmadoBtn" data-id="${l.id}" style="display:inline-block;cursor:pointer;font-size:11px;font-weight:700;color:#6B6259;background:#F0EEE6;padding:4px 10px;border-radius:99px;white-space:nowrap;">Solo interesado</div>`}</td>
       <td data-label="Interesado en">${planLabel}</td>
       <td data-label="Fecha">${escapeHtml(l.created_at)}</td>
       <td data-label="Correo enviado"><input type="checkbox" class="emailedCheck" data-id="${l.id}" ${l.emailed ? 'checked' : ''} style="width:20px;height:20px;cursor:pointer;"></td>
@@ -3604,6 +3626,34 @@ async function handleLeadsList(request, env) {
             if (!res.ok) { cb.checked = !cb.checked; alert('No se pudo guardar, intenta de nuevo.'); }
           } catch (e) { cb.checked = !cb.checked; alert('Error de conexión, intenta de nuevo.'); }
           cb.disabled = false;
+        });
+      });
+      document.querySelectorAll('.toggleConfirmadoBtn').forEach(function(el) {
+        el.addEventListener('click', async function() {
+          const id = el.dataset.id;
+          const wasConfirmed = el.textContent.trim().indexOf('Confirmó') !== -1;
+          const original = el.textContent;
+          const originalStyle = el.getAttribute('style');
+          el.textContent = 'Guardando...';
+          try {
+            const res = await fetch('/brandpanel/leads/' + id + '/toggle-confirmado', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+              if (data.confirmed) {
+                el.textContent = '✓ Confirmó plan';
+                el.setAttribute('style', 'display:inline-block;cursor:pointer;font-size:11px;font-weight:800;color:#215A34;background:#DCEEDC;padding:4px 10px;border-radius:99px;white-space:nowrap;');
+              } else {
+                el.textContent = 'Solo interesado';
+                el.setAttribute('style', 'display:inline-block;cursor:pointer;font-size:11px;font-weight:700;color:#6B6259;background:#F0EEE6;padding:4px 10px;border-radius:99px;white-space:nowrap;');
+              }
+            } else {
+              el.textContent = original; el.setAttribute('style', originalStyle);
+              alert(data.error || 'No se pudo actualizar, intenta de nuevo.');
+            }
+          } catch (e) {
+            el.textContent = original; el.setAttribute('style', originalStyle);
+            alert('Error de conexión, intenta de nuevo.');
+          }
         });
       });
       document.querySelectorAll('.deleteLeadBtn').forEach(function(btn) {
