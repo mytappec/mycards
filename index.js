@@ -2374,7 +2374,7 @@ function buildPaymentConfirmationEmailHtml(lead, plan) {
           <!-- encabezado sobre el naranja -->
           <tr><td align="center" style="padding:0 12px 26px;">
             <p style="font-family:'Baloo 2',-apple-system,sans-serif;font-size:18px;font-weight:800;color:#c5e8ff;margin:0 0 10px;line-height:1.3;letter-spacing:-0.3px;text-transform:uppercase;">¡Tomaste una excelente decisión!</p>
-            <p style="font-size:14.5px;line-height:1.65;color:#FDFBF2;opacity:.94;margin:0 auto;max-width:400px;">Gracias por confiar en Hey Tapp para fidelizar a tus clientes. Desde ahora, cada compra los acerca un poco más a su recompensa, y esas visitas que antes eran ocasionales se van a volver toda una costumbre.</p>
+            <p style="font-size:14.5px;line-height:1.65;color:#FDFBF2;opacity:.94;margin:0 auto;max-width:400px;">Gracias por elegir Hey Tapp. Conseguir un cliente es solo el comienzo. Lograr que vuelva es lo que hace crecer tu negocio. Ahora tienes una razón para traerlo de regreso y convertir una compra en muchas más.</p>
           </td></tr>
 
           <!-- tarjeta blanca -->
