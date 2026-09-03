@@ -2525,9 +2525,15 @@ async function handleConfirmarPlan(request, env, url) {
   // actualizamos el plan elegido por si cambió de opinión respecto al
   // primer formulario, y avisamos con un asunto que se note fácil en el inbox
   try {
-    await env.DB.prepare('UPDATE leads SET business_type = ? WHERE id = ?').bind(plan, lead.id).run();
+    await env.DB.prepare("UPDATE leads SET business_type = ?, plan_confirmed_at = datetime('now') WHERE id = ?").bind(plan, lead.id).run();
   } catch (e) {
-    // si falla, igual mandamos el correo con el plan correcto
+    // si la columna plan_confirmed_at todavía no existe (falta correr la
+    // migración), igual guardamos el plan para no perder la confirmación
+    try {
+      await env.DB.prepare('UPDATE leads SET business_type = ? WHERE id = ?').bind(plan, lead.id).run();
+    } catch (e2) {
+      // si falla, igual mandamos el correo con el plan correcto
+    }
   }
 
   await notifyHola(env, {
@@ -3467,7 +3473,7 @@ async function handleLeadsList(request, env) {
     const planLabel = l.business_type === 'digital' ? 'Emprende Digital'
       : l.business_type === 'fisico' ? 'Emprende Físico'
       : l.business_type === 'wallet' ? 'Plan Fideliza Wallet' : '—';
-    const confirmoPlan = !!l.business_type;
+    const confirmoPlan = !!l.plan_confirmed_at;
     return `
     <tr data-id="${l.id}">
       <td data-label="Nombre">${escapeHtml(l.name)}</td>
