@@ -3519,12 +3519,12 @@ async function handleLeadsList(request, env) {
         ? `<div role="button" tabindex="0" class="toggleConfirmadoBtn" data-id="${l.id}" style="display:inline-block;cursor:pointer;font-size:11px;font-weight:800;color:#215A34;background:#DCEEDC;padding:4px 10px;border-radius:99px;white-space:nowrap;">✓ Confirmó plan</div>`
         : `<div role="button" tabindex="0" class="toggleConfirmadoBtn" data-id="${l.id}" style="display:inline-block;cursor:pointer;font-size:11px;font-weight:700;color:#6B6259;background:#F0EEE6;padding:4px 10px;border-radius:99px;white-space:nowrap;">Solo interesado</div>`}</td>
       <td data-label="Interesado en">${planLabel}</td>
-      <td data-label="Fecha">${escapeHtml(l.created_at)}</td>
+      <td data-label="Fecha">${escapeHtml(toEcuadorTime(l.created_at))}</td>
       <td data-label="Correo enviado"><input type="checkbox" class="emailedCheck" data-id="${l.id}" ${l.emailed ? 'checked' : ''} style="width:20px;height:20px;cursor:pointer;"></td>
       <td data-label="Confirmación de pago">
         <div class="payConfirmCell" data-id="${l.id}">
           ${l.payment_email_sent_at
-            ? `<span style="font-size:12px;color:#215A34;font-weight:700;display:block;margin-bottom:4px;">✓ Enviado ${escapeHtml(l.payment_email_sent_at)}</span>`
+            ? `<span style="font-size:12px;color:#215A34;font-weight:700;display:block;margin-bottom:4px;">✓ Enviado ${escapeHtml(toEcuadorTime(l.payment_email_sent_at))}</span>`
             : ''}
           <select class="payPlanSelect" style="font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid #DAE7F1;margin-bottom:4px;">
             <option value="digital" ${l.business_type === 'digital' ? 'selected' : ''}>Digital ($39)</option>
@@ -4876,6 +4876,27 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// la base de datos guarda las fechas en UTC (datetime('now') de SQLite).
+// esta función las convierte a hora de Ecuador (UTC-5) para mostrarlas en
+// pantalla — nunca usar para guardar ni comparar fechas, solo para mostrar.
+function toEcuadorTime(utcStr) {
+  if (!utcStr) return utcStr;
+  try {
+    const d = new Date(String(utcStr).replace(' ', 'T') + 'Z');
+    if (isNaN(d.getTime())) return utcStr;
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Guayaquil',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false
+    }).formatToParts(d);
+    const get = (t) => parts.find(p => p.type === t).value;
+    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+  } catch (e) {
+    return utcStr;
+  }
 }
 
 // deja solo los dígitos de un texto, sin usar expresiones regulares — carácter
@@ -6637,7 +6658,7 @@ async function handleBusinessMetrics(request, env, slug) {
       <td data-label="Nombre">${escapeHtml(c.name)}</td>
       <td data-label="Código">${escapeHtml(c.code)}</td>
       <td data-label="Sellos">${c.stamps}/${business.total_stamps}</td>
-      <td data-label="Última visita">${escapeHtml(c.last_visit)}</td>
+      <td data-label="Última visita">${escapeHtml(toEcuadorTime(c.last_visit))}</td>
     </tr>`).join('');
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
@@ -6723,7 +6744,7 @@ async function handleBusinessMetricsExport(request, env, slug) {
   const header = ['Nombre', 'Cédula', 'Código', 'Sellos', 'Total del negocio', 'Ciclo', 'Última visita', 'Canjeó premio', 'En Apple Wallet'];
   const rows = results.map(c => [
     c.name, c.cedula || '', c.code, c.stamps, business.total_stamps, c.cycle,
-    c.last_visit || '', c.redeemed_at ? 'Sí' : 'No', c.en_wallet ? 'Sí' : 'No',
+    toEcuadorTime(c.last_visit) || '', c.redeemed_at ? 'Sí' : 'No', c.en_wallet ? 'Sí' : 'No',
   ].map(escapeCsv).join(','));
   const csv = [header.map(escapeCsv).join(','), ...rows].join('\r\n');
 
@@ -6963,7 +6984,7 @@ async function handleHistorial(request, env, slug, code) {
     'SELECT stamped_at, cycle FROM visits WHERE customer_id = ? ORDER BY stamped_at DESC'
   ).bind(customer.id).all();
 
-  const rows = results.map(v => `<tr><td data-label="Fecha">${escapeHtml(v.stamped_at)}</td><td data-label="Tarjeta">Tarjeta #${v.cycle}</td></tr>`).join('');
+  const rows = results.map(v => `<tr><td data-label="Fecha">${escapeHtml(toEcuadorTime(v.stamped_at))}</td><td data-label="Tarjeta">Tarjeta #${v.cycle}</td></tr>`).join('');
   const premiosGanados = customer.cycle - 1;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
