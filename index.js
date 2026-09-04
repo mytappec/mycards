@@ -1586,7 +1586,7 @@ async function renderAdminDashboard(env, admin) {
         var texts = {
           digital: 'Incluye la tarjeta digital, sellos por QR o código manual, panel de staff con modo caja, botón de Instagram y capacitación. <b>No incluye</b> panel de métricas ni Apple Wallet.',
           fisico: 'Todo lo del Plan Digital, <b>más</b>: hablador físico personalizado con QR para tu punto de venta, y el panel de métricas (sin el aviso de clientes que se están enfriando).',
-          wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet, aviso automático cuando el cliente está cerca de tu local, recordatorio a los 14 días, y el panel de métricas completo.',
+          wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet, aviso automático cuando el cliente está cerca de tu local, notificación push de recordatorio si pasa un tiempo sin visitarte, y el panel de métricas completo.',
         };
         el.innerHTML = texts[plan] || texts.wallet;
       }
@@ -4057,7 +4057,7 @@ async function handleEditBusinessForm(request, env, slug) {
             var texts = {
               digital: 'Incluye la tarjeta digital, sellos por QR o código manual, panel de staff con modo caja, botón de Instagram y capacitación. <b>No incluye</b> panel de métricas ni Apple Wallet.',
               fisico: 'Todo lo del Plan Digital, <b>más</b>: hablador físico personalizado con QR para tu punto de venta, y el panel de métricas (sin el aviso de clientes que se están enfriando).',
-              wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet, aviso automático cuando el cliente está cerca de tu local, recordatorio a los 14 días, y el panel de métricas completo.',
+              wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet, aviso automático cuando el cliente está cerca de tu local, notificación push de recordatorio si pasa un tiempo sin visitarte, y el panel de métricas completo.',
             };
             el.innerHTML = texts[plan] || texts.wallet;
           }
@@ -5287,7 +5287,7 @@ async function renderFullInfoPage(env, url) {
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.chart}</span><span>Consulta cuántos clientes se han registrado.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.gift}</span><span>Revisa los premios canjeados y el promedio de sellos por cliente.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.scan}</span><span>Exporta toda tu base de clientes en formato CSV.</span></li>
-              ${isWallet ? `<li><span class="deck-check-icon deck-check-icon-extra">${icons.sparkle}</span><span>Identifica a quienes llevan 14 días sin visitar tu negocio.</span></li>
+              ${isWallet ? `<li><span class="deck-check-icon deck-check-icon-extra">${icons.sparkle}</span><span>Identifica a quienes llevan un tiempo sin visitar tu negocio.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.wallet}</span><span>Conoce cuántos clientes tienen su tarjeta activa en Apple Wallet.</span></li>` : ''}
             </ul>`;
 
@@ -5411,7 +5411,7 @@ ${pageHead(
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.wallet}</span><span>Tus clientes pueden agregar su tarjeta directamente a Apple Wallet. Quienes no utilicen esta opción pueden continuar accediendo desde la web.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.scan}</span><span>Si tienes un punto de venta físico, también recibes tu hablador personalizado.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.pin}</span><span>Su tarjeta puede aparecer en la pantalla de bloqueo cuando está cerca de tu local, recordándole que puede utilizarla.</span></li>
-              <li><span class="deck-check-icon deck-check-icon-extra">${icons.sparkle}</span><span>Si no visita el negocio durante 14 días, puede recibir una notificación invitándolo a volver.</span></li>
+              <li><span class="deck-check-icon deck-check-icon-extra">${icons.sparkle}</span><span>Si pasa un tiempo sin visitar el negocio, puede recibir una notificación push en su celular invitándolo a volver.</span></li>
             </ul>
             ${metricsBlock(true)}`,
             '$90', '$59',
@@ -5878,7 +5878,7 @@ function renderLandingPage() {
     [icons.instagram, 'Botón directo a tu Instagram', 'Para llevar más clientes a tu perfil y mantenerlos conectados.'],
     [icons.chart, 'Panel de métricas', 'Consulta registros, premios canjeados y descarga tu base en CSV. Incluido en los planes Físico y Wallet.'],
     [icons.wallet, 'Tarjeta en Apple Wallet', 'Se actualiza sola con cada sello, sin abrir ninguna app. Solo en el Plan Wallet.'],
-    [icons.sparkle, 'Recordatorio automático', 'A los clientes que llevan 14 días sin visitarte, para que vuelvan. Solo en el Plan Wallet.'],
+    [icons.sparkle, 'Recordatorio automático', 'A los clientes que llevan un tiempo sin visitarte, para que vuelvan. Solo en el Plan Wallet.'],
     [icons.cap, 'Capacitación + mejoras incluidas', 'Te enseñamos a usarla y recibes actualizaciones sin costo extra.'],
   ];
 
@@ -6057,7 +6057,7 @@ ${renderSiteNav('')}
                 <li>${icons.layers}<span>Todo lo incluido en el Plan Digital</span></li>
                 <li>${icons.wallet}<span>Tarjeta directo en Apple Wallet, actualizada sola con cada sello</span></li>
                 <li>${icons.pin}<span>Aviso en la pantalla de bloqueo cuando el cliente está cerca de tu local</span></li>
-                <li>${icons.sparkle}<span>Recordatorio automático a los 14 días de inactividad</span></li>
+                <li>${icons.sparkle}<span>Recordatorio automático por inactividad</span></li>
                 <li>${icons.chart}<span>Métricas completas, incluyendo cuántos clientes lo tienen activo en Wallet</span></li>
               </ul>
               <a href="/solicitud?from=web&plan=wallet" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
