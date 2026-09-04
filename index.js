@@ -2339,8 +2339,8 @@ async function notifyHola(env, { nombre, celular, correo, instagram, interesado_
 // del cliente no muestra imágenes incrustadas), y pide que respondan ese
 // mismo correo con el comprobante para confirmar.
 // ------------------------------------------------------------
-const PLAN_SETUP_PRICES = { digital: '$45', fisico: '$65', wallet: '$90' };
-const PLAN_MONTHLY_PRICES = { digital: '$13', fisico: '$29', wallet: '$59' };
+const PLAN_SETUP_PRICES = { digital: '$39', fisico: '$59', wallet: '$90' };
+const PLAN_MONTHLY_PRICES = { digital: '$10<span style="font-size:0.65em;">.99</span>', fisico: '$24<span style="font-size:0.65em;">.99</span>', wallet: '$59' };
 const PLAN_FULL_LABELS = {
   digital: 'Plan Fideliza Digital',
   fisico: 'Plan Fideliza Físico',
@@ -3528,8 +3528,8 @@ async function handleLeadsList(request, env) {
             ? `<span style="font-size:12px;color:#215A34;font-weight:700;display:block;margin-bottom:4px;">✓ Enviado ${escapeHtml(l.payment_email_sent_at)}</span>`
             : ''}
           <select class="payPlanSelect" style="font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid #DAE7F1;margin-bottom:4px;">
-            <option value="digital" ${l.business_type === 'digital' ? 'selected' : ''}>Digital ($45)</option>
-            <option value="fisico" ${l.business_type === 'fisico' ? 'selected' : ''}>Físico ($65)</option>
+            <option value="digital" ${l.business_type === 'digital' ? 'selected' : ''}>Digital ($39)</option>
+            <option value="fisico" ${l.business_type === 'fisico' ? 'selected' : ''}>Físico ($59)</option>
             <option value="wallet" ${l.business_type === 'wallet' ? 'selected' : ''}>Wallet ($90)</option>
           </select><br>
           <button type="button" class="sendPayEmailBtn" data-id="${l.id}" style="background:#42281B;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;font-size:12px;">${l.payment_email_sent_at ? 'Reenviar' : 'Enviar correo'}</button>
@@ -5386,7 +5386,7 @@ ${pageHead(
             `<p class="folder-block-desc">Tu tarjeta se comparte mediante un <span class="hl">enlace directo</span> por Instagram, WhatsApp o cualquier canal digital.</p>
             <p class="folder-includes-label" style="margin-top:18px;">Tu tarjeta incluye:</p>
             <ul class="folder-universal">${generalBenefitsListHtml}</ul>`,
-            '$45', '$13',
+            '$39', '$10<span style="font-size:0.62em;">.99</span>',
             true
           )}
           ${folderPage('fisico', 'var(--blue)', 'var(--brown)', icons.shop,
@@ -5400,7 +5400,7 @@ ${pageHead(
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.shop}</span><span>El acceso permanece disponible en caja para cada cliente que visite tu local.</span></li>
             </ul>
             ${metricsBlock(false)}`,
-            '$65', '$29',
+            '$59', '$24<span style="font-size:0.62em;">.99</span>',
             false
           )}
           ${folderPage('wallet', 'var(--terracotta)', 'var(--cream)', icons.wallet,
