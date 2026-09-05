@@ -2338,6 +2338,10 @@ async function notifyHola(env, { nombre, celular, correo, instagram, interesado_
 // del cliente no muestra imágenes incrustadas), y pide que respondan ese
 // mismo correo con el comprobante para confirmar.
 // ------------------------------------------------------------
+// contacto directo de Hey Tapp por WhatsApp
+const HEYTAPP_WHATSAPP_NUMBER = '593968302555';
+const HEYTAPP_WHATSAPP_LINK = `https://wa.me/${HEYTAPP_WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola, estoy interesadx en Hey Tapp para mi negocio.')}`;
+
 const PLAN_SETUP_PRICES = { digital: '$39', fisico: '$59', wallet: '$90' };
 const PLAN_MONTHLY_PRICES = { digital: '$10<span style="font-size:0.65em;">.99</span>', fisico: '$24<span style="font-size:0.65em;">.99</span>', wallet: '$59' };
 const PLAN_FULL_LABELS = {
@@ -5216,6 +5220,7 @@ const icons = {
     staff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8" r="3"/><path d="M3.5 19c0-3 2.2-5 5-5s5 2 5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M14.8 19c.2-2.3 1.9-4 4.2-4 1.4 0 2.6.6 3.4 1.6"/></svg>',
     chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/><path d="M3 20h18"/></svg>',
     instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
+    whatsapp: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.48 1.32 4.99L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.86 9.86 0 0 0 12.04 2Zm0 1.67c2.19 0 4.24.85 5.79 2.4a8.18 8.18 0 0 1 2.4 5.79c0 4.52-3.68 8.2-8.2 8.2h-.01a8.2 8.2 0 0 1-4.18-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.15 8.15 0 0 1-1.25-4.35c0-4.52 3.68-8.19 8.24-8.19Zm-4.5 4.3c-.16 0-.42.06-.64.31-.22.24-.85.83-.85 2.03 0 1.2.87 2.35 1 2.51.12.16 1.7 2.7 4.19 3.72.6.25 1.06.4 1.42.51.6.19 1.14.16 1.57.1.48-.07 1.47-.6 1.68-1.19.21-.58.21-1.08.14-1.19-.06-.1-.23-.16-.48-.28-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.16.25-.64.81-.79.98-.14.16-.29.19-.54.06-.25-.13-1.04-.38-1.99-1.22-.73-.65-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.44.12-.14.16-.25.24-.41.08-.16.04-.31-.02-.44-.06-.12-.56-1.36-.77-1.86-.2-.48-.4-.42-.56-.42h-.15Z"/></svg>',
     cap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m2.5 9.5 9.5-4 9.5 4-9.5 4-9.5-4Z"/><path d="M6.5 11.5v4c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-4M21 9.5v6"/></svg>',
     shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5 4h14l1 5.5"/><path d="M4 9.5a2.3 2.3 0 0 0 4.4 1 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4 0 2.3 2.3 0 0 0 4.4-1"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-5h5v5"/></svg>',
     wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3.2"/><path d="M3 10.5h18"/><path d="M7 15h4.5"/></svg>',
@@ -5266,6 +5271,7 @@ function renderSiteFooter(prefix) {
         <a href="/contacto">Contacto</a>
       </div>
       <a class="footer-social" href="https://www.instagram.com/heytapp.ec" target="_blank" rel="noopener">${icons.instagram}<span>@heytapp.ec</span></a>
+      <a class="footer-social" href="${HEYTAPP_WHATSAPP_LINK}" target="_blank" rel="noopener">${icons.whatsapp}<span>0968302555</span></a>
       <p class="footer-credit">Una marca de <a href="https://www.instagram.com/anaeli.brand" target="_blank" rel="noopener">Anaelí Brand</a></p>
     </div>
   </footer>`;
@@ -5741,6 +5747,7 @@ ${renderSiteNav('/')}
       <div class="eyebrow reveal">Hablemos</div>
       <h2 class="reveal">Pide información</h2>
       <p class="contact-sub reveal">Déjanos tus datos y te enviaremos toda la información necesaria para que tu marca no pase nunca desapercibida.</p>
+      <a href="${HEYTAPP_WHATSAPP_LINK}" target="_blank" rel="noopener" class="reveal" style="display:inline-flex;align-items:center;gap:8px;margin:0 0 26px;background:#25D366;color:#fff;font-weight:700;padding:12px 22px;border-radius:99px;text-decoration:none;font-size:14.5px;">${icons.whatsapp}Escríbenos directo por WhatsApp</a>
       <div class="contact-shell reveal">
         <div class="contact-form">
           <form id="leadForm">
