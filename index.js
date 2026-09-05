@@ -2340,7 +2340,7 @@ async function notifyHola(env, { nombre, celular, correo, instagram, interesado_
 // ------------------------------------------------------------
 // contacto directo de Hey Tapp por WhatsApp
 const HEYTAPP_WHATSAPP_NUMBER = '593968302555';
-const HEYTAPP_WHATSAPP_LINK = `https://wa.me/${HEYTAPP_WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola, estoy interesadx en Hey Tapp para mi negocio.')}`;
+const HEYTAPP_WHATSAPP_LINK = `https://wa.me/${HEYTAPP_WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola, estoy interesadx en Hey Tapp para mi negocio 🧡')}`;
 
 const PLAN_SETUP_PRICES = { digital: '$39', fisico: '$59', wallet: '$90' };
 const PLAN_MONTHLY_PRICES = { digital: '$10<span style="font-size:0.65em;">.99</span>', fisico: '$24<span style="font-size:0.65em;">.99</span>', wallet: '$59' };
