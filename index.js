@@ -920,7 +920,12 @@ async function verifyPassword(password, stored) {
   }
   const recomputed = await hashPassword(password, saltHex, iterations);
   const recomputedHash = recomputed.split(':')[2];
-  return recomputedHash === expectedHash;
+  // comparación en tiempo constante, igual que con las sesiones, para no filtrar
+  // por cuánto tarda la comparación
+  if (recomputedHash.length !== expectedHash.length) return false;
+  let diff = 0;
+  for (let i = 0; i < recomputedHash.length; i++) diff |= recomputedHash.charCodeAt(i) ^ expectedHash.charCodeAt(i);
+  return diff === 0;
 }
 
 // nunca deja que el número de sellos quede en 0, negativo, o algo absurdo
@@ -1926,9 +1931,46 @@ function generateRecoveryCode() {
 async function handleAdminLogin(request, env) {
   const { email, password } = await request.json();
   const admin = await env.DB.prepare('SELECT * FROM admins WHERE email = ?').bind((email || '').trim().toLowerCase()).first();
+
+  // si está bloqueada por demasiados intentos fallidos, ni siquiera se revisa la contraseña
+  if (admin && admin.login_locked_until) {
+    const lockedUntil = new Date(admin.login_locked_until + 'Z');
+    const now = new Date();
+    if (lockedUntil > now) {
+      const minutesLeft = Math.ceil((lockedUntil - now) / 60000);
+      return new Response(JSON.stringify({ error: `Demasiados intentos fallidos. Espera ${minutesLeft} minuto${minutesLeft === 1 ? '' : 's'} antes de volver a intentar.` }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } });
+    }
+  }
+
   if (!admin || !(await verifyPassword(password || '', admin.password_hash))) {
+    // solo se cuentan los intentos fallidos si el correo sí existe, para no
+    // gastar escrituras en la base de datos por correos inventados
+    if (admin) {
+      const fails = (admin.login_fails || 0) + 1;
+      try {
+        if (fails >= 5) {
+          const lockedUntil = new Date(Date.now() + 15 * 60000).toISOString().slice(0, 19);
+          await env.DB.prepare('UPDATE admins SET login_fails = ?, login_locked_until = ? WHERE id = ?')
+            .bind(fails, lockedUntil, admin.id).run();
+        } else {
+          await env.DB.prepare('UPDATE admins SET login_fails = ? WHERE id = ?').bind(fails, admin.id).run();
+        }
+      } catch (e) {
+        // si todavía no existen las columnas login_fails/login_locked_until (falta
+        // correr la migración), seguimos sin bloquear en vez de tumbar el login
+      }
+    }
     return new Response(JSON.stringify({ error: 'Correo o contraseña incorrectos' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
+
+  // contraseña correcta: se limpian los intentos fallidos
+  try {
+    await env.DB.prepare('UPDATE admins SET login_fails = 0, login_locked_until = NULL WHERE id = ?').bind(admin.id).run();
+  } catch (e) {
+    // columnas todavía no migradas, no pasa nada
+  }
+
   // si la contraseña todavía está en el formato viejo (5,000 iteraciones), se
   // sube sola al formato fuerte ahora que sabemos que la contraseña es correcta
   if (admin.password_hash.split(':').length !== 3) {
