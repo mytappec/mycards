@@ -135,6 +135,7 @@ export default {
         if (parts[1] === 'business' && parts[2] && parts[3] === 'update' && request.method === 'POST') return handleUpdateBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && request.method === 'POST') return handleCreateBranch(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && parts[4] && parts[5] === 'delete' && request.method === 'POST') return handleDeleteBranch(request, env, parts[2], parts[4]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && parts[4] && parts[5] === 'rename' && request.method === 'POST') return handleRenameBranch(request, env, parts[2], parts[4]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'unlock' && request.method === 'POST') return handleUnlockBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'reveal-pin' && request.method === 'POST') return handleRevealPin(request, env, parts[2]);
@@ -4117,13 +4118,16 @@ async function handleEditBusinessForm(request, env, slug) {
               <p class="hint">Si este negocio tiene varias sucursales, agrégalas aquí. El PIN sigue siendo el mismo para todas — cada sucursal solo necesita guardar su propio link (una sola vez, en su celular o tablet) para que cada sello quede etiquetado con de dónde vino, sin que el staff tenga que elegir nada.</p>
               <div id="branchesList">
                 ${branches.length ? branches.map(br => `
-                  <div class="branch-row" data-id="${br.id}" style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #DAE7F1;">
-                    <div style="flex:1;min-width:0;">
-                      <div style="font-weight:700;">${escapeHtml(br.name)}</div>
-                      <div style="font-size:12px;color:#6B6259;word-break:break-all;">${new URL(request.url).origin}/staff/${b.slug}/${br.slug}</div>
+                  <div class="branch-row" data-id="${br.id}" style="padding:10px 0;border-bottom:1px solid #DAE7F1;">
+                    <div style="display:flex;gap:6px;margin-bottom:2px;">
+                      <input type="text" class="branchNameInput" value="${escapeHtml(br.name)}" style="flex:1;font-weight:700;padding:6px 8px;">
+                      <button type="button" class="saveBranchNameBtn" data-id="${br.id}" style="background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
                     </div>
-                    <button type="button" class="copyBranchLinkBtn" data-link="${new URL(request.url).origin}/staff/${b.slug}/${br.slug}" style="background:#42281B;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Copiar link</button>
-                    <button type="button" class="deleteBranchBtn" data-id="${br.id}" style="background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;font-size:12px;">Borrar</button>
+                    <div style="font-size:12px;color:#6B6259;word-break:break-all;margin:2px 0 8px;">${new URL(request.url).origin}/staff/${b.slug}/${br.slug}</div>
+                    <div style="display:flex;gap:8px;">
+                      <button type="button" class="copyBranchLinkBtn" data-link="${new URL(request.url).origin}/staff/${b.slug}/${br.slug}" style="flex:1;background:#42281B;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Copiar link</button>
+                      <button type="button" class="deleteBranchBtn" data-id="${br.id}" style="background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:12px;">Borrar</button>
+                    </div>
                   </div>
                 `).join('') : '<p class="hint" style="margin:0 0 10px;">Todavía no has agregado ninguna sucursal.</p>'}
               </div>
@@ -4189,6 +4193,32 @@ async function handleEditBusinessForm(request, env, slug) {
             } catch (e) {
               msg.textContent = 'Error de conexión, intenta de nuevo.'; msg.className = 'msg err';
             }
+          });
+
+          document.querySelectorAll('.saveBranchNameBtn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+              const id = btn.dataset.id;
+              const input = btn.closest('.branch-row').querySelector('.branchNameInput');
+              const name = input.value.trim();
+              if (!name) { alert('Escribe un nombre para la sucursal'); return; }
+              const original = btn.textContent;
+              btn.textContent = '...'; btn.disabled = true;
+              try {
+                const res = await fetch('/brandpanel/business/${b.slug}/branches/' + id + '/rename', {
+                  method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name })
+                });
+                if (res.ok) {
+                  btn.textContent = '¡Listo!';
+                  setTimeout(function() { btn.textContent = original; btn.disabled = false; }, 1200);
+                } else {
+                  alert('No se pudo guardar, intenta de nuevo.');
+                  btn.textContent = original; btn.disabled = false;
+                }
+              } catch (e) {
+                alert('Error de conexión, intenta de nuevo.');
+                btn.textContent = original; btn.disabled = false;
+              }
+            });
           });
 
           document.querySelectorAll('.deleteBranchBtn').forEach(function(btn) {
@@ -4511,6 +4541,30 @@ async function handleDeleteBranch(request, env, slug, branchId) {
 
   await env.DB.prepare('DELETE FROM branches WHERE id = ? AND business_id = ?').bind(branchId, business.id).run();
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// solo cambia el nombre que se muestra (nunca el link/slug guardado en el
+// dispositivo de la sucursal), así que no se pierde ningún historial ni se
+// rompe el acceso ya guardado
+async function handleRenameBranch(request, env, slug, branchId) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  if (!/^\d+$/.test(String(branchId))) {
+    return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+  const cleanName = String(body.name || '').trim().slice(0, 60);
+  if (!cleanName) return new Response(JSON.stringify({ error: 'Falta el nombre de la sucursal' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+
+  await env.DB.prepare('UPDATE branches SET name = ? WHERE id = ? AND business_id = ?').bind(cleanName, branchId, business.id).run();
+  return new Response(JSON.stringify({ ok: true, name: cleanName }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleUpdateBusiness(request, env, slug) {
