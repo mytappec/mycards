@@ -5172,9 +5172,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .wrap{width:100%;max-width:430px;margin:0 auto;position:relative;}
   .card{background:var(--card-bg);border-radius:34px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep),0 28px 48px -22px rgba(0,0,0,.28);overflow:visible;position:relative;}
   .card-inner{border-radius:31.5px;overflow:hidden;}
-  .card-top{padding:26px 24px 54px;text-align:left;background:var(--card-bg);position:relative;overflow:hidden;}
-  .stamp-count-badge{position:absolute;top:22px;right:22px;font-size:11px;color:var(--brown-soft);text-align:right;line-height:1.25;white-space:nowrap;}
-  .stamp-count-badge b{font-family:var(--font-display);font-size:15px;color:var(--brown);display:block;}
+  .card-top{padding:26px 24px 54px;text-align:left;background:color-mix(in srgb,var(--card-bg) 82%,#000);position:relative;overflow:hidden;}
   .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto 20px;position:relative;z-index:2;filter:drop-shadow(0 2px 6px rgba(0,0,0,.12));}
   .hero-lead{font-size:13.5px;color:var(--brown-soft);margin:8px 0 0;line-height:1.45;}
   .hero-lead b{color:var(--brown);font-weight:800;}
@@ -5244,7 +5242,6 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     <div class="card" id="mainCard">
       <div class="card-inner">
       <div class="card-top">
-        <div class="stamp-count-badge">Sellos<b>${filled} / ${total}</b></div>
         <img class="brand-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">
         <p class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</p>
         <p class="greeting-name">${escapeHtml(customer.name.split(' ')[0])}</p>
@@ -5253,7 +5250,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
       <div class="progress-card">
         <div class="progress-top">
           <span class="progress-label">Progreso del ciclo</span>
-          <span class="progress-pct">${pct}%</span>
+          <span class="progress-pct">Sellos ${filled}/${total}</span>
         </div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       </div>
