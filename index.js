@@ -6868,8 +6868,15 @@ async function handleRegister(request, env, slug) {
   }
 
   const code = await generateUniqueCode(env, slug);
-  await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, stamps) VALUES (?, ?, ?, ?, 0)')
-    .bind(business.id, code, name, cedula || null).run();
+  const branchId = await getStaffSessionBranch(env, business.id, cookieVal);
+  try {
+    await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, stamps, signup_branch_id) VALUES (?, ?, ?, ?, 0, ?)')
+      .bind(business.id, code, name, cedula || null, branchId).run();
+  } catch (e) {
+    // todavía no existe la columna signup_branch_id (falta correr la migración)
+    await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, stamps) VALUES (?, ?, ?, ?, 0)')
+      .bind(business.id, code, name, cedula || null).run();
+  }
 
   const url = new URL(request.url);
   const cardUrl = `${url.origin}/${slug}/${code}`;
@@ -7015,12 +7022,29 @@ async function handleBusinessMetricsExport(request, env, slug) {
   if (!admin && !hasStaffSession) return new Response('No autorizado', { status: 401 });
   if ((business.plan || 'wallet') === 'digital') return new Response('El Plan Fideliza Digital no incluye panel de métricas.', { status: 403 });
 
-  const { results } = await env.DB.prepare(`
-    SELECT c.name, c.cedula, c.code, c.stamps, c.cycle, c.redeemed_at,
-      (SELECT MAX(v.stamped_at) FROM visits v WHERE v.customer_id = c.id AND v.cycle = c.cycle) as last_visit,
-      EXISTS(SELECT 1 FROM wallet_registrations w WHERE w.serial_number = ? || '-' || c.code) as en_wallet
-    FROM customers c WHERE c.business_id = ? ORDER BY c.id DESC
-  `).bind(slug, business.id).all();
+  let exportBranchAvailable = true;
+  let results;
+  try {
+    const r = await env.DB.prepare(`
+      SELECT c.name, c.cedula, c.code, c.stamps, c.cycle, c.redeemed_at,
+        (SELECT MAX(v.stamped_at) FROM visits v WHERE v.customer_id = c.id AND v.cycle = c.cycle) as last_visit,
+        EXISTS(SELECT 1 FROM wallet_registrations w WHERE w.serial_number = ? || '-' || c.code) as en_wallet,
+        b.name as branch_name
+      FROM customers c LEFT JOIN branches b ON b.id = c.signup_branch_id WHERE c.business_id = ? ORDER BY c.id DESC
+    `).bind(slug, business.id).all();
+    results = r.results;
+  } catch (e) {
+    // todavía no existe la columna signup_branch_id o la tabla branches
+    // (falta correr la migración) — se sigue de largo sin esa columna
+    exportBranchAvailable = false;
+    const r = await env.DB.prepare(`
+      SELECT c.name, c.cedula, c.code, c.stamps, c.cycle, c.redeemed_at,
+        (SELECT MAX(v.stamped_at) FROM visits v WHERE v.customer_id = c.id AND v.cycle = c.cycle) as last_visit,
+        EXISTS(SELECT 1 FROM wallet_registrations w WHERE w.serial_number = ? || '-' || c.code) as en_wallet
+      FROM customers c WHERE c.business_id = ? ORDER BY c.id DESC
+    `).bind(slug, business.id).all();
+    results = r.results;
+  }
 
   // CSV a mano, sin librerías — escapamos comillas dobles duplicándolas, que
   // es la regla estándar del formato CSV
@@ -7028,10 +7052,11 @@ async function handleBusinessMetricsExport(request, env, slug) {
     const s = String(val == null ? '' : val);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const header = ['Nombre', 'Cédula', 'Código', 'Sellos', 'Total del negocio', 'Ciclo', 'Última visita', 'Canjeó premio', 'En Apple Wallet'];
+  const header = ['Nombre', 'Cédula', 'Código', 'Sellos', 'Total del negocio', 'Ciclo', 'Última visita', 'Canjeó premio', 'En Apple Wallet', ...(exportBranchAvailable ? ['Sucursal de registro'] : [])];
   const rows = results.map(c => [
     c.name, c.cedula || '', c.code, c.stamps, business.total_stamps, c.cycle,
     toEcuadorTime(c.last_visit) || '', c.redeemed_at ? 'Sí' : 'No', c.en_wallet ? 'Sí' : 'No',
+    ...(exportBranchAvailable ? [c.branch_name || ''] : []),
   ].map(escapeCsv).join(','));
   const csv = [header.map(escapeCsv).join(','), ...rows].join('\r\n');
 
@@ -7056,9 +7081,22 @@ async function handleClientesList(request, env, slug) {
     return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
   }
 
-  const { results } = await env.DB.prepare(
-    'SELECT name, cedula, code, stamps, cycle FROM customers WHERE business_id = ? ORDER BY id DESC'
-  ).bind(business.id).all();
+  let branchColumnAvailable = true;
+  let results;
+  try {
+    const r = await env.DB.prepare(
+      'SELECT c.name, c.cedula, c.code, c.stamps, c.cycle, b.name as branch_name FROM customers c LEFT JOIN branches b ON b.id = c.signup_branch_id WHERE c.business_id = ? ORDER BY c.id DESC'
+    ).bind(business.id).all();
+    results = r.results;
+  } catch (e) {
+    // todavía no existe la columna signup_branch_id o la tabla branches
+    // (falta correr la migración) — se sigue de largo sin esa columna
+    branchColumnAvailable = false;
+    const r = await env.DB.prepare(
+      'SELECT name, cedula, code, stamps, cycle FROM customers WHERE business_id = ? ORDER BY id DESC'
+    ).bind(business.id).all();
+    results = r.results;
+  }
 
   const rows = results.map(c => `
     <tr>
@@ -7068,6 +7106,7 @@ async function handleClientesList(request, env, slug) {
       <td data-label="Código">${escapeHtml(c.code)}</td>
       <td data-label="Sellos">${c.stamps}/${business.total_stamps}</td>
       <td data-label="Ciclo">${c.cycle}</td>
+      ${branchColumnAvailable ? `<td data-label="Sucursal de registro">${escapeHtml(c.branch_name || '—')}</td>` : ''}
       <td data-label="Historial"><a href="/staff/${slug}/historial/${escapeHtml(c.code)}">Ver fechas</a></td>
     </tr>`).join('');
 
@@ -7136,7 +7175,7 @@ async function handleClientesList(request, env, slug) {
     </div>
     <p class="msg" id="noResultsMsg" style="display:none;">No se encontró ningún cliente con ese nombre o cédula.</p>
     <table>
-      <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Nombre</th><th>Cédula</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr></thead>
+      <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Nombre</th><th>Cédula</th><th>Código</th><th>Sellos</th><th>Ciclo</th>${branchColumnAvailable ? '<th>Sucursal de registro</th>' : ''}<th>Historial</th></tr></thead>
       <tbody>
       ${rows || '<tr><td colspan="7">Todavía no hay clientes registrados</td></tr>'}
       </tbody>
@@ -7267,11 +7306,24 @@ async function handleHistorial(request, env, slug, code) {
     .bind(code, business.id).first();
   if (!customer) return new Response('Cliente no encontrado', { status: 404 });
 
-  const { results } = await env.DB.prepare(
-    'SELECT stamped_at, cycle FROM visits WHERE customer_id = ? ORDER BY stamped_at DESC'
-  ).bind(customer.id).all();
+  let historialBranchAvailable = true;
+  let results;
+  try {
+    const r = await env.DB.prepare(
+      'SELECT v.stamped_at, v.cycle, b.name as branch_name FROM visits v LEFT JOIN branches b ON b.id = v.branch_id WHERE v.customer_id = ? ORDER BY v.stamped_at DESC'
+    ).bind(customer.id).all();
+    results = r.results;
+  } catch (e) {
+    // todavía no existe la columna branch_id en visits o la tabla branches
+    // (falta correr la migración) — se sigue de largo sin esa columna
+    historialBranchAvailable = false;
+    const r = await env.DB.prepare(
+      'SELECT stamped_at, cycle FROM visits WHERE customer_id = ? ORDER BY stamped_at DESC'
+    ).bind(customer.id).all();
+    results = r.results;
+  }
 
-  const rows = results.map(v => `<tr><td data-label="Fecha">${escapeHtml(toEcuadorTime(v.stamped_at))}</td><td data-label="Tarjeta">Tarjeta #${v.cycle}</td></tr>`).join('');
+  const rows = results.map(v => `<tr><td data-label="Fecha">${escapeHtml(toEcuadorTime(v.stamped_at))}</td><td data-label="Tarjeta">Tarjeta #${v.cycle}</td>${historialBranchAvailable ? `<td data-label="Sucursal">${escapeHtml(v.branch_name || '—')}</td>` : ''}</tr>`).join('');
   const premiosGanados = customer.cycle - 1;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
@@ -7312,7 +7364,7 @@ async function handleHistorial(request, env, slug, code) {
       Total de compras selladas: <b>${results.length}</b>
     </div>
     <table>
-      <thead><tr><th>Fecha</th><th>Tarjeta</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Tarjeta</th>${historialBranchAvailable ? '<th>Sucursal</th>' : ''}</tr></thead>
       <tbody>
       ${rows || '<tr><td colspan="2">Todavía no tiene compras registradas</td></tr>'}
       </tbody>
@@ -7346,7 +7398,7 @@ async function handleStamp(request, env, slug) {
   // normalizamos a mayúsculas: los códigos siempre se generan así, pero si el staff
   // los escribe en minúscula (o con espacios de más) antes fallaba con "no existe"
   const body = await request.json();
-  const code = (body.code || '').trim().toUpperCase();
+  const code = (body.code || '').trim().toUpperCase().replace(/^#/, '');
   const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?')
     .bind(code, business.id).first();
   if (!customer) {
@@ -7402,7 +7454,7 @@ async function handleUnstamp(request, env, slug) {
   }
 
   const body = await request.json();
-  const code = (body.code || '').trim().toUpperCase();
+  const code = (body.code || '').trim().toUpperCase().replace(/^#/, '');
   const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?')
     .bind(code, business.id).first();
   if (!customer) {
@@ -8196,7 +8248,10 @@ function walletBuildPassJSON(business, customer, env, origin) {
     organizationName: 'Hey Tapp',
     description: `Tarjeta de sellos — ${business.name}`,
     // FIX #4: @usuario de Instagram junto al logo (si el negocio lo tiene cargado)
-    logoText: business.instagram_handle || undefined,
+    // se muestra solo si entra completo en el espacio junto al logo (15
+    // caracteres o menos); si es más largo, mejor no mostrarlo que cortarlo
+    // con "..." — esto es solo para la tarjeta de Apple Wallet
+    logoText: (business.instagram_handle && business.instagram_handle.length <= 15) ? business.instagram_handle : undefined,
     // apaga el brillo/reflejo por default que Apple pone sobre la imagen strip —
     // campo documentado, look más plano y actual
     suppressStripShine: true,
