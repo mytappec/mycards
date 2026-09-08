@@ -133,7 +133,7 @@ export default {
         if (parts[1] === 'business' && parts[2] && parts[3] === 'metrics') return handleBusinessMetrics(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'metrics-export') return handleBusinessMetricsExport(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'update' && request.method === 'POST') return handleUpdateBusiness(request, env, parts[2]);
-        if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && request.method === 'POST') return handleCreateBranch(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && !parts[4] && request.method === 'POST') return handleCreateBranch(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && parts[4] && parts[5] === 'delete' && request.method === 'POST') return handleDeleteBranch(request, env, parts[2], parts[4]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && parts[4] && parts[5] === 'rename' && request.method === 'POST') return handleRenameBranch(request, env, parts[2], parts[4]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBusiness(request, env, parts[2]);
