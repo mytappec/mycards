@@ -5173,20 +5173,20 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .card{background:var(--card-bg);border-radius:34px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep),0 28px 48px -22px rgba(0,0,0,.28);overflow:visible;position:relative;}
   .card-inner{border-radius:31.5px;overflow:hidden;}
   .card-top{padding:26px 24px 54px;text-align:left;background:var(--card-bg);position:relative;overflow:hidden;}
-  .hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px;}
-  .hero-logo{height:34px;width:auto;max-width:120px;object-fit:contain;}
-  .stamp-count-badge{font-size:11px;color:var(--brown-soft);text-align:right;line-height:1.25;white-space:nowrap;}
+  .stamp-count-badge{position:absolute;top:22px;right:22px;font-size:11px;color:var(--brown-soft);text-align:right;line-height:1.25;white-space:nowrap;}
   .stamp-count-badge b{font-family:var(--font-display);font-size:15px;color:var(--brown);display:block;}
-  .progress-card{position:relative;margin:-34px 20px 0;background:var(--card-bg);border-radius:22px;border:2px solid var(--border-card);padding:18px 20px 16px;box-shadow:0 14px 28px -16px rgba(0,0,0,.3);z-index:3;}
+  .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto 20px;position:relative;z-index:2;filter:drop-shadow(0 2px 6px rgba(0,0,0,.12));}
+  .hero-lead{font-size:13.5px;color:var(--brown-soft);margin:8px 0 0;line-height:1.45;}
+  .hero-lead b{color:var(--brown);font-weight:800;}
+  .progress-card{position:relative;margin:-34px 20px 0;background:var(--card-bg);border-radius:22px;padding:18px 20px;box-shadow:0 14px 28px -16px rgba(0,0,0,.3);z-index:3;}
   .card-body{padding:18px 26px 20px;}
   .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:17px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
   .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:25px;color:var(--brown);margin:2px 0 0;line-height:1.15;letter-spacing:-.2px;}
-  .progress-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
-  .progress-track{flex:1;height:22px;border-radius:99px;background:color-mix(in srgb,var(--card-bg) 55%,#fff);border:2px solid var(--border-progress);overflow:hidden;box-shadow:inset 0 1.5px 3px rgba(0,0,0,.07);}
-  .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--pink) 75%,#fff),var(--pink));box-shadow:inset 0 1px 0 rgba(255,255,255,.5);}
-  .progress-pct{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:14px;color:var(--text-progress-pct);min-width:0;text-align:right;flex-shrink:0;}
-  .progress-text{font-size:13.5px;color:var(--text-progress-label);margin:0;text-align:left;}
-  .progress-text b{color:inherit;font-weight:800;}
+  .progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
+  .progress-label{font-size:12px;color:var(--text-progress-label);font-weight:500;}
+  .progress-track{height:8px;border-radius:99px;background:color-mix(in srgb,var(--brown) 15%,var(--card-bg));overflow:hidden;}
+  .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--pink) 75%,#fff),var(--pink));}
+  .progress-pct{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--text-progress-pct);}
   .stamp-rows{margin-bottom:14px;margin-top:4px;}
   .stamp-row{display:flex;justify-content:center;gap:10px;}
   .stamp-row + .stamp-row{margin-top:10px;}
@@ -5244,19 +5244,18 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     <div class="card" id="mainCard">
       <div class="card-inner">
       <div class="card-top">
-        <div class="hero-top">
-          <img class="hero-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">
-          <div class="stamp-count-badge">Sellos<b>${filled} / ${total}</b></div>
-        </div>
+        <div class="stamp-count-badge">Sellos<b>${filled} / ${total}</b></div>
+        <img class="brand-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">
         <p class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</p>
         <p class="greeting-name">${escapeHtml(customer.name.split(' ')[0])}</p>
+        <p class="hero-lead">${progressText}</p>
       </div>
       <div class="progress-card">
-        <div class="progress-row">
-          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-top">
+          <span class="progress-label">Progreso del ciclo</span>
           <span class="progress-pct">${pct}%</span>
         </div>
-        <p class="progress-text">${progressText}</p>
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       </div>
       <div class="card-body">
         <div class="stamp-rows${isShapeStyle ? ' shape-style' : ''}" style="--stamp-cols:${topCount};${stampsBgStyle}">
