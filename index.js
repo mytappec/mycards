@@ -5105,7 +5105,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     const isFilled = i <= filled;
     return `<div class="stamp${isFilled ? ' filled' : ''}${isReward ? ' reward' : ''}" data-sello="${selloKey}">
       <div class="stamp-img"></div>
-      ${isReward ? '<span class="reward-tag">PREMIO</span>' : ''}
+      ${isReward ? '<span class="reward-tag">TU PREMIO</span>' : ''}
     </div>`;
   };
   let stampsTopHtml = '';
@@ -5172,18 +5172,20 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .wrap{width:100%;max-width:430px;margin:0 auto;position:relative;}
   .card{background:var(--card-bg);border-radius:34px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep),0 28px 48px -22px rgba(0,0,0,.28);overflow:visible;position:relative;}
   .card-inner{border-radius:31.5px;overflow:hidden;}
-  .card-top{padding:24px 24px 16px;text-align:center;border-bottom:2px solid var(--border-card);position:relative;background:radial-gradient(120% 100% at 50% -20%,color-mix(in srgb,var(--pink) 28%,transparent),transparent 65%);}
-  .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,.08));}
+  .card-top{padding:30px 24px 54px;text-align:center;background:linear-gradient(155deg,var(--brown) 0%,var(--brown-deep) 100%);position:relative;overflow:hidden;}
+  .card-top::before{content:"";position:absolute;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--pink) 65%,transparent),transparent 70%);top:-110px;right:-70px;}
+  .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto;position:relative;z-index:2;filter:drop-shadow(0 2px 6px rgba(0,0,0,.15));}
+  .progress-card{position:relative;margin:-34px 20px 0;background:var(--card-bg);border-radius:22px;border:2px solid var(--border-card);padding:18px 20px 16px;box-shadow:0 14px 28px -16px rgba(0,0,0,.3);z-index:3;}
   .card-body{padding:18px 26px 20px;}
   .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:17px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
-  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:25px;color:var(--brown);margin:2px 0 14px;line-height:1.15;letter-spacing:-.2px;}
+  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:25px;color:var(--brown);margin:2px 0 12px;line-height:1.15;letter-spacing:-.2px;}
   .progress-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
   .progress-track{flex:1;height:22px;border-radius:99px;background:color-mix(in srgb,var(--card-bg) 55%,#fff);border:2px solid var(--border-progress);overflow:hidden;box-shadow:inset 0 1.5px 3px rgba(0,0,0,.07);}
   .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--pink) 75%,#fff),var(--pink));box-shadow:inset 0 1px 0 rgba(255,255,255,.5);}
   .progress-pct{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:14px;color:var(--text-progress-pct);min-width:0;text-align:right;flex-shrink:0;}
-  .progress-text{font-size:13.5px;color:var(--text-progress-label);margin:0 0 16px;}
+  .progress-text{font-size:13.5px;color:var(--text-progress-label);margin:0;text-align:left;}
   .progress-text b{color:inherit;font-weight:800;}
-  .stamp-rows{margin-bottom:14px;}
+  .stamp-rows{margin-bottom:14px;margin-top:4px;}
   .stamp-row{display:flex;justify-content:center;gap:10px;}
   .stamp-row + .stamp-row{margin-top:10px;}
   .stamp-row .stamp{width:calc((100% - (var(--stamp-cols) - 1)*10px)/var(--stamp-cols));flex:0 0 auto;}
@@ -5242,7 +5244,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
       <div class="card-top">
         <img class="brand-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">
       </div>
-      <div class="card-body">
+      <div class="progress-card">
         <p class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</p>
         <p class="greeting-name">${escapeHtml(customer.name.split(' ')[0])}</p>
         <div class="progress-row">
@@ -5250,6 +5252,8 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
           <span class="progress-pct">${pct}%</span>
         </div>
         <p class="progress-text">${progressText}</p>
+      </div>
+      <div class="card-body">
         <div class="stamp-rows${isShapeStyle ? ' shape-style' : ''}" style="--stamp-cols:${topCount};${stampsBgStyle}">
           <div class="stamp-row">${stampsTopHtml}</div>
           ${bottomCount > 0 ? `<div class="stamp-row">${stampsBottomHtml}</div>` : ''}
