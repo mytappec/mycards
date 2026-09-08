@@ -133,6 +133,8 @@ export default {
         if (parts[1] === 'business' && parts[2] && parts[3] === 'metrics') return handleBusinessMetrics(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'metrics-export') return handleBusinessMetricsExport(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'update' && request.method === 'POST') return handleUpdateBusiness(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && request.method === 'POST') return handleCreateBranch(request, env, parts[2]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && parts[4] && parts[5] === 'delete' && request.method === 'POST') return handleDeleteBranch(request, env, parts[2], parts[4]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'unlock' && request.method === 'POST') return handleUnlockBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'reveal-pin' && request.method === 'POST') return handleRevealPin(request, env, parts[2]);
@@ -158,7 +160,10 @@ export default {
         if (parts[2] === 'cliente' && parts[3] && parts[4] === 'delete' && request.method === 'POST') return handleDeleteCustomer(request, env, slug, parts[3]);
         if (parts[2] === 'historial' && parts[3]) return handleHistorial(request, env, slug, parts[3]);
         if (parts[2] === 'logout') return handleLogout(request, env, slug);
-        return handleStaffPage(request, env, slug);
+        // /staff/:slug/:branchSlug — link propio de una sucursal, guardado una
+        // sola vez en el dispositivo de ese local (ver renderStaffLogin)
+        const branchSlug = parts[2] || null;
+        return handleStaffPage(request, env, slug, branchSlug);
       }
 
       // ---- auto-registro público del cliente: /:slug/nuevo ----
@@ -847,12 +852,18 @@ async function invalidateAdminSession(env, adminId) {
 
 // ---------- sesiones del staff: tabla propia (no el hash del PIN) para que cada
 // dispositivo tenga su propio token, invalidable, sin que uno eche al otro ----------
-async function createStaffSession(env, businessId, hours = 12) {
+async function createStaffSession(env, businessId, hours = 12, branchId = null) {
   const token = generateSessionToken();
   const tokenHash = await sha256Hex(token);
   const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
-  await env.DB.prepare('INSERT INTO staff_sessions (business_id, token_hash, expires_at) VALUES (?, ?, ?)')
-    .bind(businessId, tokenHash, expiresAt).run();
+  try {
+    await env.DB.prepare('INSERT INTO staff_sessions (business_id, token_hash, expires_at, branch_id) VALUES (?, ?, ?, ?)')
+      .bind(businessId, tokenHash, expiresAt, branchId).run();
+  } catch (e) {
+    // todavía no existe la columna branch_id (falta correr la migración)
+    await env.DB.prepare('INSERT INTO staff_sessions (business_id, token_hash, expires_at) VALUES (?, ?, ?)')
+      .bind(businessId, tokenHash, expiresAt).run();
+  }
   // limpieza oportunista de sesiones vencidas de este negocio, para que la tabla no crezca sin control
   await env.DB.prepare('DELETE FROM staff_sessions WHERE business_id = ? AND expires_at < datetime("now")').bind(businessId).run();
   return token;
@@ -864,6 +875,21 @@ async function isValidStaffSession(env, businessId, cookieVal) {
     'SELECT id FROM staff_sessions WHERE business_id = ? AND token_hash = ? AND expires_at > datetime("now")'
   ).bind(businessId, tokenHash).first();
   return !!row;
+}
+// para saber, dentro de una sesión de staff ya válida, a qué sucursal
+// pertenece (o null si es el PIN principal del negocio, sin sucursal)
+async function getStaffSessionBranch(env, businessId, cookieVal) {
+  if (!cookieVal) return null;
+  try {
+    const tokenHash = await sha256Hex(cookieVal);
+    const row = await env.DB.prepare(
+      'SELECT branch_id FROM staff_sessions WHERE business_id = ? AND token_hash = ? AND expires_at > datetime("now")'
+    ).bind(businessId, tokenHash).first();
+    return row ? row.branch_id : null;
+  } catch (e) {
+    // todavía no existe la columna branch_id (falta correr la migración)
+    return null;
+  }
 }
 async function invalidateStaffSession(env, businessId, cookieVal) {
   if (!cookieVal) return;
@@ -3825,6 +3851,14 @@ async function handleEditBusinessForm(request, env, slug) {
   const b = await getBusiness(env, slug);
   if (!b) return new Response('Negocio no encontrado', { status: 404 });
 
+  let branches = [];
+  try {
+    const branchesResult = await env.DB.prepare('SELECT * FROM branches WHERE business_id = ? ORDER BY name').bind(b.id).all();
+    branches = branchesResult.results || [];
+  } catch (e) {
+    // todavía no existe la tabla branches (falta correr la migración) — se sigue de largo sin sucursales
+  }
+
   const fontOptions = Object.keys(FONTS).map(key =>
     `<option value="${key}" style="font-family:'${key}',${FONTS[key].fallback};"${b.font_family === key ? ' selected' : ''}>${key} — ${FONTS[key].label}</option>`
   ).join('');
@@ -4078,6 +4112,30 @@ async function handleEditBusinessForm(request, env, slug) {
           </div>
 
           <div class="accordion-section">
+            <button type="button" class="accordion-header">🏬 Sucursales <span class="chevron">▾</span></button>
+            <div class="accordion-body">
+              <p class="hint">Si este negocio tiene varias sucursales, agrégalas aquí. El PIN sigue siendo el mismo para todas — cada sucursal solo necesita guardar su propio link (una sola vez, en su celular o tablet) para que cada sello quede etiquetado con de dónde vino, sin que el staff tenga que elegir nada.</p>
+              <div id="branchesList">
+                ${branches.length ? branches.map(br => `
+                  <div class="branch-row" data-id="${br.id}" style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #DAE7F1;">
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-weight:700;">${escapeHtml(br.name)}</div>
+                      <div style="font-size:12px;color:#6B6259;word-break:break-all;">${new URL(request.url).origin}/staff/${b.slug}/${br.slug}</div>
+                    </div>
+                    <button type="button" class="copyBranchLinkBtn" data-link="${new URL(request.url).origin}/staff/${b.slug}/${br.slug}" style="background:#42281B;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Copiar link</button>
+                    <button type="button" class="deleteBranchBtn" data-id="${br.id}" style="background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;font-size:12px;">Borrar</button>
+                  </div>
+                `).join('') : '<p class="hint" style="margin:0 0 10px;">Todavía no has agregado ninguna sucursal.</p>'}
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px;">
+                <input type="text" id="newBranchName" placeholder="Ej. Sucursal Norte" style="flex:1;">
+                <button type="button" id="addBranchBtn" style="width:auto;padding:0 18px;">Agregar</button>
+              </div>
+              <p class="msg" id="branchMsg"></p>
+            </div>
+          </div>
+
+          <div class="accordion-section">
             <button type="button" class="accordion-header">🔒 Seguridad y privacidad <span class="chevron">▾</span></button>
             <div class="accordion-body">
               <label style="margin-top:0;">PIN del staff</label>
@@ -4112,6 +4170,48 @@ async function handleEditBusinessForm(request, env, slug) {
             h.addEventListener('click', function() {
               h.classList.toggle('open');
               h.nextElementSibling.classList.toggle('open');
+            });
+          });
+
+          document.getElementById('addBranchBtn').addEventListener('click', async function() {
+            const input = document.getElementById('newBranchName');
+            const name = input.value.trim();
+            const msg = document.getElementById('branchMsg');
+            if (!name) { msg.textContent = 'Escribe un nombre para la sucursal'; msg.className = 'msg err'; return; }
+            msg.textContent = 'Guardando...'; msg.className = 'msg';
+            try {
+              const res = await fetch('/brandpanel/business/${b.slug}/branches', {
+                method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name })
+              });
+              const data = await res.json();
+              if (res.ok) { location.reload(); }
+              else { msg.textContent = data.error || 'No se pudo agregar'; msg.className = 'msg err'; }
+            } catch (e) {
+              msg.textContent = 'Error de conexión, intenta de nuevo.'; msg.className = 'msg err';
+            }
+          });
+
+          document.querySelectorAll('.deleteBranchBtn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+              if (!confirm('¿Borrar esta sucursal? El staff que use ese link ya no va a poder entrar.')) return;
+              const id = btn.dataset.id;
+              try {
+                const res = await fetch('/brandpanel/business/${b.slug}/branches/' + id + '/delete', { method: 'POST' });
+                if (res.ok) { location.reload(); }
+                else { alert('No se pudo borrar, intenta de nuevo.'); }
+              } catch (e) {
+                alert('Error de conexión, intenta de nuevo.');
+              }
+            });
+          });
+
+          document.querySelectorAll('.copyBranchLinkBtn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              navigator.clipboard.writeText(btn.dataset.link).then(function() {
+                const original = btn.textContent;
+                btn.textContent = '¡Copiado!';
+                setTimeout(function() { btn.textContent = original; }, 1500);
+              });
             });
           });
         </script>
@@ -4360,6 +4460,57 @@ async function handleEditBusinessForm(request, env, slug) {
       });
     </script>
   </body></html>`, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+// convierte "Sucursal Norte" en "sucursal-norte" para usar en el link
+function slugifyBranchName(name) {
+  const withoutAccents = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return withoutAccents.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'sucursal';
+}
+
+async function handleCreateBranch(request, env, slug) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+  const cleanName = String(body.name || '').trim().slice(0, 60);
+  if (!cleanName) return new Response(JSON.stringify({ error: 'Falta el nombre de la sucursal' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+
+  const baseSlug = slugifyBranchName(cleanName);
+  let finalSlug = baseSlug;
+  let n = 2;
+  try {
+    while (await env.DB.prepare('SELECT id FROM branches WHERE business_id = ? AND slug = ?').bind(business.id, finalSlug).first()) {
+      finalSlug = `${baseSlug}-${n}`;
+      n++;
+    }
+    await env.DB.prepare('INSERT INTO branches (business_id, name, slug) VALUES (?, ?, ?)').bind(business.id, cleanName, finalSlug).run();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'No se pudo guardar. ¿Ya corriste la migración de sucursales?' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  return new Response(JSON.stringify({ ok: true, name: cleanName, slug: finalSlug }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleDeleteBranch(request, env, slug, branchId) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  if (!/^\d+$/.test(String(branchId))) {
+    return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  await env.DB.prepare('DELETE FROM branches WHERE id = ? AND business_id = ?').bind(branchId, business.id).run();
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleUpdateBusiness(request, env, slug) {
@@ -6253,7 +6404,7 @@ async function handleStaffManifest(env, slug) {
 // panel del staff
 // ------------------------------------------------------------
 
-async function handleStaffPage(request, env, slug) {
+async function handleStaffPage(request, env, slug, branchSlug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
 
@@ -6263,10 +6414,21 @@ async function handleStaffPage(request, env, slug) {
     return new Response(renderSuspendedPage(business, platformName), { status: 402, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
   }
 
+  let branchName = null;
+  if (branchSlug) {
+    try {
+      const branch = await env.DB.prepare('SELECT name FROM branches WHERE business_id = ? AND slug = ?')
+        .bind(business.id, branchSlug).first();
+      if (branch) branchName = branch.name;
+    } catch (e) {
+      // todavía no existe la tabla branches (falta correr la migración)
+    }
+  }
+
   const cookieVal = getCookie(request, 'staff_session');
   const isLoggedIn = await isValidStaffSession(env, business.id, cookieVal);
 
-  const html = isLoggedIn ? renderStaffPanel(business, platformName) : renderStaffLogin(business, platformName);
+  const html = isLoggedIn ? renderStaffPanel(business, platformName) : renderStaffLogin(business, platformName, branchSlug, branchName);
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
 
@@ -6312,7 +6474,7 @@ function baseStaffStyles(b) {
   `;
 }
 
-function renderStaffLogin(b, platformName) {
+function renderStaffLogin(b, platformName, branchSlug, branchName) {
   const font = getFontConfig(b.font_family);
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
   <title>Staff · ${escapeHtml(b.name)}</title>
@@ -6322,6 +6484,7 @@ function renderStaffLogin(b, platformName) {
     <div class="wrap">
     <div class="box">
       <h1>${escapeHtml(b.name)}</h1>
+      ${branchName ? `<p class="sub" style="font-weight:700;">📍 ${escapeHtml(branchName)}</p>` : ''}
       <p class="sub">Ingresa el PIN del local para sumar sellos</p>
       <form id="loginForm">
         <input type="password" inputmode="numeric" id="pin" placeholder="PIN" autofocus>
@@ -6341,8 +6504,9 @@ function renderStaffLogin(b, platformName) {
         const pin = document.getElementById('pin').value;
         const msg = document.getElementById('msg');
         msg.textContent = 'Verificando...'; msg.className = 'msg';
-        const res = await fetch(location.pathname + '/login', {
-          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pin })
+        const res = await fetch('/staff/${b.slug}/login', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ pin, branch_slug: ${branchSlug ? `'${branchSlug}'` : 'null'} })
         });
         if (res.ok) { location.reload(); }
         else { msg.textContent = 'PIN incorrecto'; msg.className = 'msg err'; }
@@ -6576,8 +6740,22 @@ async function handleLogin(request, env, slug) {
     }
   }
 
-  const { pin } = await request.json();
+  const { pin, branch_slug } = await request.json();
   const hash = await sha256Hex(String(pin || ''));
+
+  // si viene de un link con sucursal (ej. /staff/cloudscookies/norte), buscamos
+  // a cuál sucursal corresponde ese pedazo del link, para etiquetar la sesión
+  let matchedBranchId = null;
+  if (branch_slug) {
+    try {
+      const branch = await env.DB.prepare('SELECT id FROM branches WHERE business_id = ? AND slug = ?')
+        .bind(business.id, branch_slug).first();
+      if (branch) matchedBranchId = branch.id;
+    } catch (e) {
+      // todavía no existe la tabla branches (falta correr la migración) — se sigue de largo
+    }
+  }
+
   if (hash !== business.staff_pin_hash) {
     const fails = (business.staff_login_fails || 0) + 1;
     if (fails >= 4) {
@@ -6595,7 +6773,7 @@ async function handleLogin(request, env, slug) {
   await env.DB.prepare('UPDATE businesses SET staff_login_fails = 0, staff_login_locked_until = NULL WHERE id = ?').bind(business.id).run();
 
   const headers = new Headers({ 'Content-Type': 'application/json' });
-  const staffToken = await createStaffSession(env, business.id);
+  const staffToken = await createStaffSession(env, business.id, 12, matchedBranchId);
   headers.append('Set-Cookie', `staff_session=${staffToken}; Path=/staff/${slug}; HttpOnly; Secure; SameSite=Strict; Max-Age=43200`);
   return new Response(JSON.stringify({ ok: true }), { headers });
 }
@@ -7103,6 +7281,7 @@ async function handleStamp(request, env, slug) {
   if (!(await isValidStaffSession(env, business.id, cookieVal))) {
     return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a ingresar el PIN' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
+  const branchId = await getStaffSessionBranch(env, business.id, cookieVal);
 
   // normalizamos a mayúsculas: los códigos siempre se generan así, pero si el staff
   // los escribe en minúscula (o con espacios de más) antes fallaba con "no existe"
@@ -7117,8 +7296,14 @@ async function handleStamp(request, env, slug) {
   const newStamps = customer.stamps + 1;
 
   // siempre queda una fila en la bitácora, con la fecha real, sin importar si completa el ciclo o no
-  await env.DB.prepare('INSERT INTO visits (customer_id, business_id, cycle, stamped_at) VALUES (?, ?, ?, datetime(\'now\'))')
-    .bind(customer.id, business.id, customer.cycle).run();
+  try {
+    await env.DB.prepare('INSERT INTO visits (customer_id, business_id, cycle, stamped_at, branch_id) VALUES (?, ?, ?, datetime(\'now\'), ?)')
+      .bind(customer.id, business.id, customer.cycle, branchId).run();
+  } catch (e) {
+    // todavía no existe la columna branch_id (falta correr la migración)
+    await env.DB.prepare('INSERT INTO visits (customer_id, business_id, cycle, stamped_at) VALUES (?, ?, ?, datetime(\'now\'))')
+      .bind(customer.id, business.id, customer.cycle).run();
+  }
 
   if (newStamps >= business.total_stamps) {
     // completó la tarjeta: se cierra este ciclo y se genera un código nuevo para el siguiente
