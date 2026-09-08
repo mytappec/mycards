@@ -5175,12 +5175,13 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .card-top{padding:20px 24px 14px;text-align:center;border-bottom:2px solid var(--border-card);}
   .brand-logo{height:88px;width:auto;max-width:92%;display:block;margin:0 auto;}
   .card-body{padding:16px 26px 18px;}
-  .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:24px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.2;text-transform:uppercase;}
+  .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:24px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.2;}
   .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:24px;color:var(--brown);margin:2px 0 12px;line-height:1.2;}
-  .progress-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+  .progress-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
   .progress-track{flex:1;height:22px;border-radius:99px;background:#FFFFFF;border:2px solid var(--border-progress);overflow:hidden;box-shadow:0 3px 6px -1px rgba(0,0,0,.18);}
   .progress-fill{height:100%;border-radius:99px;background:var(--pink);}
-  .progress-pct{font-family:var(--font-display);font-weight:700;font-style:var(--font-style-name);font-size:13.5px;color:var(--text-progress-pct);min-width:0;text-align:right;flex-shrink:0;white-space:nowrap;}
+  .progress-pct{font-family:var(--font-display);font-weight:700;font-style:var(--font-style-name);font-size:14px;color:var(--text-progress-pct);min-width:0;text-align:right;flex-shrink:0;white-space:nowrap;}
+  .progress-stamps{font-size:13px;font-weight:700;color:var(--text-progress-label);margin:0 0 16px;}
   .progress-text b{color:inherit;font-weight:800;}
   .stamp-rows{margin-bottom:12px;}
   .stamp-row{display:flex;justify-content:center;gap:10px;}
@@ -5246,8 +5247,9 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
         <p class="greeting-name">${escapeHtml(customer.name.split(' ')[0])}</p>
         <div class="progress-row">
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-          <span class="progress-pct">Sellos ${filled}/${total}</span>
+          <span class="progress-pct">${pct}%</span>
         </div>
+        <p class="progress-stamps">Sellos ${filled}/${total}</p>
         <div class="stamp-rows${isShapeStyle ? ' shape-style' : ''}" style="--stamp-cols:${topCount};${stampsBgStyle}">
           <div class="stamp-row">${stampsTopHtml}</div>
           ${bottomCount > 0 ? `<div class="stamp-row">${stampsBottomHtml}</div>` : ''}
