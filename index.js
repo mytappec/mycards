@@ -4120,13 +4120,13 @@ async function handleEditBusinessForm(request, env, slug) {
                 ${branches.length ? branches.map(br => `
                   <div class="branch-row" data-id="${br.id}" style="padding:10px 0;border-bottom:1px solid #DAE7F1;">
                     <div style="display:flex;gap:6px;margin-bottom:2px;">
-                      <input type="text" class="branchNameInput" value="${escapeHtml(br.name)}" style="flex:1;font-weight:700;padding:6px 8px;">
-                      <button type="button" class="saveBranchNameBtn" data-id="${br.id}" style="background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
+                      <input type="text" class="branchNameInput" value="${escapeHtml(br.name)}" style="flex:1;width:auto;min-width:0;font-weight:700;padding:6px 8px;">
+                      <button type="button" class="saveBranchNameBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
                     </div>
                     <div style="font-size:12px;color:#6B6259;word-break:break-all;margin:2px 0 8px;">${new URL(request.url).origin}/staff/${b.slug}/${br.slug}</div>
                     <div style="display:flex;gap:8px;">
                       <button type="button" class="copyBranchLinkBtn" data-link="${new URL(request.url).origin}/staff/${b.slug}/${br.slug}" style="flex:1;background:#42281B;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Copiar link</button>
-                      <button type="button" class="deleteBranchBtn" data-id="${br.id}" style="background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:12px;">Borrar</button>
+                      <button type="button" class="deleteBranchBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:12px;">Borrar</button>
                     </div>
                   </div>
                 `).join('') : '<p class="hint" style="margin:0 0 10px;">Todavía no has agregado ninguna sucursal.</p>'}
@@ -4227,8 +4227,9 @@ async function handleEditBusinessForm(request, env, slug) {
               const id = btn.dataset.id;
               try {
                 const res = await fetch('/brandpanel/business/${b.slug}/branches/' + id + '/delete', { method: 'POST' });
+                const data = await res.json().catch(function() { return {}; });
                 if (res.ok) { location.reload(); }
-                else { alert('No se pudo borrar, intenta de nuevo.'); }
+                else { alert(data.error || 'No se pudo borrar, intenta de nuevo.'); }
               } catch (e) {
                 alert('Error de conexión, intenta de nuevo.');
               }
@@ -4539,7 +4540,11 @@ async function handleDeleteBranch(request, env, slug, branchId) {
     return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
-  await env.DB.prepare('DELETE FROM branches WHERE id = ? AND business_id = ?').bind(branchId, business.id).run();
+  try {
+    await env.DB.prepare('DELETE FROM branches WHERE id = ? AND business_id = ?').bind(branchId, business.id).run();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Error al borrar: ' + (e.message || 'desconocido') }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 }
 
