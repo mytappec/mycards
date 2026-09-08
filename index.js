@@ -5172,12 +5172,15 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .wrap{width:100%;max-width:430px;margin:0 auto;position:relative;}
   .card{background:var(--card-bg);border-radius:34px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep),0 28px 48px -22px rgba(0,0,0,.28);overflow:visible;position:relative;}
   .card-inner{border-radius:31.5px;overflow:hidden;}
-  .card-top{padding:30px 24px 54px;text-align:center;background:var(--brown);position:relative;overflow:hidden;}
-  .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto;position:relative;z-index:2;filter:drop-shadow(0 2px 6px rgba(0,0,0,.15));}
+  .card-top{padding:26px 24px 54px;text-align:left;background:var(--card-bg);position:relative;overflow:hidden;}
+  .hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px;}
+  .hero-logo{height:34px;width:auto;max-width:120px;object-fit:contain;}
+  .stamp-count-badge{font-size:11px;color:var(--brown-soft);text-align:right;line-height:1.25;white-space:nowrap;}
+  .stamp-count-badge b{font-family:var(--font-display);font-size:15px;color:var(--brown);display:block;}
   .progress-card{position:relative;margin:-34px 20px 0;background:var(--card-bg);border-radius:22px;border:2px solid var(--border-card);padding:18px 20px 16px;box-shadow:0 14px 28px -16px rgba(0,0,0,.3);z-index:3;}
   .card-body{padding:18px 26px 20px;}
   .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:17px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
-  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:25px;color:var(--brown);margin:2px 0 12px;line-height:1.15;letter-spacing:-.2px;}
+  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:25px;color:var(--brown);margin:2px 0 0;line-height:1.15;letter-spacing:-.2px;}
   .progress-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
   .progress-track{flex:1;height:22px;border-radius:99px;background:color-mix(in srgb,var(--card-bg) 55%,#fff);border:2px solid var(--border-progress);overflow:hidden;box-shadow:inset 0 1.5px 3px rgba(0,0,0,.07);}
   .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--pink) 75%,#fff),var(--pink));box-shadow:inset 0 1px 0 rgba(255,255,255,.5);}
@@ -5241,11 +5244,14 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     <div class="card" id="mainCard">
       <div class="card-inner">
       <div class="card-top">
-        <img class="brand-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">
-      </div>
-      <div class="progress-card">
+        <div class="hero-top">
+          <img class="hero-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">
+          <div class="stamp-count-badge">Sellos<b>${filled} / ${total}</b></div>
+        </div>
         <p class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</p>
         <p class="greeting-name">${escapeHtml(customer.name.split(' ')[0])}</p>
+      </div>
+      <div class="progress-card">
         <div class="progress-row">
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
           <span class="progress-pct">${pct}%</span>
