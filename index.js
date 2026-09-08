@@ -1568,7 +1568,7 @@ async function renderAdminDashboard(env, admin) {
               <label>Instrucción para sumar sellos</label>
               <select id="instruction_text">
                 <option value="Muestra este código al vendedor / caja">Negocio físico: mostrar en caja</option>
-                <option value="Muestra este código al momento de pagar para sumar tu sello.">Negocio físico: mostrar al pagar</option>
+                <option value="Muestra este código al momento de pagar.">Negocio físico: mostrar al pagar</option>
                 <option value="Envía este código al confirmar tu pedido para sumar tu sello.">Negocio digital: al confirmar pedido</option>
                 <option value="Pega este código en el chat al hacer tu compra.">Negocio digital: pegar en el chat</option>
                 <option value="Envía una captura de este código junto a tu comprobante de pago.">Negocio digital: junto al comprobante</option>
@@ -4086,7 +4086,7 @@ async function handleEditBusinessForm(request, env, slug) {
               <label>Instrucción para sumar sellos</label>
               <select id="instruction_text">
                 <option value="Muestra este código al vendedor / caja"${b.instruction_text === 'Muestra este código al vendedor / caja' ? ' selected' : ''}>Negocio físico: mostrar en caja</option>
-                <option value="Muestra este código al momento de pagar para sumar tu sello."${b.instruction_text === 'Muestra este código al momento de pagar para sumar tu sello.' ? ' selected' : ''}>Negocio físico: mostrar al pagar</option>
+                <option value="Muestra este código al momento de pagar."${b.instruction_text === 'Muestra este código al momento de pagar.' ? ' selected' : ''}>Negocio físico: mostrar al pagar</option>
                 <option value="Envía este código al confirmar tu pedido para sumar tu sello."${b.instruction_text === 'Envía este código al confirmar tu pedido para sumar tu sello.' ? ' selected' : ''}>Negocio digital: al confirmar pedido</option>
                 <option value="Pega este código en el chat al hacer tu compra."${b.instruction_text === 'Pega este código en el chat al hacer tu compra.' ? ' selected' : ''}>Negocio digital: pegar en el chat</option>
                 <option value="Envía una captura de este código junto a tu comprobante de pago."${b.instruction_text === 'Envía una captura de este código junto a tu comprobante de pago.' ? ' selected' : ''}>Negocio digital: junto al comprobante</option>
@@ -4840,7 +4840,7 @@ async function handleCustomerCard(env, slug, code, origin) {
 
   const platformName = await getPlatformName(env);
   return new Response(renderCustomerCard(business, customer, slug, origin, platformName), {
-    headers: { 'Content-Type': 'text/html; charset=UTF-8' }
+    headers: { 'Content-Type': 'text/html; charset=UTF-8', 'Cache-Control': 'no-store' }
   });
 }
 
@@ -4858,11 +4858,11 @@ function renderCardNotFoundPage(b, slug) {
     body{margin:0;min-height:100vh;background:${b.color_page_bg};font-family:'Quicksand',sans-serif;padding:24px;display:flex;align-items:center;}
     .wrap{width:100%;max-width:380px;margin:0 auto;}
     .box{background:${b.color_card_bg};border:2px solid ${b.color_border_card};border-radius:24px;padding:36px 26px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.08);}
-    .box img.logo{height:72px;width:auto;max-width:85%;display:block;margin:0 auto 24px;}
+    .box img.logo{height:92px;width:auto;max-width:88%;display:block;margin:0 auto 26px;}
     .box h1{font-size:20px;color:${b.color_brown};margin:0 0 12px;line-height:1.3;}
     .box p{font-size:14.5px;color:${b.color_brown};line-height:1.6;margin:0;opacity:.9;}
     .box a{color:${b.color_brown};font-weight:700;}
-    .footer-brand{text-align:center;margin:22px 0 0;}
+    .footer-brand{text-align:center;margin:38px 0 0;}
     .footer-brand img{width:26%;min-width:95px;max-width:150px;height:auto;display:block;margin:0 auto;}
   </style></head>
   <body>
