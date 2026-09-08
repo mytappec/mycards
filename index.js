@@ -4858,7 +4858,7 @@ function renderCardNotFoundPage(b, slug) {
     body{margin:0;min-height:100vh;background:${b.color_page_bg};font-family:'Quicksand',sans-serif;padding:24px;display:flex;align-items:center;}
     .wrap{width:100%;max-width:380px;margin:0 auto;}
     .box{background:${b.color_card_bg};border:2px solid ${b.color_border_card};border-radius:24px;padding:36px 26px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.08);}
-    .box img.logo{height:58px;width:auto;max-width:85%;display:block;margin:0 auto 22px;}
+    .box img.logo{height:72px;width:auto;max-width:85%;display:block;margin:0 auto 24px;}
     .box h1{font-size:20px;color:${b.color_brown};margin:0 0 12px;line-height:1.3;}
     .box p{font-size:14.5px;color:${b.color_brown};line-height:1.6;margin:0;opacity:.9;}
     .box a{color:${b.color_brown};font-weight:700;}
