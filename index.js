@@ -4858,7 +4858,7 @@ function renderCardNotFoundPage(b, slug) {
     body{margin:0;min-height:100vh;background:${b.color_page_bg};font-family:'Quicksand',sans-serif;padding:24px;display:flex;align-items:center;}
     .wrap{width:100%;max-width:380px;margin:0 auto;}
     .box{background:${b.color_card_bg};border:2px solid ${b.color_border_card};border-radius:24px;padding:36px 26px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.08);}
-    .box img.logo{height:92px;width:auto;max-width:88%;display:block;margin:0 auto 26px;}
+    .box img.logo{height:92px;width:auto;max-width:94%;display:block;margin:0 auto 26px;}
     .box h1{font-size:20px;color:${b.color_brown};margin:0 0 12px;line-height:1.3;}
     .box p{font-size:14.5px;color:${b.color_brown};line-height:1.6;margin:0;opacity:.9;}
     .box a{color:${b.color_brown};font-weight:700;}
@@ -6518,6 +6518,7 @@ function baseStaffStyles(b) {
   .wrap{width:100%;max-width:420px;margin:0 auto;}
   .box{width:100%;background:${b.color_card_bg};border:2.5px solid ${b.color_brown};border-radius:28px;padding:38px 32px;box-shadow:0 10px 0 ${b.color_brown_deep};}
   h1{font-family:'${b.font_family}',${font.fallback};font-size:23px;color:${b.color_brown};margin:0 0 6px;text-align:center;}
+  .box img.staff-logo{height:56px;width:auto;max-width:88%;display:block;margin:0 auto 14px;}
   p.sub{font-size:14px;color:${b.color_brown_soft};text-align:center;margin:0 0 26px;line-height:1.4;}
   input{width:100%;padding:15px 16px;border:2px solid ${b.color_brown};border-radius:14px;font-size:16px;margin-bottom:14px;font-family:'Quicksand',sans-serif;}
   button{width:100%;padding:15px;border:2px solid ${b.color_brown};border-radius:14px;background:${btnColors.bg};color:${btnColors.text};font-weight:700;font-size:16px;cursor:pointer;}
@@ -6542,7 +6543,7 @@ function renderStaffLogin(b, platformName, branchSlug, branchName) {
   <body>
     <div class="wrap">
     <div class="box">
-      <h1>${escapeHtml(b.name)}</h1>
+      ${b.logo_base64 ? `<img class="staff-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">` : `<h1>${escapeHtml(b.name)}</h1>`}
       ${branchName ? `<p class="sub" style="font-weight:700;">📍 ${escapeHtml(branchName)}</p>` : ''}
       <p class="sub">Ingresa el PIN del local para sumar sellos</p>
       <form id="loginForm">
@@ -6598,7 +6599,7 @@ function renderStaffPanel(b, platformName) {
   <body>
     <div class="wrap">
     <div class="box">
-      <h1>${escapeHtml(b.name)}</h1>
+      ${b.logo_base64 ? `<img class="staff-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">` : `<h1>${escapeHtml(b.name)}</h1>`}
       <p class="sub">Escanea el QR del cliente, o escribe su código a mano</p>
 
       <button type="button" id="scanBtn" class="scan-btn">📷 Escanear con cámara</button>
