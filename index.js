@@ -151,9 +151,9 @@ export default {
       if (parts[0] === 'staff' && parts[1]) {
         const slug = parts[1];
         if (parts[2] === 'login' && request.method === 'POST') return handleLogin(request, env, slug);
-        if (parts[2] === 'stamp' && request.method === 'POST') return handleStamp(request, env, slug);
-        if (parts[2] === 'unstamp' && request.method === 'POST') return handleUnstamp(request, env, slug);
-        if (parts[2] === 'register' && request.method === 'POST') return handleRegister(request, env, slug);
+        if (parts[2] === 'stamp' && request.method === 'POST') return handleStamp(request, env, slug, null);
+        if (parts[2] === 'unstamp' && request.method === 'POST') return handleUnstamp(request, env, slug, null);
+        if (parts[2] === 'register' && request.method === 'POST') return handleRegister(request, env, slug, null);
         if (parts[2] === 'clientes' && parts[3] === 'borrar-varios' && request.method === 'POST') return handleBulkDeleteCustomers(request, env, slug);
         if (parts[2] === 'clientes') return handleClientesList(request, env, slug);
         if (parts[2] === 'metricas') return handleBusinessMetrics(request, env, slug);
@@ -161,10 +161,20 @@ export default {
         if (parts[2] === 'cliente' && parts[3] && parts[4] === 'delete' && request.method === 'POST') return handleDeleteCustomer(request, env, slug, parts[3]);
         if (parts[2] === 'historial' && parts[3]) return handleHistorial(request, env, slug, parts[3]);
         if (parts[2] === 'logout') return handleLogout(request, env, slug);
-        // /staff/:slug/:branchSlug — link propio de una sucursal, guardado una
-        // sola vez en el dispositivo de ese local (ver renderStaffLogin)
-        const branchSlug = parts[2] || null;
-        return handleStaffPage(request, env, slug, branchSlug);
+        // /staff/:slug/:branchSlug/(stamp|unstamp|register) — la misma acción
+        // pero abierta desde el link de una sucursal específica, así la
+        // sucursal se lee del link actual, no de cuándo se inició sesión
+        const staffActionWords = ['login', 'stamp', 'unstamp', 'register', 'clientes', 'metricas', 'metricas-export', 'cliente', 'historial', 'logout'];
+        if (parts[2] && !staffActionWords.includes(parts[2])) {
+          const branchSlug = parts[2];
+          if (parts[3] === 'stamp' && request.method === 'POST') return handleStamp(request, env, slug, branchSlug);
+          if (parts[3] === 'unstamp' && request.method === 'POST') return handleUnstamp(request, env, slug, branchSlug);
+          if (parts[3] === 'register' && request.method === 'POST') return handleRegister(request, env, slug, branchSlug);
+          // /staff/:slug/:branchSlug — link propio de una sucursal, guardado una
+          // sola vez en el dispositivo de ese local (ver renderStaffLogin)
+          return handleStaffPage(request, env, slug, branchSlug);
+        }
+        return handleStaffPage(request, env, slug, null);
       }
 
       // ---- auto-registro público del cliente: /:slug/nuevo ----
@@ -6487,7 +6497,7 @@ async function handleStaffPage(request, env, slug, branchSlug) {
   const cookieVal = getCookie(request, 'staff_session');
   const isLoggedIn = await isValidStaffSession(env, business.id, cookieVal);
 
-  const html = isLoggedIn ? renderStaffPanel(business, platformName) : renderStaffLogin(business, platformName, branchSlug, branchName);
+  const html = isLoggedIn ? renderStaffPanel(business, platformName, branchSlug, branchName) : renderStaffLogin(business, platformName, branchSlug, branchName);
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
 
@@ -6575,7 +6585,7 @@ function renderStaffLogin(b, platformName, branchSlug, branchName) {
   </body></html>`;
 }
 
-function renderStaffPanel(b, platformName) {
+function renderStaffPanel(b, platformName, branchSlug, branchName) {
   const font = getFontConfig(b.font_family);
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
   <title>Staff · ${escapeHtml(b.name)}</title>
@@ -6600,6 +6610,7 @@ function renderStaffPanel(b, platformName) {
     <div class="wrap">
     <div class="box">
       ${b.logo_base64 ? `<img class="staff-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">` : `<h1>${escapeHtml(b.name)}</h1>`}
+      ${branchName ? `<p class="sub" style="font-weight:700;margin-top:-4px;">📍 ${escapeHtml(branchName)}</p>` : ''}
       <p class="sub">Escanea el QR del cliente, o escribe su código a mano</p>
 
       <button type="button" id="scanBtn" class="scan-btn">📷 Escanear con cámara</button>
@@ -6633,6 +6644,7 @@ function renderStaffPanel(b, platformName) {
     </div>
     </div>
     <script>
+      const staffBasePath = '/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}';
       const codeInput = document.getElementById('code');
       const msg = document.getElementById('msg');
       const scanHint = document.getElementById('scanHint');
@@ -6657,11 +6669,11 @@ function renderStaffPanel(b, platformName) {
         return parts[parts.length - 1] || rawValue;
       }
 
-      async function submitStamp(code){
+      async function submitStamp(code, confirmDuplicate){
         if (!code) return;
         msg.textContent = 'Sumando...'; msg.className = 'msg';
-        const res = await fetch('/staff/${b.slug}/stamp', {
-          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code })
+        const res = await fetch(staffBasePath + '/stamp', {
+          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code, confirm: !!confirmDuplicate })
         });
         const data = await res.json();
         if (res.ok) {
@@ -6670,6 +6682,10 @@ function renderStaffPanel(b, platformName) {
             : '✅ Sello sumado: ' + data.stamps + '/' + data.total;
           msg.className = 'msg ok';
           codeInput.value = '';
+        } else if (data.warning) {
+          msg.textContent = '';
+          if (confirm(data.message)) { await submitStamp(code, true); }
+          else { msg.textContent = 'Sello cancelado.'; msg.className = 'msg'; }
         } else {
           msg.textContent = data.error || 'No se encontró ese código';
           msg.className = 'msg err';
@@ -6690,7 +6706,7 @@ function renderStaffPanel(b, platformName) {
         }
         if (!confirm('¿Quitar un sello a este cliente? Es para corregir un error (por ejemplo, si se selló dos veces).')) return;
         msg.textContent = 'Quitando...'; msg.className = 'msg';
-        const res = await fetch('/staff/${b.slug}/unstamp', {
+        const res = await fetch(staffBasePath + '/unstamp', {
           method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code })
         });
         const data = await res.json();
@@ -6761,7 +6777,7 @@ function renderStaffPanel(b, platformName) {
         const cedula = document.getElementById('regCedula').value.trim();
         if (!name) { regMsg.textContent = 'Falta el nombre'; regMsg.className = 'msg err'; return; }
         regMsg.textContent = 'Creando tarjeta...'; regMsg.className = 'msg';
-        const res = await fetch('/staff/${b.slug}/register', {
+        const res = await fetch(staffBasePath + '/register', {
           method: 'POST', headers: {'Content-Type':'application/json'},
           body: JSON.stringify({ name, cedula })
         });
@@ -6847,7 +6863,7 @@ async function handleLogout(request, env, slug) {
   return new Response(null, { status: 302, headers });
 }
 
-async function handleRegister(request, env, slug) {
+async function handleRegister(request, env, slug, branchSlug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
   if (business.is_suspended) {
@@ -6868,7 +6884,7 @@ async function handleRegister(request, env, slug) {
   }
 
   const code = await generateUniqueCode(env, slug);
-  const branchId = await getStaffSessionBranch(env, business.id, cookieVal);
+  const branchId = await resolveBranchId(env, business.id, branchSlug, cookieVal);
   try {
     await env.DB.prepare('INSERT INTO customers (business_id, code, name, cedula, stamps, signup_branch_id) VALUES (?, ?, ?, ?, 0, ?)')
       .bind(business.id, code, name, cedula || null, branchId).run();
@@ -7380,7 +7396,27 @@ async function handleHistorial(request, env, slug, code) {
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
 
-async function handleStamp(request, env, slug) {
+// resuelve la sucursal SIEMPRE a partir del link actual (branchSlug), no de
+// la sesión — así, si el mismo dispositivo estuvo antes en otra sucursal (o
+// en el link sin sucursal), cada sello queda con la sucursal correcta del
+// link que se está usando ahora mismo, no la de cuando se inició sesión
+async function resolveBranchId(env, businessId, branchSlug, cookieVal) {
+  if (branchSlug) {
+    try {
+      const branch = await env.DB.prepare('SELECT id FROM branches WHERE business_id = ? AND slug = ?')
+        .bind(businessId, branchSlug).first();
+      if (branch) return branch.id;
+    } catch (e) {
+      // todavía no existe la tabla branches (falta correr la migración)
+    }
+    return null;
+  }
+  // sin sucursal en el link: se usa la que quedó guardada al iniciar sesión
+  // (compatibilidad con el link normal del negocio, sin sucursales)
+  return await getStaffSessionBranch(env, businessId, cookieVal);
+}
+
+async function handleStamp(request, env, slug, branchSlug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
 
@@ -7393,7 +7429,7 @@ async function handleStamp(request, env, slug) {
   if (!(await isValidStaffSession(env, business.id, cookieVal))) {
     return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a ingresar el PIN' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
-  const branchId = await getStaffSessionBranch(env, business.id, cookieVal);
+  const branchId = await resolveBranchId(env, business.id, branchSlug, cookieVal);
 
   // normalizamos a mayúsculas: los códigos siempre se generan así, pero si el staff
   // los escribe en minúscula (o con espacios de más) antes fallaba con "no existe"
@@ -7403,6 +7439,24 @@ async function handleStamp(request, env, slug) {
     .bind(code, business.id).first();
   if (!customer) {
     return new Response(JSON.stringify({ error: 'No se encontró ese código de cliente' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // aviso (no bloqueo) si a este cliente ya se le sumó un sello hace menos de
+  // 5 minutos — para atajar el error humano de sellar dos veces por accidente,
+  // sin estorbar el caso real de dos compras seguidas. El staff puede
+  // confirmar y sumarlo igual si de verdad corresponde.
+  if (!body.confirm) {
+    try {
+      const lastVisit = await env.DB.prepare(
+        "SELECT stamped_at FROM visits WHERE customer_id = ? AND stamped_at > datetime('now', '-5 minutes') ORDER BY stamped_at DESC LIMIT 1"
+      ).bind(customer.id).first();
+      if (lastVisit) {
+        return new Response(JSON.stringify({ warning: true, message: `A ${customer.name} ya se le sumó un sello hace menos de 5 minutos. ¿Seguro que quieres sumarle otro?` }),
+          { status: 409, headers: { 'Content-Type': 'application/json' } });
+      }
+    } catch (e) {
+      // si falla esta revisión por lo que sea, seguimos igual sin bloquear el sello real
+    }
   }
 
   const newStamps = customer.stamps + 1;
@@ -7439,7 +7493,7 @@ async function handleStamp(request, env, slug) {
 // historial de compras quede igual de correcto que el conteo de sellos.
 // No deshace un premio ya canjeado (eso ya cerró el ciclo y generó un código
 // nuevo), solo corrige sellos dentro del ciclo actual.
-async function handleUnstamp(request, env, slug) {
+async function handleUnstamp(request, env, slug, branchSlug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
 
