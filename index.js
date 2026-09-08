@@ -7122,7 +7122,6 @@ async function handleClientesList(request, env, slug) {
       <td data-label="Código">${escapeHtml(c.code)}</td>
       <td data-label="Sellos">${c.stamps}/${business.total_stamps}</td>
       <td data-label="Ciclo">${c.cycle}</td>
-      ${branchColumnAvailable ? `<td data-label="Sucursal de registro">${escapeHtml(c.branch_name || '—')}</td>` : ''}
       <td data-label="Historial"><a href="/staff/${slug}/historial/${escapeHtml(c.code)}">Ver fechas</a></td>
     </tr>`).join('');
 
@@ -7191,7 +7190,7 @@ async function handleClientesList(request, env, slug) {
     </div>
     <p class="msg" id="noResultsMsg" style="display:none;">No se encontró ningún cliente con ese nombre o cédula.</p>
     <table>
-      <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Nombre</th><th>Cédula</th><th>Código</th><th>Sellos</th><th>Ciclo</th>${branchColumnAvailable ? '<th>Sucursal de registro</th>' : ''}<th>Historial</th></tr></thead>
+      <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Nombre</th><th>Cédula</th><th>Código</th><th>Sellos</th><th>Ciclo</th><th>Historial</th></tr></thead>
       <tbody>
       ${rows || '<tr><td colspan="7">Todavía no hay clientes registrados</td></tr>'}
       </tbody>
