@@ -602,8 +602,6 @@ function colorGroupsHtml(b) {
     <div class="colors">
       ${colorField('color_page_bg', 'Fondo de toda la pantalla', v('color_page_bg', '#DCEAF4'))}
       ${colorField('color_card_bg', 'Fondo de la tarjeta', v('color_card_bg', '#FFFCF5'))}
-      ${colorField('color_hero_bg', 'Fondo de arriba (logo y progreso)', v('color_hero_bg', v('color_brown_deep', '#3E2107')), 'Si no lo cambias, usa el mismo color que "Fondo oscuro/detalles" por defecto.')}
-      ${colorField('color_progress_card_bg', 'Fondo de la tarjeta de "Progreso"', v('color_progress_card_bg', v('color_card_bg', '#FFFCF5')), 'Si no lo cambias, usa el mismo color que "Fondo de la tarjeta" por defecto.')}
       ${colorField('color_stamp_bg', 'Fondo de los círculos de sello', v('color_stamp_bg', '#593212'))}
       ${colorField('color_pink', 'Relleno de la barra de progreso', v('color_pink', '#F4D3DF'))}
       ${colorField('color_butter_mid', 'Fondo del bloque "Tu premio"', v('color_butter_mid', '#F9E6B2'), 'También pinta la etiqueta "PREMIO" y el anillo que pulsa alrededor del último sello.')}
@@ -2184,7 +2182,7 @@ async function handleCreateBusiness(request, env) {
   for (const key of Object.keys(boldFields)) fixedFields[key] = body[key] ? 1 : 0;
   // todos los colores individuales, con su valor por defecto
   const colorDefaults = {
-    color_page_bg: '#DCEAF4', color_card_bg: '#FFFCF5', color_hero_bg: '#3E2107', color_progress_card_bg: '#FFFCF5', color_brown: '#593212', color_brown_deep: '#3E2107', color_brown_soft: '#8A5A34',
+    color_page_bg: '#DCEAF4', color_card_bg: '#FFFCF5', color_brown: '#593212', color_brown_deep: '#3E2107', color_brown_soft: '#8A5A34',
     color_pink: '#F4D3DF', color_butter_mid: '#F9E6B2', color_butter_light: '#FBEFD2',
     color_stamp_bg: '#593212', color_qr_bg: '#F4D3DF', color_instagram_bg: '#DCEAF4',
     color_reward_text: '#593212', color_reward_heading: '#593212',
@@ -4829,7 +4827,7 @@ async function handleUpdateBusiness(request, env, slug) {
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
   for (const key of boldFieldNames) fixedFields[key] = body[key] ? 1 : 0;
   const colorFieldNames = [
-    'color_page_bg', 'color_card_bg', 'color_hero_bg', 'color_progress_card_bg', 'color_brown', 'color_brown_deep', 'color_brown_soft', 'color_pink', 'color_butter_mid', 'color_butter_light',
+    'color_page_bg', 'color_card_bg', 'color_brown', 'color_brown_deep', 'color_brown_soft', 'color_pink', 'color_butter_mid', 'color_butter_light',
     'color_stamp_bg', 'color_qr_bg', 'color_instagram_bg', 'color_reward_text', 'color_reward_heading',
     'color_border_card', 'color_border_progress', 'color_border_stamp_ring', 'color_border_reward', 'color_border_qr',
     'color_text_progress_pct', 'color_text_progress_label', 'color_text_progress_number',
@@ -5107,7 +5105,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     const isFilled = i <= filled;
     return `<div class="stamp${isFilled ? ' filled' : ''}${isReward ? ' reward' : ''}" data-sello="${selloKey}">
       <div class="stamp-img"></div>
-      ${isReward ? '<span class="reward-tag">TU PREMIO</span>' : ''}
+      ${isReward ? '<span class="reward-tag">PREMIO</span>' : ''}
     </div>`;
   };
   let stampsTopHtml = '';
@@ -5151,8 +5149,6 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     --brown:${b.color_brown}; --brown-deep:${b.color_brown_deep}; --brown-soft:${b.color_brown_soft};
     --pink:${b.color_pink}; --butter-mid:${b.color_butter_mid}; --butter-light:${b.color_butter_light};
     --stamp-bg:${b.color_stamp_bg}; --qr-bg:${b.color_qr_bg}; --instagram-bg:${b.color_instagram_bg};
-    --hero-bg:${b.color_hero_bg || b.color_brown_deep};
-    --progress-card-bg:${b.color_progress_card_bg || b.color_card_bg};
     --reward-body:${b.color_reward_text}; --reward-heading:${b.color_reward_heading};
     --border-card:${b.color_border_card}; --border-progress:${b.color_border_progress};
     --border-stamp-ring:${b.color_border_stamp_ring}; --border-reward:${b.color_border_reward}; --border-qr:${b.color_border_qr};
@@ -5174,32 +5170,32 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   *{box-sizing:border-box;}
   body{margin:0;min-height:100vh;background:var(--page-bg);font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;padding:18px 14px 78px;overflow-x:hidden;}
   .wrap{width:100%;max-width:430px;margin:0 auto;position:relative;}
-  .card{background:var(--card-bg);border-radius:34px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep),0 28px 48px -22px rgba(0,0,0,.28);overflow:visible;position:relative;}
-  .card-inner{border-radius:31.5px;overflow:hidden;}
-  .card-top{padding:26px 24px 54px;text-align:left;background:var(--hero-bg);position:relative;overflow:hidden;}
-  .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto 20px;position:relative;z-index:2;filter:drop-shadow(0 2px 6px rgba(0,0,0,.12));}
-  .hero-lead{font-size:13.5px;color:var(--brown-soft);margin:8px 0 0;line-height:1.45;}
-  .hero-lead b{color:var(--brown);font-weight:800;}
-  .progress-card{position:relative;margin:-34px 20px 0;background:var(--progress-card-bg);border-radius:22px;padding:18px 20px;box-shadow:0 14px 28px -16px rgba(0,0,0,.3);z-index:3;}
-  .card-body{padding:18px 26px 20px;}
-  .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:17px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
-  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:25px;color:var(--brown);margin:2px 0 0;line-height:1.15;letter-spacing:-.2px;}
-  .progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
-  .progress-label{font-size:12px;color:var(--text-progress-label);font-weight:500;}
-  .progress-track{height:8px;border-radius:99px;background:color-mix(in srgb,var(--brown) 15%,var(--card-bg));overflow:hidden;}
-  .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--pink) 75%,#fff),var(--pink));}
-  .progress-pct{font-size:11px;color:var(--text-progress-label);text-align:right;line-height:1.25;white-space:nowrap;}
-  .progress-pct b{font-family:var(--font-display);font-size:15px;color:var(--text-progress-pct);display:block;}
-  .stamp-rows{margin-bottom:14px;margin-top:4px;}
+  .card{background:var(--card-bg);border-radius:32px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep);overflow:visible;position:relative;}
+  .card-inner{border-radius:29.5px;overflow:hidden;}
+  .card-top{padding:20px 24px 14px;text-align:center;border-bottom:2px solid var(--border-card);}
+  .brand-logo{height:88px;width:auto;max-width:92%;display:block;margin:0 auto;}
+  .card-body{padding:16px 26px 18px;}
+  .greeting-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;}
+  .greeting-eyebrow{color:var(--brown-soft);}
+  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:24px;color:var(--brown);margin:0;line-height:1.2;}
+  .stamp-count-badge{flex:none;font-size:11px;color:var(--brown-soft);text-align:right;line-height:1.25;white-space:nowrap;padding-top:2px;}
+  .stamp-count-badge b{font-family:var(--font-display);font-size:15px;color:var(--brown);display:block;}
+  .progress-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+  .progress-track{flex:1;height:22px;border-radius:99px;background:#FFFFFF;border:2px solid var(--border-progress);overflow:hidden;box-shadow:0 3px 6px -1px rgba(0,0,0,.18);}
+  .progress-fill{height:100%;border-radius:99px;background:var(--pink);}
+  .progress-pct{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:14px;color:var(--text-progress-pct);min-width:0;text-align:right;flex-shrink:0;}
+  .progress-text{font-size:13.5px;color:var(--text-progress-label);margin:0 0 14px;}
+  .progress-text b{color:inherit;font-weight:800;}
+  .stamp-rows{margin-bottom:12px;}
   .stamp-row{display:flex;justify-content:center;gap:10px;}
   .stamp-row + .stamp-row{margin-top:10px;}
   .stamp-row .stamp{width:calc((100% - (var(--stamp-cols) - 1)*10px)/var(--stamp-cols));flex:0 0 auto;}
-  .stamp{aspect-ratio:1;border-radius:50%;background:var(--stamp-bg);display:flex;align-items:center;justify-content:center;position:relative;transition:transform .15s ease;}
+  .stamp{aspect-ratio:1;border-radius:50%;background:var(--stamp-bg);display:flex;align-items:center;justify-content:center;position:relative;}
   .stamp-img{width:84%;height:84%;background-size:contain;background-position:center;background-repeat:no-repeat;opacity:0;}
   .stamp[data-sello="s1"] .stamp-img{background-image:var(--img-s1);} .stamp[data-sello="s2"] .stamp-img{background-image:var(--img-s2);}
   .stamp[data-sello="s3"] .stamp-img{background-image:var(--img-s3);} .stamp[data-sello="s4"] .stamp-img{background-image:var(--img-s4);}
   .stamp::before{content:"";position:absolute;inset:3px;border-radius:50%;border:1.5px solid var(--border-stamp-ring);}
-  .stamp.filled{box-shadow:0 4px 10px -2px rgba(89,50,18,.35),0 1px 0 rgba(255,255,255,.4) inset;}
+  .stamp.filled{box-shadow:0 3px 8px rgba(89,50,18,.3);}
   .stamp.filled::before{border:none;}
   .stamp.filled .stamp-img{opacity:1;}
   /* estilo "forma libre": el ícono mismo es el sello, sin círculo ni anillo —
@@ -5213,10 +5209,10 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .stamp.reward:not(.filled)::after{opacity:1;animation:pulse 1.8s ease-in-out infinite;}
   @keyframes pulse{0%,100%{transform:scale(1);opacity:.55;}50%{transform:scale(1.04);opacity:1;}}
   .reward-tag{position:absolute;bottom:-13px;left:0;right:0;width:max-content;margin:0 auto;background:var(--butter-mid);border:1.5px solid var(--border-reward);color:var(--reward-heading);font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;white-space:nowrap;text-align:center;z-index:3;}
-  .reward-note{margin-top:16px;background:var(--butter-mid);border-radius:14px;padding:9px 16px;color:var(--reward-body);font-size:14px;line-height:1.35;box-shadow:0 3px 10px -4px rgba(0,0,0,.15);}
+  .reward-note{margin-top:16px;background:var(--butter-mid);border-radius:12px;padding:7px 14px;color:var(--reward-body);font-size:14px;line-height:1.35;}
   .reward-note strong{display:block;font-family:var(--font-display);font-weight:var(--font-weight-reward);font-style:var(--font-style-reward);font-size:14.5px;margin-bottom:1px;color:var(--reward-heading);}
-  .qr-section{margin-top:14px;border-top:1px dashed var(--page-bg);padding-top:14px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;}
-  .qr-box{width:116px;height:116px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:16px;padding:7px;margin-top:4px;box-shadow:0 6px 16px -8px rgba(0,0,0,.22);}
+  .qr-section{margin-top:12px;border-top:1px dashed var(--page-bg);padding-top:12px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;}
+  .qr-box{width:116px;height:116px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:14px;padding:7px;margin-top:2px;}
   .qr-box canvas{width:100%!important;height:100%!important;border-radius:8px;display:block;}
   .qr-instruction{font-size:13px;font-weight:700;color:var(--text-qr-instruction);line-height:1.4;white-space:nowrap;margin:0;}
   .qr-code-label{font-family:var(--font-display);font-weight:700;font-style:normal;font-size:16px;color:var(--text-qr-code);letter-spacing:.3px;margin:0;}
@@ -5232,7 +5228,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     75%{transform:translate(-50%,-50%) translateX(9px) rotate(4deg);}
     100%{transform:translate(-50%,-50%) translateX(0) rotate(0deg);}
   }
-  .footer-brand{text-align:center;margin:14px 0 0;}
+  .footer-brand{text-align:center;margin:34px 0 0;}
   .footer-brand a{display:inline-block;}
   .footer-brand img{width:30%;min-width:105px;max-width:160px;height:auto;display:block;margin:0 auto;}
   @media (max-width:460px){ .intro-mascot{width:150px;} .footer-brand img{width:34%;min-width:98px;} }
@@ -5248,17 +5244,17 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
       <div class="card-inner">
       <div class="card-top">
         <img class="brand-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">
-        <p class="greeting-name"><span class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</span>, ${escapeHtml(customer.name.split(' ')[0])}</p>
-        <p class="hero-lead">${progressText}</p>
-      </div>
-      <div class="progress-card">
-        <div class="progress-top">
-          <span class="progress-label">Progreso</span>
-          <span class="progress-pct">Sellos<b>${filled}/${total}</b></span>
-        </div>
-        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       </div>
       <div class="card-body">
+        <div class="greeting-row">
+          <p class="greeting-name"><span class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</span>, ${escapeHtml(customer.name.split(' ')[0])}</p>
+          <div class="stamp-count-badge">Sellos<b>${filled}/${total}</b></div>
+        </div>
+        <div class="progress-row">
+          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <span class="progress-pct">${pct}%</span>
+        </div>
+        <p class="progress-text">${progressText}</p>
         <div class="stamp-rows${isShapeStyle ? ' shape-style' : ''}" style="--stamp-cols:${topCount};${stampsBgStyle}">
           <div class="stamp-row">${stampsTopHtml}</div>
           ${bottomCount > 0 ? `<div class="stamp-row">${stampsBottomHtml}</div>` : ''}
