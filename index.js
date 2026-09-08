@@ -6660,7 +6660,7 @@ function renderStaffPanel(b, platformName) {
       async function submitStamp(code){
         if (!code) return;
         msg.textContent = 'Sumando...'; msg.className = 'msg';
-        const res = await fetch(location.pathname + '/stamp', {
+        const res = await fetch('/staff/${b.slug}/stamp', {
           method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code })
         });
         const data = await res.json();
@@ -6690,7 +6690,7 @@ function renderStaffPanel(b, platformName) {
         }
         if (!confirm('¿Quitar un sello a este cliente? Es para corregir un error (por ejemplo, si se selló dos veces).')) return;
         msg.textContent = 'Quitando...'; msg.className = 'msg';
-        const res = await fetch(location.pathname + '/unstamp', {
+        const res = await fetch('/staff/${b.slug}/unstamp', {
           method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code })
         });
         const data = await res.json();
@@ -6761,7 +6761,7 @@ function renderStaffPanel(b, platformName) {
         const cedula = document.getElementById('regCedula').value.trim();
         if (!name) { regMsg.textContent = 'Falta el nombre'; regMsg.className = 'msg err'; return; }
         regMsg.textContent = 'Creando tarjeta...'; regMsg.className = 'msg';
-        const res = await fetch(location.pathname + '/register', {
+        const res = await fetch('/staff/${b.slug}/register', {
           method: 'POST', headers: {'Content-Type':'application/json'},
           body: JSON.stringify({ name, cedula })
         });
