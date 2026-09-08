@@ -2672,7 +2672,7 @@ ${renderSiteNav('/')}
       <div class="confirm-card reveal">
         <img src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="" class="confirm-mascot">
         <h2 class="confirm-heading">¡Listo!</h2>
-        <p class="confirm-text">En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
+        <p class="confirm-text">En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
       </div>
       <p class="reveal" style="text-align:center;margin-top:22px;font-size:12.5px;font-weight:700;letter-spacing:.4px;color:var(--brown-soft);">Made in Ecuador 🇪🇨 for the world</p>
     </div>
@@ -3185,7 +3185,7 @@ function renderBienvenidaFormPage(code, plan, errorMsg) {
   <div class="card">
     <div class="header">
       <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
-      <h1>¡Bienvenido a Hey Tapp!</h1>
+      <h1>¡Bienvenido a Hey Tapp!</h1>
       <p>${label ? `${label}. V` : 'V'}amos a armar la tarjeta de fidelidad de tu marca</p>
     </div>
     <form method="POST" action="/bienvenida/${safeCode}" enctype="multipart/form-data">
@@ -3287,7 +3287,7 @@ function renderBienvenidaThanksPage(businessName) {
   <div class="card">
     <div class="badge">✓</div>
     <h1>¡Recibimos tu información, ${name}!</h1>
-    <p>Ya la tenemos en nuestro equipo. En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
+    <p>Ya la tenemos en nuestro equipo. En breve nos pondremos en contacto contigo para que empieces a disfrutar de Hey Tapp para tu negocio.</p>
     <img class="logo" src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
   </div>
 </body>
@@ -5105,7 +5105,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     const isFilled = i <= filled;
     return `<div class="stamp${isFilled ? ' filled' : ''}${isReward ? ' reward' : ''}" data-sello="${selloKey}">
       <div class="stamp-img"></div>
-      ${isReward ? '<span class="reward-tag">TU PREMIO</span>' : ''}
+      ${isReward ? '<span class="reward-tag">PREMIO</span>' : ''}
     </div>`;
   };
   let stampsTopHtml = '';
@@ -5142,7 +5142,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
 <meta name="apple-mobile-web-app-title" content="${escapeHtml(b.name)}">
 <meta name="theme-color" content="${b.color_brown}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=${font.google}&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=${font.google}&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --page-bg:${b.color_page_bg}; --card-bg:${b.color_card_bg};
@@ -5168,33 +5168,31 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     --img-s4:url("data:image/png;base64,${sellos[3]}");
   }
   *{box-sizing:border-box;}
-  body{margin:0;min-height:100vh;background:var(--page-bg);font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;padding:18px 14px 78px;overflow-x:hidden;}
+  body{margin:0;min-height:100vh;background:var(--page-bg);font-family:'Quicksand','Segoe UI',sans-serif;padding:18px 14px 78px;overflow-x:hidden;}
   .wrap{width:100%;max-width:430px;margin:0 auto;position:relative;}
-  .card{background:var(--card-bg);border-radius:34px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep),0 28px 48px -22px rgba(0,0,0,.28);overflow:visible;position:relative;}
-  .card-inner{border-radius:31.5px;overflow:hidden;}
-  .card-top{padding:30px 24px 54px;text-align:center;background:linear-gradient(155deg,var(--brown) 0%,var(--brown-deep) 100%);position:relative;overflow:hidden;}
-  .card-top::before{content:"";position:absolute;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--pink) 65%,transparent),transparent 70%);top:-110px;right:-70px;}
-  .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto;position:relative;z-index:2;filter:drop-shadow(0 2px 6px rgba(0,0,0,.15));}
-  .progress-card{position:relative;margin:-34px 20px 0;background:var(--card-bg);border-radius:22px;border:2px solid var(--border-card);padding:18px 20px 16px;box-shadow:0 14px 28px -16px rgba(0,0,0,.3);z-index:3;}
-  .card-body{padding:18px 26px 20px;}
+  .card{background:var(--card-bg);border-radius:32px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep);overflow:visible;position:relative;}
+  .card-inner{border-radius:29.5px;overflow:hidden;}
+  .card-top{padding:20px 24px 14px;text-align:center;border-bottom:2px solid var(--border-card);}
+  .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto;}
+  .card-body{padding:16px 26px 18px;}
   .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:17px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
-  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:25px;color:var(--brown);margin:2px 0 12px;line-height:1.15;letter-spacing:-.2px;}
-  .progress-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
-  .progress-track{flex:1;height:22px;border-radius:99px;background:color-mix(in srgb,var(--card-bg) 55%,#fff);border:2px solid var(--border-progress);overflow:hidden;box-shadow:inset 0 1.5px 3px rgba(0,0,0,.07);}
-  .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--pink) 75%,#fff),var(--pink));box-shadow:inset 0 1px 0 rgba(255,255,255,.5);}
+  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:24px;color:var(--brown);margin:2px 0 12px;line-height:1.15;}
+  .progress-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+  .progress-track{flex:1;height:22px;border-radius:99px;background:#FFFFFF;border:2px solid var(--border-progress);overflow:hidden;}
+  .progress-fill{height:100%;border-radius:99px;background:var(--pink);}
   .progress-pct{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:14px;color:var(--text-progress-pct);min-width:0;text-align:right;flex-shrink:0;}
-  .progress-text{font-size:13.5px;color:var(--text-progress-label);margin:0;text-align:left;}
+  .progress-text{font-size:13.5px;color:var(--text-progress-label);margin:0 0 14px;}
   .progress-text b{color:inherit;font-weight:800;}
-  .stamp-rows{margin-bottom:14px;margin-top:4px;}
+  .stamp-rows{margin-bottom:12px;}
   .stamp-row{display:flex;justify-content:center;gap:10px;}
   .stamp-row + .stamp-row{margin-top:10px;}
   .stamp-row .stamp{width:calc((100% - (var(--stamp-cols) - 1)*10px)/var(--stamp-cols));flex:0 0 auto;}
-  .stamp{aspect-ratio:1;border-radius:50%;background:var(--stamp-bg);display:flex;align-items:center;justify-content:center;position:relative;transition:transform .15s ease;}
+  .stamp{aspect-ratio:1;border-radius:50%;background:var(--stamp-bg);display:flex;align-items:center;justify-content:center;position:relative;}
   .stamp-img{width:84%;height:84%;background-size:contain;background-position:center;background-repeat:no-repeat;opacity:0;}
   .stamp[data-sello="s1"] .stamp-img{background-image:var(--img-s1);} .stamp[data-sello="s2"] .stamp-img{background-image:var(--img-s2);}
   .stamp[data-sello="s3"] .stamp-img{background-image:var(--img-s3);} .stamp[data-sello="s4"] .stamp-img{background-image:var(--img-s4);}
   .stamp::before{content:"";position:absolute;inset:3px;border-radius:50%;border:1.5px solid var(--border-stamp-ring);}
-  .stamp.filled{box-shadow:0 4px 10px -2px rgba(89,50,18,.35),0 1px 0 rgba(255,255,255,.4) inset;}
+  .stamp.filled{box-shadow:0 3px 8px rgba(89,50,18,.3);}
   .stamp.filled::before{border:none;}
   .stamp.filled .stamp-img{opacity:1;}
   /* estilo "forma libre": el ícono mismo es el sello, sin círculo ni anillo —
@@ -5208,10 +5206,10 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .stamp.reward:not(.filled)::after{opacity:1;animation:pulse 1.8s ease-in-out infinite;}
   @keyframes pulse{0%,100%{transform:scale(1);opacity:.55;}50%{transform:scale(1.04);opacity:1;}}
   .reward-tag{position:absolute;bottom:-13px;left:0;right:0;width:max-content;margin:0 auto;background:var(--butter-mid);border:1.5px solid var(--border-reward);color:var(--reward-heading);font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;white-space:nowrap;text-align:center;z-index:3;}
-  .reward-note{margin-top:16px;background:var(--butter-mid);border-radius:14px;padding:9px 16px;color:var(--reward-body);font-size:14px;line-height:1.35;box-shadow:0 3px 10px -4px rgba(0,0,0,.15);}
+  .reward-note{margin-top:16px;background:var(--butter-mid);border-radius:12px;padding:7px 14px;color:var(--reward-body);font-size:14px;line-height:1.35;}
   .reward-note strong{display:block;font-family:var(--font-display);font-weight:var(--font-weight-reward);font-style:var(--font-style-reward);font-size:14.5px;margin-bottom:1px;color:var(--reward-heading);}
-  .qr-section{margin-top:14px;border-top:1px dashed var(--page-bg);padding-top:14px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;}
-  .qr-box{width:116px;height:116px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:16px;padding:7px;margin-top:4px;box-shadow:0 6px 16px -8px rgba(0,0,0,.22);}
+  .qr-section{margin-top:12px;border-top:1px dashed var(--page-bg);padding-top:12px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;}
+  .qr-box{width:116px;height:116px;background:var(--qr-bg);border:2px solid var(--border-qr);border-radius:14px;padding:7px;margin-top:2px;}
   .qr-box canvas{width:100%!important;height:100%!important;border-radius:8px;display:block;}
   .qr-instruction{font-size:13px;font-weight:700;color:var(--text-qr-instruction);line-height:1.4;white-space:nowrap;margin:0;}
   .qr-code-label{font-family:var(--font-display);font-weight:700;font-style:normal;font-size:16px;color:var(--text-qr-code);letter-spacing:.3px;margin:0;}
@@ -5244,7 +5242,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
       <div class="card-top">
         <img class="brand-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">
       </div>
-      <div class="progress-card">
+      <div class="card-body">
         <p class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</p>
         <p class="greeting-name">${escapeHtml(customer.name.split(' ')[0])}</p>
         <div class="progress-row">
@@ -5252,8 +5250,6 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
           <span class="progress-pct">${pct}%</span>
         </div>
         <p class="progress-text">${progressText}</p>
-      </div>
-      <div class="card-body">
         <div class="stamp-rows${isShapeStyle ? ' shape-style' : ''}" style="--stamp-cols:${topCount};${stampsBgStyle}">
           <div class="stamp-row">${stampsTopHtml}</div>
           ${bottomCount > 0 ? `<div class="stamp-row">${stampsBottomHtml}</div>` : ''}
@@ -5826,7 +5822,7 @@ ${pageHead(
       <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp" class="deck-logo deck-logo-big">
       <p class="deck-eyebrow-title">Planes disponibles</p>
       <h1 class="deck-hero-title">Dale a tus clientes<br>una razón para volver</h1>
-      <p class="deck-hero-lead">Haz que esa primera compra no sea la última. Con Hey Tapp, tus clientes acumulan sellos, se acercan a un premio y tienen una razón más para seguir eligiendo tu marca.</p>
+      <p class="deck-hero-lead">Haz que esa primera compra no sea la última. Con Hey Tapp, tus clientes acumulan sellos, se acercan a un premio y tienen una razón más para seguir eligiendo tu marca.</p>
       <img src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="" class="deck-mascot">
       <a href="#s2" class="deck-next">Ver los 3 planes ↓</a>
     `, 's1')}
@@ -5856,7 +5852,7 @@ ${pageHead(
             'Plan Fideliza Físico',
             'Para marcas con tienda, local o punto de venta físico',
             `<p class="folder-includes-label">Todo lo que incluye el Plan Digital, más:</p>
-            <p class="wallet-hook">Tu Hey Tapp, siempre visible en tu punto de venta.</p>
+            <p class="wallet-hook">Tu Hey Tapp, siempre visible en tu punto de venta.</p>
             <ul class="folder-extras">
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.scan}</span><span>Hablador físico personalizado con el QR único de tu negocio.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.target}</span><span>Tus clientes pueden escanearlo, registrarse y abrir su tarjeta al momento de pagar.</span></li>
@@ -6085,7 +6081,7 @@ function renderSolicitudPage(url) {
   const formOrThanks = gracias ? `
         <div class="contact-shell reveal" style="text-align:center;padding:40px 24px;">
           <h3 style="margin:0 0 10px;">¡Listo! 🎉</h3>
-          <p class="contact-sub" style="margin:0;">Ya tenemos tus datos. Te contactamos en breve para dejar todo listo con tu ${planLabel || 'Hey Tapp'}.</p>
+          <p class="contact-sub" style="margin:0;">Ya tenemos tus datos. Te contactamos en breve para dejar todo listo con tu ${planLabel || 'Hey Tapp'}.</p>
         </div>` : `
       <div class="contact-shell reveal">
         <div class="contact-form">
@@ -6389,7 +6385,7 @@ ${renderSiteNav('')}
         <img class="duo-mascot" src="data:image/png;base64,${HEY_TAPP_MASCOT_BASE64}" alt="">
       </div>
       <h1>Tarjetas de fidelización <span class="accent">digitales</span></h1>
-      <p class="hero-lead">Dale a tus clientes una razón para volver<br>y haz que esa primera compra no sea la última.<br>Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca, gracias a una tarjeta de sellos digital creada completamente para ti.</p>
+      <p class="hero-lead">Dale a tus clientes una razón para volver<br>y haz que esa primera compra no sea la última.<br>Con Hey Tapp conviertes cada compra en una oportunidad para que tus clientes vuelvan, acumulen beneficios y sigan eligiendo tu marca, gracias a una tarjeta de sellos digital creada completamente para ti.</p>
       <div class="hero-ctas">
         <a href="/contacto" class="btn btn-primary">Quiero mi tarjeta digital</a>
         <a href="#como-funciona" class="btn btn-ghost">Ver cómo funciona</a>
@@ -6401,7 +6397,7 @@ ${renderSiteNav('')}
   <section class="process" id="como-funciona">
     <div class="wrap">
       <div class="eyebrow on-dark reveal">Así de simple</div>
-      <h2 class="reveal">Cómo funciona Hey Tapp</h2>
+      <h2 class="reveal">Cómo funciona Hey Tapp</h2>
       <p class="process-sub reveal">Tres pasos, y tu negocio ya tiene su propio sistema de fidelización.</p>
       <div class="process-steps">
         <div class="process-step reveal">
@@ -6437,8 +6433,8 @@ ${renderSiteNav('')}
   <section class="benefits" id="beneficios">
     <div class="wrap">
       <div class="eyebrow reveal">Todo incluido</div>
-      <h2 class="reveal">¿Qué incluye Hey Tapp?</h2>
-      <p class="benefits-sub reveal">Tus clientes ya te eligieron una vez. Hey Tapp te ayuda a que lo hagan de nuevo.</p>
+      <h2 class="reveal">¿Qué incluye Hey Tapp?</h2>
+      <p class="benefits-sub reveal">Tus clientes ya te eligieron una vez. Hey Tapp te ayuda a que lo hagan de nuevo.</p>
       <div class="benefits-grid">${beneficiosHtml}</div>
     </div>
   </section>
@@ -6472,7 +6468,7 @@ ${renderSiteNav('')}
             <div class="plan-panel-main">
               <span class="plan-tag">Plan Fideliza Digital</span>
               <h3>Para marcas que venden por Instagram, WhatsApp o canales digitales</h3>
-              <p>Tu Hey Tapp no es una tarjeta genérica: la creamos y configuramos especialmente para tu negocio, desde cero.</p>
+              <p>Tu Hey Tapp no es una tarjeta genérica: la creamos y configuramos especialmente para tu negocio, desde cero.</p>
             </div>
             <div class="plan-panel-side">
               <span class="plan-badge">${icons.check} Pago único de implementación</span>
