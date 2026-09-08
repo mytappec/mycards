@@ -136,6 +136,8 @@ export default {
         if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && !parts[4] && request.method === 'POST') return handleCreateBranch(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && parts[4] && parts[5] === 'delete' && request.method === 'POST') return handleDeleteBranch(request, env, parts[2], parts[4]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && parts[4] && parts[5] === 'rename' && request.method === 'POST') return handleRenameBranch(request, env, parts[2], parts[4]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && parts[4] && parts[5] === 'location' && request.method === 'POST') return handleUpdateBranchLocation(request, env, parts[2], parts[4]);
+        if (parts[1] === 'business' && parts[2] && parts[3] === 'branches' && parts[4] && parts[5] === 'pin' && request.method === 'POST') return handleUpdateBranchPin(request, env, parts[2], parts[4]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'delete' && request.method === 'POST') return handleDeleteBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'unlock' && request.method === 'POST') return handleUnlockBusiness(request, env, parts[2]);
         if (parts[1] === 'business' && parts[2] && parts[3] === 'reveal-pin' && request.method === 'POST') return handleRevealPin(request, env, parts[2]);
@@ -4134,9 +4136,25 @@ async function handleEditBusinessForm(request, env, slug) {
                       <button type="button" class="saveBranchNameBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
                     </div>
                     <div style="font-size:12px;color:#6B6259;word-break:break-all;margin:2px 0 8px;">${new URL(request.url).origin}/staff/${b.slug}/${br.slug}</div>
-                    <div style="display:flex;gap:8px;">
+                    <div style="display:flex;gap:8px;margin-bottom:8px;">
                       <button type="button" class="copyBranchLinkBtn" data-link="${new URL(request.url).origin}/staff/${b.slug}/${br.slug}" style="flex:1;background:#42281B;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Copiar link</button>
                       <button type="button" class="deleteBranchBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:12px;">Borrar</button>
+                    </div>
+
+                    <p style="font-size:12px;font-weight:700;margin:8px 0 4px;">📍 Ubicación para Apple Wallet (opcional)</p>
+                    <p class="hint" style="margin:0 0 6px;">${(br.wallet_lat != null) ? `Guardada: ${br.wallet_lat.toFixed(5)}, ${br.wallet_lng.toFixed(5)}.` : 'Si la pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca de esta sucursal. Hasta 5 en total entre todas las sucursales.'}</p>
+                    <div style="display:flex;gap:6px;margin-bottom:6px;">
+                      <input type="text" class="branchLocationInput" placeholder="Pega aquí el link de Google Maps" style="flex:1;font-size:13px;padding:6px 8px;">
+                      <button type="button" class="saveBranchLocationBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
+                      ${(br.wallet_lat != null) ? `<button type="button" class="removeBranchLocationBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:0 10px;font-weight:700;cursor:pointer;font-size:12px;">Quitar</button>` : ''}
+                    </div>
+
+                    <p style="font-size:12px;font-weight:700;margin:10px 0 4px;">🔒 PIN propio de esta sucursal (opcional)</p>
+                    <p class="hint" style="margin:0 0 6px;">${br.pin_hash ? 'Esta sucursal ya tiene su propio PIN, distinto al general del negocio.' : 'Por defecto usa el mismo PIN de todo el negocio. Ponle uno propio solo si necesitas poder bloquear esta sucursal sin afectar a las demás.'}</p>
+                    <div style="display:flex;gap:6px;">
+                      <input type="password" inputmode="numeric" class="branchPinInput" placeholder="Nuevo PIN (4 a 6 dígitos)" maxlength="6" autocomplete="off" style="flex:1;font-size:13px;padding:6px 8px;">
+                      <button type="button" class="saveBranchPinBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
+                      ${br.pin_hash ? `<button type="button" class="removeBranchPinBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:0 10px;font-weight:700;cursor:pointer;font-size:12px;">Quitar</button>` : ''}
                     </div>
                   </div>
                 `).join('') : '<p class="hint" style="margin:0 0 10px;">Todavía no has agregado ninguna sucursal.</p>'}
@@ -4227,6 +4245,82 @@ async function handleEditBusinessForm(request, env, slug) {
               } catch (e) {
                 alert('Error de conexión, intenta de nuevo.');
                 btn.textContent = original; btn.disabled = false;
+              }
+            });
+          });
+
+          document.querySelectorAll('.saveBranchLocationBtn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+              const id = btn.dataset.id;
+              const input = btn.closest('.branch-row').querySelector('.branchLocationInput');
+              const link = input.value.trim();
+              if (!link) { alert('Pega el link de Google Maps primero'); return; }
+              const original = btn.textContent;
+              btn.textContent = '...'; btn.disabled = true;
+              try {
+                const res = await fetch('/brandpanel/business/${b.slug}/branches/' + id + '/location', {
+                  method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ link })
+                });
+                const data = await res.json();
+                if (res.ok) { location.reload(); }
+                else { alert(data.error || 'No se pudo guardar, intenta de nuevo.'); btn.textContent = original; btn.disabled = false; }
+              } catch (e) {
+                alert('Error de conexión, intenta de nuevo.');
+                btn.textContent = original; btn.disabled = false;
+              }
+            });
+          });
+
+          document.querySelectorAll('.removeBranchLocationBtn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+              if (!confirm('¿Quitar la ubicación de esta sucursal?')) return;
+              const id = btn.dataset.id;
+              try {
+                const res = await fetch('/brandpanel/business/${b.slug}/branches/' + id + '/location', {
+                  method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ remove: true })
+                });
+                if (res.ok) { location.reload(); }
+                else { alert('No se pudo quitar, intenta de nuevo.'); }
+              } catch (e) {
+                alert('Error de conexión, intenta de nuevo.');
+              }
+            });
+          });
+
+          document.querySelectorAll('.saveBranchPinBtn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+              const id = btn.dataset.id;
+              const input = btn.closest('.branch-row').querySelector('.branchPinInput');
+              const pin = input.value.trim();
+              if (!/^\\d{4,6}$/.test(pin)) { alert('El PIN debe tener de 4 a 6 dígitos'); return; }
+              const original = btn.textContent;
+              btn.textContent = '...'; btn.disabled = true;
+              try {
+                const res = await fetch('/brandpanel/business/${b.slug}/branches/' + id + '/pin', {
+                  method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pin })
+                });
+                const data = await res.json();
+                if (res.ok) { location.reload(); }
+                else { alert(data.error || 'No se pudo guardar, intenta de nuevo.'); btn.textContent = original; btn.disabled = false; }
+              } catch (e) {
+                alert('Error de conexión, intenta de nuevo.');
+                btn.textContent = original; btn.disabled = false;
+              }
+            });
+          });
+
+          document.querySelectorAll('.removeBranchPinBtn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+              if (!confirm('¿Quitar el PIN propio de esta sucursal? Volverá a usar el PIN general del negocio.')) return;
+              const id = btn.dataset.id;
+              try {
+                const res = await fetch('/brandpanel/business/${b.slug}/branches/' + id + '/pin', {
+                  method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ remove: true })
+                });
+                if (res.ok) { location.reload(); }
+                else { alert('No se pudo quitar, intenta de nuevo.'); }
+              } catch (e) {
+                alert('Error de conexión, intenta de nuevo.');
               }
             });
           });
@@ -4580,6 +4674,92 @@ async function handleRenameBranch(request, env, slug, branchId) {
 
   await env.DB.prepare('UPDATE branches SET name = ? WHERE id = ? AND business_id = ?').bind(cleanName, branchId, business.id).run();
   return new Response(JSON.stringify({ ok: true, name: cleanName }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// guarda (o quita) la ubicación propia de una sucursal, para el aviso de
+// "estás cerca" de Apple Wallet — misma lógica que la del negocio completo,
+// solo que aplicada a una sola sucursal
+async function handleUpdateBranchLocation(request, env, slug, branchId) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  if (!/^\d+$/.test(String(branchId))) {
+    return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+
+  if (body.remove) {
+    try {
+      await env.DB.prepare('UPDATE branches SET wallet_lat = NULL, wallet_lng = NULL WHERE id = ? AND business_id = ?').bind(branchId, business.id).run();
+    } catch (e) {
+      return new Response(JSON.stringify({ error: 'No se pudo guardar. ¿Ya corriste la migración de sucursales?' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ ok: true, removed: true }), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const link = String(body.link || '').trim();
+  if (!link) return new Response(JSON.stringify({ error: 'Falta el link de Google Maps' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+
+  const coords = await walletResolveMapsLink(link);
+  if (!coords) return new Response(JSON.stringify({ error: 'No se pudo leer ese link de Google Maps. Prueba con otro (largo o corto).' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+
+  try {
+    await env.DB.prepare('UPDATE branches SET wallet_lat = ?, wallet_lng = ? WHERE id = ? AND business_id = ?')
+      .bind(coords.lat, coords.lng, branchId, business.id).run();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'No se pudo guardar. ¿Ya corriste la migración de sucursales?' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+  return new Response(JSON.stringify({ ok: true, lat: coords.lat, lng: coords.lng }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// pone (o quita) un PIN propio para una sucursal específica. Si tiene uno
+// propio, ese manda para esa sucursal; si no, se sigue usando el PIN general
+// del negocio, exactamente como hasta ahora — cero cambio para quien no lo usa
+async function handleUpdateBranchPin(request, env, slug, branchId) {
+  const cookieVal = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, cookieVal);
+  if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+
+  if (!/^\d+$/.test(String(branchId))) {
+    return new Response(JSON.stringify({ error: 'ID inválido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+
+  if (body.remove) {
+    await env.DB.prepare('UPDATE branches SET pin_hash = NULL WHERE id = ? AND business_id = ?').bind(branchId, business.id).run();
+    return new Response(JSON.stringify({ ok: true, removed: true }), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const pin = String(body.pin || '').trim();
+  if (!/^\d{4,6}$/.test(pin)) {
+    return new Response(JSON.stringify({ error: 'El PIN debe tener de 4 a 6 dígitos' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  const pinHash = await sha256Hex(pin);
+  try {
+    await env.DB.prepare('UPDATE branches SET pin_hash = ? WHERE id = ? AND business_id = ?').bind(pinHash, branchId, business.id).run();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'No se pudo guardar. ¿Ya corriste la migración de sucursales?' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+  // el PIN nuevo invalida las sesiones abiertas de esa sucursal (igual que
+  // cuando cambias el PIN general del negocio), para que no se quede nadie
+  // adentro con el PIN viejo
+  try {
+    await env.DB.prepare('DELETE FROM staff_sessions WHERE business_id = ? AND branch_id = ?').bind(business.id, branchId).run();
+  } catch (e) {
+    // no pasa nada si falla, es solo limpieza
+  }
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleUpdateBusiness(request, env, slug) {
@@ -6821,18 +7001,24 @@ async function handleLogin(request, env, slug) {
 
   // si viene de un link con sucursal (ej. /staff/cloudscookies/norte), buscamos
   // a cuál sucursal corresponde ese pedazo del link, para etiquetar la sesión
+  // — y de paso vemos si esa sucursal tiene su propio PIN (si no, se sigue
+  // usando el PIN general del negocio, igual que siempre)
   let matchedBranchId = null;
+  let expectedHash = business.staff_pin_hash;
   if (branch_slug) {
     try {
-      const branch = await env.DB.prepare('SELECT id FROM branches WHERE business_id = ? AND slug = ?')
+      const branch = await env.DB.prepare('SELECT id, pin_hash FROM branches WHERE business_id = ? AND slug = ?')
         .bind(business.id, branch_slug).first();
-      if (branch) matchedBranchId = branch.id;
+      if (branch) {
+        matchedBranchId = branch.id;
+        if (branch.pin_hash) expectedHash = branch.pin_hash;
+      }
     } catch (e) {
       // todavía no existe la tabla branches (falta correr la migración) — se sigue de largo
     }
   }
 
-  if (hash !== business.staff_pin_hash) {
+  if (hash !== expectedHash) {
     const fails = (business.staff_login_fails || 0) + 1;
     if (fails >= 4) {
       const lockedUntil = new Date(Date.now() + 15 * 60000).toISOString().slice(0, 19);
@@ -8278,7 +8464,7 @@ function walletTruncateForFront(text, maxLen = 34) {
   return safeCut.trim() + '…';
 }
 
-function walletBuildPassJSON(business, customer, env, origin) {
+async function walletBuildPassJSON(business, customer, env, origin) {
   const filled = Math.min(customer.stamps, business.total_stamps);
   const total = business.total_stamps;
   const serialNumber = `${business.slug}-${customer.code}`;
@@ -8351,17 +8537,38 @@ function walletBuildPassJSON(business, customer, env, origin) {
     ],
   };
 
-  // geotargeting (opcional): si el negocio tiene una ubicación guardada, la
-  // tarjeta le aparece sola al cliente en la pantalla de bloqueo cuando esté
-  // cerca — esto lo maneja Apple, no nosotros; solo le pasamos el punto
+  // geotargeting (opcional): si el negocio y/o sus sucursales tienen una
+  // ubicacion guardada, la tarjeta le aparece sola al cliente en la pantalla
+  // de bloqueo cuando este cerca -- esto lo maneja Apple, no nosotros; solo le
+  // pasamos los puntos. Apple permite hasta 10 ubicaciones por tarjeta, pero
+  // por ahora lo dejamos en un maximo de 5 (la del negocio + hasta 4 sucursales,
+  // o hasta 5 sucursales si el negocio no tiene su propia ubicacion puesta)
+  const walletLocations = [];
   if (business.wallet_location_lat != null && business.wallet_location_lng != null) {
-    passObj.locations = [
-      {
-        latitude: business.wallet_location_lat,
-        longitude: business.wallet_location_lng,
-        relevantText: `Estás cerca de ${business.name}. Toca para usar tu Hey Tapp y sumar sellos por tus compras.`,
-      },
-    ];
+    walletLocations.push({
+      latitude: business.wallet_location_lat,
+      longitude: business.wallet_location_lng,
+      relevantText: `Estas cerca de ${business.name}. Toca para usar tu Hey Tapp y sumar sellos por tus compras.`,
+    });
+  }
+  try {
+    const { results: branchLocations } = await env.DB.prepare(
+      'SELECT name, wallet_lat, wallet_lng FROM branches WHERE business_id = ? AND wallet_lat IS NOT NULL AND wallet_lng IS NOT NULL'
+    ).bind(business.id).all();
+    for (const br of branchLocations) {
+      if (walletLocations.length >= 5) break;
+      walletLocations.push({
+        latitude: br.wallet_lat,
+        longitude: br.wallet_lng,
+        relevantText: `Estas cerca de ${business.name} (${br.name}). Toca para usar tu Hey Tapp y sumar sellos por tus compras.`,
+      });
+    }
+  } catch (e) {
+    // todavia no existen las columnas wallet_lat/wallet_lng en branches
+    // (falta correr la migracion) -- se sigue de largo solo con la del negocio
+  }
+  if (walletLocations.length) {
+    passObj.locations = walletLocations;
   }
 
   return passObj;
@@ -8375,7 +8582,7 @@ async function walletGeneratePass(business, customer, env, origin) {
   }
   const enc = new TextEncoder();
 
-  const passJson = enc.encode(JSON.stringify(walletBuildPassJSON(business, customer, env, origin)));
+  const passJson = enc.encode(JSON.stringify(await walletBuildPassJSON(business, customer, env, origin)));
 
   // ícono/logo: usa el logo que ya tiene subido el negocio (o el de Hey Tapp si no tiene)
   const logoBase64 = business.logo_base64 || HEY_TAPP_LOGO_BASE64;
