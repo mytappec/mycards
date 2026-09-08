@@ -5248,8 +5248,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
       <div class="card-inner">
       <div class="card-top">
         <img class="brand-logo" src="data:image/png;base64,${b.logo_base64}" alt="${escapeHtml(b.name)}">
-        <p class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</p>
-        <p class="greeting-name">${escapeHtml(customer.name.split(' ')[0])}</p>
+        <p class="greeting-name"><span class="greeting-eyebrow">${escapeHtml(b.greeting_eyebrow)}</span>, ${escapeHtml(customer.name.split(' ')[0])}</p>
         <p class="hero-lead">${progressText}</p>
       </div>
       <div class="progress-card">
