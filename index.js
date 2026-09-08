@@ -603,6 +603,7 @@ function colorGroupsHtml(b) {
       ${colorField('color_page_bg', 'Fondo de toda la pantalla', v('color_page_bg', '#DCEAF4'))}
       ${colorField('color_card_bg', 'Fondo de la tarjeta', v('color_card_bg', '#FFFCF5'))}
       ${colorField('color_hero_bg', 'Fondo de arriba (logo y progreso)', v('color_hero_bg', v('color_brown_deep', '#3E2107')), 'Si no lo cambias, usa el mismo color que "Fondo oscuro/detalles" por defecto.')}
+      ${colorField('color_progress_card_bg', 'Fondo de la tarjeta de "Progreso"', v('color_progress_card_bg', v('color_card_bg', '#FFFCF5')), 'Si no lo cambias, usa el mismo color que "Fondo de la tarjeta" por defecto.')}
       ${colorField('color_stamp_bg', 'Fondo de los círculos de sello', v('color_stamp_bg', '#593212'))}
       ${colorField('color_pink', 'Relleno de la barra de progreso', v('color_pink', '#F4D3DF'))}
       ${colorField('color_butter_mid', 'Fondo del bloque "Tu premio"', v('color_butter_mid', '#F9E6B2'), 'También pinta la etiqueta "PREMIO" y el anillo que pulsa alrededor del último sello.')}
@@ -2183,7 +2184,7 @@ async function handleCreateBusiness(request, env) {
   for (const key of Object.keys(boldFields)) fixedFields[key] = body[key] ? 1 : 0;
   // todos los colores individuales, con su valor por defecto
   const colorDefaults = {
-    color_page_bg: '#DCEAF4', color_card_bg: '#FFFCF5', color_hero_bg: '#3E2107', color_brown: '#593212', color_brown_deep: '#3E2107', color_brown_soft: '#8A5A34',
+    color_page_bg: '#DCEAF4', color_card_bg: '#FFFCF5', color_hero_bg: '#3E2107', color_progress_card_bg: '#FFFCF5', color_brown: '#593212', color_brown_deep: '#3E2107', color_brown_soft: '#8A5A34',
     color_pink: '#F4D3DF', color_butter_mid: '#F9E6B2', color_butter_light: '#FBEFD2',
     color_stamp_bg: '#593212', color_qr_bg: '#F4D3DF', color_instagram_bg: '#DCEAF4',
     color_reward_text: '#593212', color_reward_heading: '#593212',
@@ -4828,7 +4829,7 @@ async function handleUpdateBusiness(request, env, slug) {
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
   for (const key of boldFieldNames) fixedFields[key] = body[key] ? 1 : 0;
   const colorFieldNames = [
-    'color_page_bg', 'color_card_bg', 'color_hero_bg', 'color_brown', 'color_brown_deep', 'color_brown_soft', 'color_pink', 'color_butter_mid', 'color_butter_light',
+    'color_page_bg', 'color_card_bg', 'color_hero_bg', 'color_progress_card_bg', 'color_brown', 'color_brown_deep', 'color_brown_soft', 'color_pink', 'color_butter_mid', 'color_butter_light',
     'color_stamp_bg', 'color_qr_bg', 'color_instagram_bg', 'color_reward_text', 'color_reward_heading',
     'color_border_card', 'color_border_progress', 'color_border_stamp_ring', 'color_border_reward', 'color_border_qr',
     'color_text_progress_pct', 'color_text_progress_label', 'color_text_progress_number',
@@ -5151,6 +5152,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     --pink:${b.color_pink}; --butter-mid:${b.color_butter_mid}; --butter-light:${b.color_butter_light};
     --stamp-bg:${b.color_stamp_bg}; --qr-bg:${b.color_qr_bg}; --instagram-bg:${b.color_instagram_bg};
     --hero-bg:${b.color_hero_bg || b.color_brown_deep};
+    --progress-card-bg:${b.color_progress_card_bg || b.color_card_bg};
     --reward-body:${b.color_reward_text}; --reward-heading:${b.color_reward_heading};
     --border-card:${b.color_border_card}; --border-progress:${b.color_border_progress};
     --border-stamp-ring:${b.color_border_stamp_ring}; --border-reward:${b.color_border_reward}; --border-qr:${b.color_border_qr};
@@ -5178,7 +5180,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto 20px;position:relative;z-index:2;filter:drop-shadow(0 2px 6px rgba(0,0,0,.12));}
   .hero-lead{font-size:13.5px;color:var(--brown-soft);margin:8px 0 0;line-height:1.45;}
   .hero-lead b{color:var(--brown);font-weight:800;}
-  .progress-card{position:relative;margin:-34px 20px 0;background:var(--card-bg);border-radius:22px;padding:18px 20px;box-shadow:0 14px 28px -16px rgba(0,0,0,.3);z-index:3;}
+  .progress-card{position:relative;margin:-34px 20px 0;background:var(--progress-card-bg);border-radius:22px;padding:18px 20px;box-shadow:0 14px 28px -16px rgba(0,0,0,.3);z-index:3;}
   .card-body{padding:18px 26px 20px;}
   .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:17px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.15;text-transform:uppercase;}
   .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:25px;color:var(--brown);margin:2px 0 0;line-height:1.15;letter-spacing:-.2px;}
@@ -5252,7 +5254,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
       </div>
       <div class="progress-card">
         <div class="progress-top">
-          <span class="progress-label">Progreso del ciclo</span>
+          <span class="progress-label">Progreso</span>
           <span class="progress-pct">Sellos<b>${filled}/${total}</b></span>
         </div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
