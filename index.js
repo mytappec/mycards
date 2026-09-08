@@ -602,6 +602,7 @@ function colorGroupsHtml(b) {
     <div class="colors">
       ${colorField('color_page_bg', 'Fondo de toda la pantalla', v('color_page_bg', '#DCEAF4'))}
       ${colorField('color_card_bg', 'Fondo de la tarjeta', v('color_card_bg', '#FFFCF5'))}
+      ${colorField('color_hero_bg', 'Fondo de arriba (logo y progreso)', v('color_hero_bg', v('color_brown_deep', '#3E2107')), 'Si no lo cambias, usa el mismo color que "Fondo oscuro/detalles" por defecto.')}
       ${colorField('color_stamp_bg', 'Fondo de los círculos de sello', v('color_stamp_bg', '#593212'))}
       ${colorField('color_pink', 'Relleno de la barra de progreso', v('color_pink', '#F4D3DF'))}
       ${colorField('color_butter_mid', 'Fondo del bloque "Tu premio"', v('color_butter_mid', '#F9E6B2'), 'También pinta la etiqueta "PREMIO" y el anillo que pulsa alrededor del último sello.')}
@@ -2182,7 +2183,7 @@ async function handleCreateBusiness(request, env) {
   for (const key of Object.keys(boldFields)) fixedFields[key] = body[key] ? 1 : 0;
   // todos los colores individuales, con su valor por defecto
   const colorDefaults = {
-    color_page_bg: '#DCEAF4', color_card_bg: '#FFFCF5', color_brown: '#593212', color_brown_deep: '#3E2107', color_brown_soft: '#8A5A34',
+    color_page_bg: '#DCEAF4', color_card_bg: '#FFFCF5', color_hero_bg: '#3E2107', color_brown: '#593212', color_brown_deep: '#3E2107', color_brown_soft: '#8A5A34',
     color_pink: '#F4D3DF', color_butter_mid: '#F9E6B2', color_butter_light: '#FBEFD2',
     color_stamp_bg: '#593212', color_qr_bg: '#F4D3DF', color_instagram_bg: '#DCEAF4',
     color_reward_text: '#593212', color_reward_heading: '#593212',
@@ -4827,7 +4828,7 @@ async function handleUpdateBusiness(request, env, slug) {
   const boldFieldNames = ['font_bold', 'font_italic', 'eyebrow_bold', 'eyebrow_italic', 'reward_bold', 'reward_italic'];
   for (const key of boldFieldNames) fixedFields[key] = body[key] ? 1 : 0;
   const colorFieldNames = [
-    'color_page_bg', 'color_card_bg', 'color_brown', 'color_brown_deep', 'color_brown_soft', 'color_pink', 'color_butter_mid', 'color_butter_light',
+    'color_page_bg', 'color_card_bg', 'color_hero_bg', 'color_brown', 'color_brown_deep', 'color_brown_soft', 'color_pink', 'color_butter_mid', 'color_butter_light',
     'color_stamp_bg', 'color_qr_bg', 'color_instagram_bg', 'color_reward_text', 'color_reward_heading',
     'color_border_card', 'color_border_progress', 'color_border_stamp_ring', 'color_border_reward', 'color_border_qr',
     'color_text_progress_pct', 'color_text_progress_label', 'color_text_progress_number',
@@ -5149,6 +5150,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
     --brown:${b.color_brown}; --brown-deep:${b.color_brown_deep}; --brown-soft:${b.color_brown_soft};
     --pink:${b.color_pink}; --butter-mid:${b.color_butter_mid}; --butter-light:${b.color_butter_light};
     --stamp-bg:${b.color_stamp_bg}; --qr-bg:${b.color_qr_bg}; --instagram-bg:${b.color_instagram_bg};
+    --hero-bg:${b.color_hero_bg || b.color_brown_deep};
     --reward-body:${b.color_reward_text}; --reward-heading:${b.color_reward_heading};
     --border-card:${b.color_border_card}; --border-progress:${b.color_border_progress};
     --border-stamp-ring:${b.color_border_stamp_ring}; --border-reward:${b.color_border_reward}; --border-qr:${b.color_border_qr};
@@ -5172,7 +5174,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .wrap{width:100%;max-width:430px;margin:0 auto;position:relative;}
   .card{background:var(--card-bg);border-radius:34px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep),0 28px 48px -22px rgba(0,0,0,.28);overflow:visible;position:relative;}
   .card-inner{border-radius:31.5px;overflow:hidden;}
-  .card-top{padding:26px 24px 54px;text-align:left;background:color-mix(in srgb,var(--card-bg) 82%,#000);position:relative;overflow:hidden;}
+  .card-top{padding:26px 24px 54px;text-align:left;background:var(--hero-bg);position:relative;overflow:hidden;}
   .brand-logo{max-width:145px;width:50%;height:auto;display:block;margin:0 auto 20px;position:relative;z-index:2;filter:drop-shadow(0 2px 6px rgba(0,0,0,.12));}
   .hero-lead{font-size:13.5px;color:var(--brown-soft);margin:8px 0 0;line-height:1.45;}
   .hero-lead b{color:var(--brown);font-weight:800;}
@@ -5184,7 +5186,8 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .progress-label{font-size:12px;color:var(--text-progress-label);font-weight:500;}
   .progress-track{height:8px;border-radius:99px;background:color-mix(in srgb,var(--brown) 15%,var(--card-bg));overflow:hidden;}
   .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--pink) 75%,#fff),var(--pink));}
-  .progress-pct{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--text-progress-pct);}
+  .progress-pct{font-size:11px;color:var(--text-progress-label);text-align:right;line-height:1.25;white-space:nowrap;}
+  .progress-pct b{font-family:var(--font-display);font-size:15px;color:var(--text-progress-pct);display:block;}
   .stamp-rows{margin-bottom:14px;margin-top:4px;}
   .stamp-row{display:flex;justify-content:center;gap:10px;}
   .stamp-row + .stamp-row{margin-top:10px;}
@@ -5250,7 +5253,7 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
       <div class="progress-card">
         <div class="progress-top">
           <span class="progress-label">Progreso del ciclo</span>
-          <span class="progress-pct">Sellos ${filled}/${total}</span>
+          <span class="progress-pct">Sellos<b>${filled}/${total}</b></span>
         </div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       </div>
