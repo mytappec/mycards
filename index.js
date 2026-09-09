@@ -5208,10 +5208,10 @@ function renderCustomerCard(b, customer, slug, origin, platformName) {
   .card{background:var(--card-bg);border-radius:32px;border:2.5px solid var(--border-card);box-shadow:0 12px 0 var(--brown-deep);overflow:visible;position:relative;}
   .card-inner{border-radius:29.5px;overflow:hidden;}
   .card-top{padding:20px 24px 14px;text-align:center;border-bottom:2px solid var(--border-card);}
-  .brand-logo{height:88px;width:auto;max-width:92%;display:block;margin:0 auto;}
+  .brand-logo{height:clamp(56px, calc(22vw - 6px), 88px);width:auto;max-width:92%;display:block;margin:0 auto;}
   .card-body{padding:16px 26px 18px;}
-  .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:24px;letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.2;}
-  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:24px;color:var(--brown);margin:2px 0 12px;line-height:1.2;}
+  .greeting-eyebrow{font-family:var(--font-display);font-weight:var(--font-weight-eyebrow);font-style:var(--font-style-eyebrow);font-size:clamp(18px, calc(6vw - 2px), 24px);letter-spacing:.3px;color:var(--brown-soft);margin:0;line-height:1.2;}
+  .greeting-name{font-family:var(--font-display);font-weight:var(--font-weight-name);font-style:var(--font-style-name);font-size:clamp(18px, calc(6vw - 2px), 24px);color:var(--brown);margin:2px 0 12px;line-height:1.2;}
   .progress-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
   .progress-track{flex:1;height:22px;border-radius:99px;background:#FFFFFF;border:2px solid var(--border-progress);overflow:hidden;box-shadow:0 3px 6px -1px rgba(0,0,0,.18);}
   .progress-fill{height:100%;border-radius:99px;background:var(--pink);}
