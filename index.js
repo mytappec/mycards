@@ -4182,38 +4182,48 @@ async function handleEditBusinessForm(request, env, slug) {
               <p class="hint">Si este negocio tiene varias sucursales, agrégalas aquí. El PIN sigue siendo el mismo para todas — cada sucursal solo necesita guardar su propio link (una sola vez, en su celular o tablet) para que cada sello quede etiquetado con de dónde vino, sin que el staff tenga que elegir nada.</p>
               <div id="branchesList">
                 ${branches.length ? branches.map(br => `
-                  <div class="branch-row" data-id="${br.id}" style="padding:10px 0;border-bottom:1px solid #DAE7F1;">
-                    <div style="display:flex;gap:6px;margin-bottom:2px;">
-                      <input type="text" class="branchNameInput" value="${escapeHtml(br.name)}" style="flex:1;width:auto;min-width:0;font-weight:700;padding:6px 8px;">
-                      <button type="button" class="saveBranchNameBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
-                    </div>
-                    <div style="font-size:12px;color:#6B6259;word-break:break-all;margin:2px 0 8px;">${new URL(request.url).origin}/staff/${b.slug}/${br.slug}</div>
-                    <div style="display:flex;gap:8px;margin-bottom:8px;">
-                      <button type="button" class="copyBranchLinkBtn" data-link="${new URL(request.url).origin}/staff/${b.slug}/${br.slug}" style="flex:1;background:#42281B;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Copiar link</button>
-                      <button type="button" class="deleteBranchBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:12px;">Borrar</button>
-                    </div>
+                  <div class="branch-row" data-id="${br.id}" style="margin-bottom:10px;border:1.5px solid #EDE4D3;border-radius:12px;overflow:hidden;">
+                    <button type="button" class="accordion-header sub">
+                      <span>📍 <span class="branchHeaderName">${escapeHtml(br.name)}</span></span>
+                      <span class="chevron">▾</span>
+                    </button>
+                    <div class="accordion-body sub">
+                      <p style="font-size:12px;font-weight:700;margin:6px 0 4px;">Nombre de la sucursal</p>
+                      <div style="display:flex;gap:6px;margin-bottom:14px;">
+                        <input type="text" class="branchNameInput" value="${escapeHtml(br.name)}" style="flex:1;width:auto;min-width:0;padding:6px 8px;">
+                        <button type="button" class="saveBranchNameBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
+                      </div>
 
-                    <p style="font-size:12px;font-weight:700;margin:8px 0 4px;">📍 Ubicación para Apple Wallet (opcional)</p>
-                    <p class="hint" style="margin:0 0 6px;">${(br.wallet_lat != null) ? `Guardada: ${br.wallet_lat.toFixed(5)}, ${br.wallet_lng.toFixed(5)}.` : 'Si la pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca de esta sucursal. Hasta 5 en total entre todas las sucursales.'}</p>
-                    <div style="display:flex;gap:6px;margin-bottom:6px;">
-                      <input type="text" class="branchLocationInput" placeholder="Pega aquí el link de Google Maps" style="flex:1;font-size:13px;padding:6px 8px;">
-                      <button type="button" class="saveBranchLocationBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
-                      ${(br.wallet_lat != null) ? `<button type="button" class="removeBranchLocationBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:0 10px;font-weight:700;cursor:pointer;font-size:12px;">Quitar</button>` : ''}
-                    </div>
+                      <p style="font-size:12px;font-weight:700;margin:10px 0 4px;">🔗 Link propio de esta sucursal</p>
+                      <p class="hint" style="margin:0 0 6px;">Guárdalo una sola vez en el celular o tablet de esa sucursal, así cada sello queda etiquetado con de dónde vino, sin que el staff tenga que elegir nada.</p>
+                      <div style="font-size:12px;color:#6B6259;word-break:break-all;margin:2px 0 8px;">${new URL(request.url).origin}/staff/${b.slug}/${br.slug}</div>
+                      <div style="display:flex;gap:8px;margin-bottom:16px;">
+                        <button type="button" class="copyBranchLinkBtn" data-link="${new URL(request.url).origin}/staff/${b.slug}/${br.slug}" style="flex:1;background:#42281B;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Copiar link</button>
+                        <button type="button" class="deleteBranchBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:12px;">Borrar sucursal</button>
+                      </div>
 
-                    <p style="font-size:12px;font-weight:700;margin:10px 0 4px;">🔒 PIN propio de esta sucursal (opcional)</p>
-                    <p class="hint" style="margin:0 0 6px;">${br.pin_hash ? 'Esta sucursal ya tiene su propio PIN, distinto al general del negocio.' : 'Por defecto usa el mismo PIN de todo el negocio. Ponle uno propio solo si necesitas poder bloquear esta sucursal sin afectar a las demás.'}</p>
-                    <div style="display:flex;gap:6px;">
-                      <input type="password" inputmode="numeric" class="branchPinInput" placeholder="Nuevo PIN (4 a 6 dígitos)" maxlength="6" autocomplete="off" style="flex:1;font-size:13px;padding:6px 8px;">
-                      <button type="button" class="saveBranchPinBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
-                      ${br.pin_hash ? `<button type="button" class="removeBranchPinBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:0 10px;font-weight:700;cursor:pointer;font-size:12px;">Quitar</button>` : ''}
+                      <p style="font-size:12px;font-weight:700;margin:10px 0 4px;">📍 Ubicación para Apple Wallet (opcional)</p>
+                      <p class="hint" style="margin:0 0 6px;">${(br.wallet_lat != null) ? `Guardada: ${br.wallet_lat.toFixed(5)}, ${br.wallet_lng.toFixed(5)}.` : 'Si la pones, la tarjeta le puede aparecer sola al cliente en su iPhone cuando esté cerca de esta sucursal. Hasta 5 en total entre todas las sucursales.'}</p>
+                      <div style="display:flex;gap:6px;margin-bottom:16px;">
+                        <input type="text" class="branchLocationInput" placeholder="Pega aquí el link de Google Maps" style="flex:1;font-size:13px;padding:6px 8px;">
+                        <button type="button" class="saveBranchLocationBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
+                        ${(br.wallet_lat != null) ? `<button type="button" class="removeBranchLocationBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:0 10px;font-weight:700;cursor:pointer;font-size:12px;">Quitar</button>` : ''}
+                      </div>
+
+                      <p style="font-size:12px;font-weight:700;margin:10px 0 4px;">🔒 PIN propio de esta sucursal (opcional)</p>
+                      <p class="hint" style="margin:0 0 6px;">${br.pin_hash ? 'Esta sucursal ya tiene su propio PIN, distinto al general del negocio.' : 'Por defecto usa el mismo PIN de todo el negocio. Ponle uno propio solo si necesitas poder bloquear esta sucursal sin afectar a las demás.'}</p>
+                      <div style="display:flex;gap:6px;">
+                        <input type="password" inputmode="numeric" class="branchPinInput" placeholder="Nuevo PIN (4 a 6 dígitos)" maxlength="6" autocomplete="off" style="flex:1;font-size:13px;padding:6px 8px;">
+                        <button type="button" class="saveBranchPinBtn" data-id="${br.id}" style="width:auto;background:#215A34;color:#fff;border:none;border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap;">Guardar</button>
+                        ${br.pin_hash ? `<button type="button" class="removeBranchPinBtn" data-id="${br.id}" style="width:auto;background:#B23A3A;color:#fff;border:none;border-radius:8px;padding:0 10px;font-weight:700;cursor:pointer;font-size:12px;">Quitar</button>` : ''}
+                      </div>
                     </div>
                   </div>
                 `).join('') : '<p class="hint" style="margin:0 0 10px;">Todavía no has agregado ninguna sucursal.</p>'}
               </div>
-              <div style="display:flex;gap:8px;margin-top:10px;">
+              <div style="display:flex;gap:8px;margin-top:10px;padding:12px;background:#F7F2E7;border-radius:10px;">
                 <input type="text" id="newBranchName" placeholder="Ej. Sucursal Norte" style="flex:1;">
-                <button type="button" id="addBranchBtn" style="width:auto;padding:0 18px;">Agregar</button>
+                <button type="button" id="addBranchBtn" style="width:auto;padding:0 18px;">+ Agregar sucursal</button>
               </div>
               <p class="msg" id="branchMsg"></p>
             </div>
@@ -4288,6 +4298,8 @@ async function handleEditBusinessForm(request, env, slug) {
                   method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name })
                 });
                 if (res.ok) {
+                  const headerNameEl = btn.closest('.branch-row').querySelector('.branchHeaderName');
+                  if (headerNameEl) headerNameEl.textContent = name;
                   btn.textContent = '¡Listo!';
                   setTimeout(function() { btn.textContent = original; btn.disabled = false; }, 1200);
                 } else {
