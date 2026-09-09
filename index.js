@@ -6791,6 +6791,14 @@ function baseStaffStyles(b) {
   .msg.ok{color:#215A34;background:#DFF3E4;border:2px solid #3F7D4F;border-radius:12px;padding:14px 10px;font-size:17px;font-weight:800;}
   .msg.err{color:#B23A3A;background:#FBE4E4;border:2px solid #B23A3A;border-radius:12px;padding:14px 10px;font-size:15px;font-weight:700;}
   a.logout{display:block;text-align:center;margin-top:16px;font-size:12px;color:${b.color_brown_soft};}
+  .staff-menu{margin-top:24px;border-top:1.5px solid ${b.color_brown}22;}
+  .staff-menu-item{display:flex;align-items:center;gap:10px;padding:14px 4px;text-decoration:none;color:${b.color_brown};font-size:14px;font-weight:700;border-bottom:1.5px solid ${b.color_brown}22;transition:opacity .15s;font-family:'Quicksand',sans-serif;}
+  .staff-menu-item:last-child{border-bottom:none;}
+  .staff-menu-item:active{opacity:.55;}
+  .staff-menu-icon{font-size:16px;flex-shrink:0;width:22px;text-align:center;}
+  .staff-menu-label{flex:1;}
+  .staff-menu-arrow{opacity:.35;font-size:17px;font-weight:400;}
+  .staff-menu-item.staff-menu-logout{color:${b.color_brown_soft};font-weight:600;}
   .footer-brand{text-align:center;margin:22px 0 0;}
   .footer-brand a{display:inline-block;}
   .footer-brand img{width:26%;min-width:100px;max-width:150px;height:auto;display:block;margin:0 auto;}
@@ -6887,9 +6895,17 @@ function renderStaffPanel(b, platformName, branchSlug, branchName) {
       </form>
       <p class="msg" id="regMsg"></p>
 
-      <a class="logout" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/clientes">Ver todos los clientes</a>
-      ${(b.plan || 'wallet') !== 'digital' ? `<a class="logout" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/metricas">📊 Ver métricas del negocio</a>` : ''}
-      <a class="logout" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/logout">Cerrar sesión del local</a>
+      <div class="staff-menu">
+        <a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/clientes">
+          <span class="staff-menu-icon">👥</span><span class="staff-menu-label">Ver todos los clientes</span><span class="staff-menu-arrow">›</span>
+        </a>
+        ${(b.plan || 'wallet') !== 'digital' ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/metricas">
+          <span class="staff-menu-icon">📊</span><span class="staff-menu-label">Ver métricas del negocio</span><span class="staff-menu-arrow">›</span>
+        </a>` : ''}
+        <a class="staff-menu-item staff-menu-logout" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/logout">
+          <span class="staff-menu-icon">🚪</span><span class="staff-menu-label">Cerrar sesión del local</span><span class="staff-menu-arrow">›</span>
+        </a>
+      </div>
     </div>
     <div class="footer-brand">
       <a href="https://heytapp.com" target="_blank" rel="noopener">
