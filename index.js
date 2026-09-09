@@ -164,7 +164,7 @@ export default {
       // ---- panel del staff ----
       if (parts[0] === 'staff' && parts[1]) {
         const slug = parts[1];
-        const staffActionWords = ['login', 'stamp', 'unstamp', 'register', 'clientes', 'metricas', 'metricas-export', 'cliente', 'historial', 'logout'];
+        const staffActionWords = ['login', 'stamp', 'unstamp', 'register', 'clientes', 'metricas', 'metricas-export', 'cliente', 'historial', 'logout', 'promos'];
         // si el siguiente segmento del link NO es ninguna de las acciones de
         // arriba, es el slug de una sucursal (ej. /staff/negocio/norte). Se
         // lee del link en CADA visita —nunca se guarda en la sesión— para
@@ -190,6 +190,8 @@ export default {
         if (action === 'metricas-export') return handleBusinessMetricsExport(request, env, slug);
         if (action === 'cliente' && a[1] && a[2] === 'delete' && request.method === 'POST') return handleDeleteCustomer(request, env, slug, a[1]);
         if (action === 'historial' && a[1]) return handleHistorial(request, env, slug, a[1], branchSlug);
+        if (action === 'promos' && request.method === 'POST') return handleSendPromo(request, env, slug);
+        if (action === 'promos') return handlePromosPage(request, env, slug, branchSlug);
         if (action === 'logout') return handleLogout(request, env, slug, branchSlug);
         // sin ninguna acción reconocida: es el panel principal, con o sin sucursal
         return handleStaffPage(request, env, slug, branchSlug);
@@ -889,15 +891,15 @@ async function invalidateAdminSession(env, adminId) {
 
 // ---------- sesiones del staff: tabla propia (no el hash del PIN) para que cada
 // dispositivo tenga su propio token, invalidable, sin que uno eche al otro ----------
-async function createStaffSession(env, businessId, hours = 12, branchId = null) {
+async function createStaffSession(env, businessId, hours = 12, branchId = null, isOwner = false) {
   const token = generateSessionToken();
   const tokenHash = await sha256Hex(token);
   const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
   try {
-    await env.DB.prepare('INSERT INTO staff_sessions (business_id, token_hash, expires_at, branch_id) VALUES (?, ?, ?, ?)')
-      .bind(businessId, tokenHash, expiresAt, branchId).run();
+    await env.DB.prepare('INSERT INTO staff_sessions (business_id, token_hash, expires_at, branch_id, is_owner) VALUES (?, ?, ?, ?, ?)')
+      .bind(businessId, tokenHash, expiresAt, branchId, isOwner ? 1 : 0).run();
   } catch (e) {
-    // todavía no existe la columna branch_id (falta correr la migración)
+    // todavía no existe la columna branch_id o is_owner (falta correr la migración)
     await env.DB.prepare('INSERT INTO staff_sessions (business_id, token_hash, expires_at) VALUES (?, ?, ?)')
       .bind(businessId, tokenHash, expiresAt).run();
   }
@@ -912,6 +914,27 @@ async function isValidStaffSession(env, businessId, cookieVal) {
     'SELECT id FROM staff_sessions WHERE business_id = ? AND token_hash = ? AND expires_at > datetime("now")'
   ).bind(businessId, tokenHash).first();
   return !!row;
+}
+// una sesión de staff ya válida puede ser de cajero o de dueña — esto dice
+// cuál es de las dos, para que "Ver clientes" y "Ver métricas" solo se le
+// muestren (y solo funcionen) a la dueña, nunca al cajero
+async function getStaffSessionInfo(env, businessId, cookieVal) {
+  if (!cookieVal) return { valid: false, isOwner: false, branchId: null };
+  const tokenHash = await sha256Hex(cookieVal);
+  try {
+    const row = await env.DB.prepare(
+      'SELECT branch_id, is_owner FROM staff_sessions WHERE business_id = ? AND token_hash = ? AND expires_at > datetime("now")'
+    ).bind(businessId, tokenHash).first();
+    if (!row) return { valid: false, isOwner: false, branchId: null };
+    return { valid: true, isOwner: !!row.is_owner, branchId: row.branch_id };
+  } catch (e) {
+    // todavía no existe branch_id o is_owner (falta correr la migración) — se
+    // cae a "no es dueña" por seguridad, hasta que se corra la migración
+    const row = await env.DB.prepare(
+      'SELECT id FROM staff_sessions WHERE business_id = ? AND token_hash = ? AND expires_at > datetime("now")'
+    ).bind(businessId, tokenHash).first();
+    return { valid: !!row, isOwner: false, branchId: null };
+  }
 }
 // para saber, dentro de una sesión de staff ya válida, a qué sucursal
 // pertenece (o null si es el PIN principal del negocio, sin sucursal)
@@ -1505,11 +1528,17 @@ async function renderAdminDashboard(env, admin) {
               </div>
               <p class="hint">Solo para ti, para organizarte — nunca se le muestra al negocio ni a sus clientes.</p>
 
-              <label>PIN para el staff de este negocio (4-6 dígitos)</label>
+              <label>PIN de cajero (4-6 dígitos) — solo suma/quita sellos, no ve clientes ni métricas</label>
               <input type="text" id="pin" required placeholder="Ej. 1234">
 
               <label>Tu recordatorio de este PIN (solo tú lo ves, con tu contraseña)</label>
               <input type="text" id="pin_note" placeholder="Ej. mismo que arriba, o alguna nota para ti">
+
+              <label>PIN de dueña (4-6 dígitos, distinto al de cajero) — ve clientes, métricas y manda promos</label>
+              <input type="text" id="owner_pin" required placeholder="Ej. 5678">
+
+              <label>Tu recordatorio del PIN de dueña (solo tú lo ves, con tu contraseña)</label>
+              <input type="text" id="owner_pin_note" placeholder="Ej. mismo que arriba, o alguna nota para ti">
             </div>
           </div>
 
@@ -1771,7 +1800,7 @@ async function renderAdminDashboard(env, admin) {
           const res = await fetch('/brandpanel/business/' + slug + '/reveal-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
           const data = await res.json();
           if (res.ok) {
-            cell.textContent = '🔓 ' + data.pin;
+            cell.textContent = '🔓 cajero: ' + data.pin + ' · dueña: ' + data.ownerPin;
           } else {
             alert(data.error || 'No se pudo ver el PIN');
           }
@@ -1968,6 +1997,8 @@ async function renderAdminDashboard(env, admin) {
             instagram_url: document.getElementById('instagram_url').value,
             pin: document.getElementById('pin').value,
             pin_note: document.getElementById('pin_note').value,
+            owner_pin: document.getElementById('owner_pin').value,
+            owner_pin_note: document.getElementById('owner_pin_note').value,
             plan: document.getElementById('plan').value,
             wallet_location_link: document.getElementById('wallet_location_link').value.trim()
           };
@@ -2171,11 +2202,17 @@ async function handleCreateBusiness(request, env) {
 
   const body = await request.json();
   const slug = (body.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
-  if (!slug || !body.name || !body.logo_base64 || !body.pin) {
-    return new Response(JSON.stringify({ error: 'Faltan campos obligatorios' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!slug || !body.name || !body.logo_base64 || !body.pin || !body.owner_pin) {
+    return new Response(JSON.stringify({ error: 'Faltan campos obligatorios (recuerda que ahora se necesitan dos PINs: uno de cajero y uno de dueña)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (!/^\d{4,6}$/.test(String(body.pin))) {
-    return new Response(JSON.stringify({ error: 'El PIN debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: 'El PIN de cajero debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (!/^\d{4,6}$/.test(String(body.owner_pin))) {
+    return new Response(JSON.stringify({ error: 'El PIN de dueña debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (String(body.pin) === String(body.owner_pin)) {
+    return new Response(JSON.stringify({ error: 'El PIN de cajero y el de dueña deben ser distintos entre sí' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (RESERVED_SLUGS.includes(slug)) {
     return new Response(JSON.stringify({ error: 'Ese slug está reservado, usa otro' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -2186,6 +2223,7 @@ async function handleCreateBusiness(request, env) {
   }
 
   const pinHash = await sha256Hex(body.pin);
+  const ownerPinHash = await sha256Hex(body.owner_pin);
 
   // los sellos 2, 3 y 4 son opcionales: si faltan, se repite el anterior disponible
   const sello1 = body.sello_1_base64;
@@ -2213,6 +2251,8 @@ async function handleCreateBusiness(request, env) {
     reward_text: body.reward_text, reward_emoji: '⭐',
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url), staff_pin_hash: pinHash,
     staff_pin_note: body.pin_note || null,
+    owner_pin_hash: ownerPinHash,
+    owner_pin_note: body.owner_pin_note || null,
     instruction_text: body.instruction_text || 'Muestra este código al vendedor / caja',
     plan: ['digital', 'fisico', 'wallet'].includes(body.plan) ? body.plan : 'wallet',
     wallet_enabled: body.plan === 'wallet' ? 1 : 0,
@@ -2285,7 +2325,11 @@ async function handleRevealPin(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
 
-  return new Response(JSON.stringify({ ok: true, pin: business.staff_pin_note || '(no lo has anotado todavía)' }), { headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({
+    ok: true,
+    pin: business.staff_pin_note || '(no lo has anotado todavía)',
+    ownerPin: business.owner_pin_note || '(no lo has anotado todavía)',
+  }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleUpdatePinNote(request, env, slug) {
@@ -2293,7 +2337,7 @@ async function handleUpdatePinNote(request, env, slug) {
   const admin = await getAdminFromSession(env, cookieVal);
   if (!admin) return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
 
-  const { password, note } = await request.json().catch(() => ({}));
+  const { password, field, note } = await request.json().catch(() => ({}));
   if (!(await verifyPassword(password || '', admin.password_hash))) {
     return new Response(JSON.stringify({ error: 'Contraseña incorrecta' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
@@ -2301,7 +2345,9 @@ async function handleUpdatePinNote(request, env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
 
-  await env.DB.prepare('UPDATE businesses SET staff_pin_note = ? WHERE id = ?').bind(note || null, business.id).run();
+  // solo se toca la columna del recordatorio que se está editando, nunca la otra
+  const column = field === 'owner' ? 'owner_pin_note' : 'staff_pin_note';
+  await env.DB.prepare(`UPDATE businesses SET ${column} = ? WHERE id = ?`).bind(note || null, business.id).run();
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 }
 
@@ -4232,9 +4278,15 @@ async function handleEditBusinessForm(request, env, slug) {
           <div class="accordion-section">
             <button type="button" class="accordion-header">🔒 Seguridad y privacidad <span class="chevron">▾</span></button>
             <div class="accordion-body">
-              <label style="margin-top:0;">PIN del staff</label>
+              <label style="margin-top:0;">PIN de cajero</label>
               <input type="password" inputmode="numeric" id="new_pin" placeholder="Deja vacío para no cambiarlo" maxlength="6" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore>
-              <p class="hint">Por seguridad no se puede ver el PIN actual (solo se guarda cifrado, ni nosotros lo vemos). Escribe aquí solo si quieres reemplazarlo por uno nuevo de 4 a 6 dígitos. Si lo cambias, cualquier sesión de staff que ya estuviera adentro se cierra sola y tiene que volver a entrar con el nuevo.</p>
+              <p class="hint">Solo suma/quita sellos y registra clientes — no ve la lista de clientes ni las métricas. Por seguridad no se puede ver el PIN actual (solo se guarda cifrado, ni nosotros lo vemos). Escribe aquí solo si quieres reemplazarlo por uno nuevo de 4 a 6 dígitos.</p>
+
+              <label>PIN de dueña</label>
+              <input type="password" inputmode="numeric" id="new_owner_pin" placeholder="Deja vacío para no cambiarlo" maxlength="6" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore>
+              <p class="hint">Además de sumar sellos, con este PIN se ve la lista de clientes, las métricas y se pueden mandar promociones. Tiene que ser distinto al PIN de cajero.</p>
+
+              <p class="hint">Si cambias cualquiera de los dos, cualquier sesión de staff que ya estuviera adentro se cierra sola y tiene que volver a entrar con el nuevo.</p>
               <input type="password" id="confirm_password_pin" placeholder="Tu contraseña de admin, para guardar el PIN nuevo" autocomplete="new-password" data-lpignore="true" data-1p-ignore>
               <p class="hint">Escribe tu contraseña aquí solo si vas a guardar un PIN nuevo (arriba). Si no, déjalo vacío.</p>
             </div>
@@ -4416,7 +4468,7 @@ async function handleEditBusinessForm(request, env, slug) {
         </script>
 
         <div class="card" style="margin-top:20px;">
-          <label>Tu recordatorio del PIN</label>
+          <label>Tu recordatorio del PIN de cajero</label>
           <p class="hint" style="margin-top:0;">Protegido con tu contraseña, igual que en el panel principal.</p>
           <div id="pinNoteBox">
             <span id="pinNoteDisplay">🔒 ••••</span>
@@ -4424,8 +4476,19 @@ async function handleEditBusinessForm(request, env, slug) {
             <button type="button" id="pinNoteEditBtn" style="width:auto;margin:0 0 0 6px;padding:6px 12px;font-size:12px;">Cambiar</button>
           </div>
           <div id="pinNoteEditForm" style="display:none;margin-top:10px;">
-            <input type="text" id="pinNoteNewValue" placeholder="Nuevo recordatorio del PIN">
+            <input type="text" id="pinNoteNewValue" placeholder="Nuevo recordatorio del PIN de cajero">
             <button type="button" id="pinNoteSaveBtn" style="margin-top:8px;">Guardar recordatorio</button>
+          </div>
+
+          <label style="margin-top:20px;">Tu recordatorio del PIN de dueña</label>
+          <div id="ownerPinNoteBox">
+            <span id="ownerPinNoteDisplay">🔒 ••••</span>
+            <button type="button" id="ownerPinNoteViewBtn" style="width:auto;margin:0 0 0 10px;padding:6px 12px;font-size:12px;">Ver</button>
+            <button type="button" id="ownerPinNoteEditBtn" style="width:auto;margin:0 0 0 6px;padding:6px 12px;font-size:12px;">Cambiar</button>
+          </div>
+          <div id="ownerPinNoteEditForm" style="display:none;margin-top:10px;">
+            <input type="text" id="ownerPinNoteNewValue" placeholder="Nuevo recordatorio del PIN de dueña">
+            <button type="button" id="ownerPinNoteSaveBtn" style="margin-top:8px;">Guardar recordatorio</button>
           </div>
         </div>
 
@@ -4512,6 +4575,9 @@ async function handleEditBusinessForm(request, env, slug) {
       document.getElementById('new_pin').addEventListener('input', (e) => {
         e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
       });
+      document.getElementById('new_owner_pin').addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+      });
       document.getElementById('editForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const msg = document.getElementById('msg');
@@ -4540,6 +4606,7 @@ async function handleEditBusinessForm(request, env, slug) {
             remove_wallet_location: removeWalletLocationEl ? removeWalletLocationEl.checked : false,
             google_wallet_enabled: document.getElementById('google_wallet_enabled').checked,
             new_pin: document.getElementById('new_pin').value.trim(),
+            new_owner_pin: document.getElementById('new_owner_pin').value.trim(),
             confirm_password: document.getElementById('confirm_password_pin').value,
             strip_bg_scope: document.getElementById('stripBgScope').value,
             stamp_style: document.getElementById('stamp_style').value,
@@ -4647,12 +4714,42 @@ async function handleEditBusinessForm(request, env, slug) {
         const note = document.getElementById('pinNoteNewValue').value;
         const password = await askPassword('Escribe tu contraseña de administradora para guardar este recordatorio:');
         if (password === null) return;
-        const res = await fetch('/brandpanel/business/${slug}/update-pin-note', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password, note }) });
+        const res = await fetch('/brandpanel/business/${slug}/update-pin-note', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password, field: 'staff', note }) });
         const data = await res.json();
         if (res.ok) {
           document.getElementById('pinNoteDisplay').textContent = '🔒 ••••';
           document.getElementById('pinNoteEditForm').style.display = 'none';
           document.getElementById('pinNoteNewValue').value = '';
+          alert('Recordatorio guardado.');
+        } else {
+          alert(data.error || 'No se pudo guardar');
+        }
+      });
+      document.getElementById('ownerPinNoteViewBtn').addEventListener('click', async () => {
+        const password = await askPassword('Escribe tu contraseña de administradora para ver el recordatorio del PIN de dueña:');
+        if (password === null) return;
+        const res = await fetch('/brandpanel/business/${slug}/reveal-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('ownerPinNoteDisplay').textContent = '🔓 ' + data.ownerPin;
+        } else {
+          alert(data.error || 'No se pudo ver el recordatorio');
+        }
+      });
+      document.getElementById('ownerPinNoteEditBtn').addEventListener('click', () => {
+        document.getElementById('ownerPinNoteEditForm').style.display = 'block';
+        document.getElementById('ownerPinNoteNewValue').focus();
+      });
+      document.getElementById('ownerPinNoteSaveBtn').addEventListener('click', async () => {
+        const note = document.getElementById('ownerPinNoteNewValue').value;
+        const password = await askPassword('Escribe tu contraseña de administradora para guardar este recordatorio:');
+        if (password === null) return;
+        const res = await fetch('/brandpanel/business/${slug}/update-pin-note', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password, field: 'owner', note }) });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('ownerPinNoteDisplay').textContent = '🔒 ••••';
+          document.getElementById('ownerPinNoteEditForm').style.display = 'none';
+          document.getElementById('ownerPinNoteNewValue').value = '';
           alert('Recordatorio guardado.');
         } else {
           alert(data.error || 'No se pudo guardar');
@@ -4864,18 +4961,36 @@ async function handleUpdateBusiness(request, env, slug) {
   let newPinHash = null;
   if (typeof body.new_pin === 'string' && body.new_pin.trim() !== '') {
     if (!/^\d{4,6}$/.test(body.new_pin.trim())) {
-      return new Response(JSON.stringify({ error: 'El PIN debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'El PIN de cajero debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     if (!(await verifyPassword(body.confirm_password || '', admin.password_hash))) {
       return new Response(JSON.stringify({ error: 'Contraseña incorrecta. Para cambiar el PIN, confirma tu contraseña de admin.' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
     newPinHash = await sha256Hex(body.new_pin.trim());
   }
+  let newOwnerPinHash = null;
+  if (typeof body.new_owner_pin === 'string' && body.new_owner_pin.trim() !== '') {
+    if (!/^\d{4,6}$/.test(body.new_owner_pin.trim())) {
+      return new Response(JSON.stringify({ error: 'El PIN de dueña debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (!(await verifyPassword(body.confirm_password || '', admin.password_hash))) {
+      return new Response(JSON.stringify({ error: 'Contraseña incorrecta. Para cambiar el PIN, confirma tu contraseña de admin.' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+    newOwnerPinHash = await sha256Hex(body.new_owner_pin.trim());
+  }
+  // los dos PINs, viejo o nuevo mezclados, nunca deben terminar siendo iguales
+  {
+    const finalPinHash = newPinHash || business.staff_pin_hash;
+    const finalOwnerPinHash = newOwnerPinHash || business.owner_pin_hash;
+    if (finalPinHash && finalOwnerPinHash && finalPinHash === finalOwnerPinHash) {
+      return new Response(JSON.stringify({ error: 'El PIN de cajero y el de dueña no pueden quedar iguales' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+  }
 
   // campos con imagen: si no se subió una nueva, se mantiene la actual (COALESCE en SQL)
   const imageFields = { logo_base64: body.logo_base64 || null, sello_1_base64: body.sello_1_base64 || null,
     sello_2_base64: body.sello_2_base64 || null, sello_3_base64: body.sello_3_base64 || null, sello_4_base64: body.sello_4_base64 || null,
-    strip_bg_base64: body.strip_bg_base64 || null, staff_pin_hash: newPinHash };
+    strip_bg_base64: body.strip_bg_base64 || null, staff_pin_hash: newPinHash, owner_pin_hash: newOwnerPinHash };
 
   const fixedFields = {
     slug: newSlug, name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
@@ -4933,9 +5048,10 @@ async function handleUpdateBusiness(request, env, slug) {
     .bind(...values, business.id)
     .run();
 
-  // si se puso un PIN nuevo, cualquier sesión de staff que ya estuviera adentro
-  // con el PIN viejo queda cerrada — tiene que volver a entrar con el nuevo
-  if (newPinHash) {
+  // si se puso un PIN nuevo (de cualquiera de los dos), cualquier sesión de
+  // staff que ya estuviera adentro con el PIN viejo queda cerrada — tiene
+  // que volver a entrar con el nuevo
+  if (newPinHash || newOwnerPinHash) {
     await invalidateAllStaffSessions(env, business.id);
   }
 
@@ -6749,9 +6865,9 @@ async function handleStaffPage(request, env, slug, branchSlug) {
   }
 
   const cookieVal = getCookie(request, 'staff_session');
-  const isLoggedIn = await isValidStaffSession(env, business.id, cookieVal);
+  const sessionInfo = await getStaffSessionInfo(env, business.id, cookieVal);
 
-  const html = isLoggedIn ? renderStaffPanel(business, platformName, branchSlug, branchName) : renderStaffLogin(business, platformName, branchSlug, branchName);
+  const html = sessionInfo.valid ? renderStaffPanel(business, platformName, branchSlug, branchName, sessionInfo.isOwner) : renderStaffLogin(business, platformName, branchSlug, branchName);
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
 
@@ -6851,7 +6967,7 @@ function renderStaffLogin(b, platformName, branchSlug, branchName) {
   </body></html>`;
 }
 
-function renderStaffPanel(b, platformName, branchSlug, branchName) {
+function renderStaffPanel(b, platformName, branchSlug, branchName, isOwner) {
   const font = getFontConfig(b.font_family);
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
   <title>Staff · ${escapeHtml(b.name)}</title>
@@ -6900,17 +7016,21 @@ function renderStaffPanel(b, platformName, branchSlug, branchName) {
       <p class="msg" id="regMsg"></p>
 
       <div class="staff-menu">
-        <a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/clientes">
+        ${isOwner ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/clientes">
           <span class="staff-menu-icon">👥</span><span class="staff-menu-label">Ver todos los clientes</span><span class="staff-menu-arrow">›</span>
-        </a>
-        ${(b.plan || 'wallet') !== 'digital' ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/metricas">
+        </a>` : ''}
+        ${isOwner && (b.plan || 'wallet') !== 'digital' ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/metricas">
           <span class="staff-menu-icon">📊</span><span class="staff-menu-label">Ver métricas del negocio</span><span class="staff-menu-arrow">›</span>
+        </a>` : ''}
+        ${isOwner && b.wallet_enabled ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/promos">
+          <span class="staff-menu-icon">📣</span><span class="staff-menu-label">Enviar promoción</span><span class="staff-menu-arrow">›</span>
         </a>` : ''}
         <a class="staff-menu-item staff-menu-logout" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/logout">
           <span class="staff-menu-icon">🚪</span><span class="staff-menu-label">Cerrar sesión del local</span><span class="staff-menu-arrow">›</span>
         </a>
       </div>
     </div>
+    ${!isOwner ? `<p style="text-align:center;font-size:11px;color:${b.color_brown_soft};margin:10px 0 0;">Sesión de cajero — sin acceso a clientes ni métricas</p>` : ''}
     <div class="footer-brand">
       <a href="https://heytapp.com" target="_blank" rel="noopener">
         <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
@@ -7093,26 +7213,30 @@ async function handleLogin(request, env, slug) {
   const { pin, branch_slug } = await request.json();
   const hash = await sha256Hex(String(pin || ''));
 
+  // el PIN de dueña siempre funciona, sea cual sea la sucursal desde donde
+  // se entra — da acceso a todo: sumar sellos, ver clientes y métricas
+  const isOwner = !!(business.owner_pin_hash && constantTimeEqual(hash, business.owner_pin_hash));
+
   // si viene de un link con sucursal (ej. /staff/cloudscookies/norte), buscamos
   // a cuál sucursal corresponde ese pedazo del link, para etiquetar la sesión
-  // — y de paso vemos si esa sucursal tiene su propio PIN (si no, se sigue
-  // usando el PIN general del negocio, igual que siempre)
+  // — y de paso vemos si esa sucursal tiene su propio PIN de cajero (si no, se
+  // sigue usando el PIN de cajero general del negocio, igual que siempre)
   let matchedBranchId = null;
-  let expectedHash = business.staff_pin_hash;
+  let expectedStaffHash = business.staff_pin_hash;
   if (branch_slug) {
     try {
       const branch = await env.DB.prepare('SELECT id, pin_hash FROM branches WHERE business_id = ? AND slug = ?')
         .bind(business.id, branch_slug).first();
       if (branch) {
         matchedBranchId = branch.id;
-        if (branch.pin_hash) expectedHash = branch.pin_hash;
+        if (branch.pin_hash) expectedStaffHash = branch.pin_hash;
       }
     } catch (e) {
       // todavía no existe la tabla branches (falta correr la migración) — se sigue de largo
     }
   }
 
-  if (!constantTimeEqual(hash, expectedHash)) {
+  if (!isOwner && !constantTimeEqual(hash, expectedStaffHash)) {
     const fails = (business.staff_login_fails || 0) + 1;
     if (fails >= 4) {
       const lockedUntil = new Date(Date.now() + 15 * 60000).toISOString().slice(0, 19);
@@ -7129,7 +7253,7 @@ async function handleLogin(request, env, slug) {
   await env.DB.prepare('UPDATE businesses SET staff_login_fails = 0, staff_login_locked_until = NULL WHERE id = ?').bind(business.id).run();
 
   const headers = new Headers({ 'Content-Type': 'application/json' });
-  const staffToken = await createStaffSession(env, business.id, 12, matchedBranchId);
+  const staffToken = await createStaffSession(env, business.id, 12, matchedBranchId, isOwner);
   headers.append('Set-Cookie', `staff_session=${staffToken}; Path=/staff/${slug}; HttpOnly; Secure; SameSite=Strict; Max-Age=43200`);
   return new Response(JSON.stringify({ ok: true }), { headers });
 }
@@ -7184,14 +7308,14 @@ async function handleBusinessMetrics(request, env, slug, branchSlug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response('Negocio no encontrado', { status: 404 });
 
-  // esta pantalla la puede ver la dueña desde su panel de admin, O cualquiera
-  // que tenga el PIN del negocio desde el panel de staff — igual que ya pasa
-  // con la lista de clientes
+  // esta pantalla la puede ver la dueña desde su panel de admin, O con su
+  // propio PIN de dueña desde el panel de staff — el PIN de cajero ya NO
+  // da acceso aquí
   const adminCookie = getCookie(request, 'admin_session');
   const admin = await getAdminFromSession(env, adminCookie);
   const staffCookie = getCookie(request, 'staff_session');
-  const hasStaffSession = await isValidStaffSession(env, business.id, staffCookie);
-  if (!admin && !hasStaffSession) {
+  const sessionInfo = await getStaffSessionInfo(env, business.id, staffCookie);
+  if (!admin && !sessionInfo.isOwner) {
     return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
   }
   const backLink = admin ? '/brandpanel' : `/staff/${slug}${branchSlug ? '/' + branchSlug : ''}`;
@@ -7315,8 +7439,8 @@ async function handleBusinessMetricsExport(request, env, slug) {
   const adminCookie = getCookie(request, 'admin_session');
   const admin = await getAdminFromSession(env, adminCookie);
   const staffCookie = getCookie(request, 'staff_session');
-  const hasStaffSession = await isValidStaffSession(env, business.id, staffCookie);
-  if (!admin && !hasStaffSession) return new Response('No autorizado', { status: 401 });
+  const sessionInfo = await getStaffSessionInfo(env, business.id, staffCookie);
+  if (!admin && !sessionInfo.isOwner) return new Response('No autorizado', { status: 401 });
   if ((business.plan || 'wallet') === 'digital') return new Response('El Plan Fideliza Digital no incluye panel de métricas.', { status: 403 });
 
   let exportBranchAvailable = true;
@@ -7373,8 +7497,11 @@ async function handleClientesList(request, env, slug, branchSlug) {
     return new Response(renderSuspendedPage(business, platformName), { status: 402, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
   }
 
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
   const cookieVal = getCookie(request, 'staff_session');
-  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
+  const sessionInfo = await getStaffSessionInfo(env, business.id, cookieVal);
+  if (!admin && !sessionInfo.isOwner) {
     return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
   }
 
@@ -7538,9 +7665,12 @@ async function handleDeleteCustomer(request, env, slug, code) {
     return new Response(JSON.stringify({ error: 'Este negocio está suspendido' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
   }
 
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
   const cookieVal = getCookie(request, 'staff_session');
-  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
-    return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  const sessionInfo = await getStaffSessionInfo(env, business.id, cookieVal);
+  if (!admin && !sessionInfo.isOwner) {
+    return new Response(JSON.stringify({ error: 'Solo la dueña puede hacer esto (necesitas el PIN de dueña)' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
 
   const customer = await env.DB.prepare('SELECT id FROM customers WHERE code = ? AND business_id = ?')
@@ -7560,9 +7690,12 @@ async function handleBulkDeleteCustomers(request, env, slug) {
     return new Response(JSON.stringify({ error: 'Este negocio está suspendido' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
   }
 
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
   const cookieVal = getCookie(request, 'staff_session');
-  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
-    return new Response(JSON.stringify({ error: 'Sesión vencida, vuelve a entrar' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  const sessionInfo = await getStaffSessionInfo(env, business.id, cookieVal);
+  if (!admin && !sessionInfo.isOwner) {
+    return new Response(JSON.stringify({ error: 'Solo la dueña puede hacer esto (necesitas el PIN de dueña)' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
 
   const { codes } = await request.json();
@@ -7593,8 +7726,11 @@ async function handleHistorial(request, env, slug, code, branchSlug) {
     return new Response(renderSuspendedPage(business, platformName), { status: 402, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
   }
 
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
   const cookieVal = getCookie(request, 'staff_session');
-  if (!(await isValidStaffSession(env, business.id, cookieVal))) {
+  const sessionInfo = await getStaffSessionInfo(env, business.id, cookieVal);
+  if (!admin && !sessionInfo.isOwner) {
     return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
   }
 
@@ -7676,7 +7812,229 @@ async function handleHistorial(request, env, slug, code, branchSlug) {
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 }
 
-// resuelve la sucursal SIEMPRE a partir del link actual (branchSlug), no de
+// pantalla para que la dueña escriba y mande una promoción push a sus
+// clientes. No bloquea si ya se mandó una este mes — solo avisa, con
+// buena onda, que la de este mes ya está incluida y que otra adicional
+// puede tener costo aparte (eso lo negocia ella con su cliente, no el código)
+async function handlePromosPage(request, env, slug, branchSlug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response('Negocio no encontrado', { status: 404 });
+  if (business.is_suspended) {
+    const platformName = await getPlatformName(env);
+    return new Response(renderSuspendedPage(business, platformName), { status: 402, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
+  const cookieVal = getCookie(request, 'staff_session');
+  const sessionInfo = await getStaffSessionInfo(env, business.id, cookieVal);
+  if (!admin && !sessionInfo.isOwner) {
+    return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+
+  if (!business.wallet_enabled) {
+    return new Response(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promos · ${escapeHtml(business.name)}</title>
+    <style>body{margin:0;padding:40px 24px;font-family:'Quicksand',sans-serif;background:${HEY_TAPP_BRAND.paleBlue};color:${HEY_TAPP_BRAND.brown};text-align:center;}</style></head>
+    <body><p>Las promociones push necesitan el Plan Wallet activo.</p>
+    <a href="/staff/${slug}${branchSlug ? '/' + branchSlug : ''}" style="color:${HEY_TAPP_BRAND.brown};font-weight:700;">← Volver al panel</a></body></html>`,
+      { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+
+  const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  let canSendPromo = true;
+  let nextEligibleLabel = '';
+  if (business.last_promo_sent_at) {
+    const lastSent = new Date(business.last_promo_sent_at + 'Z');
+    const daysAgo = Math.floor((Date.now() - lastSent.getTime()) / 86400000);
+    if (daysAgo < 30) {
+      canSendPromo = false;
+      const nextDate = new Date(lastSent.getTime() + 30 * 86400000);
+      nextEligibleLabel = `${nextDate.getDate()} de ${MESES_ES[nextDate.getMonth()]}`;
+    }
+  }
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
+  <title>Promos · ${escapeHtml(business.name)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:light;}
+    *{box-sizing:border-box;color-scheme:light;}
+    body{margin:0;padding:24px;font-family:'Quicksand',sans-serif;background:${HEY_TAPP_BRAND.paleBlue};color:${HEY_TAPP_BRAND.brown};}
+    .wrap{max-width:520px;margin:0 auto;}
+    a.back{display:inline-block;margin-bottom:16px;color:${HEY_TAPP_BRAND.brown};font-weight:700;text-decoration:none;font-size:15px;}
+    h1{font-family:'Baloo 2',sans-serif;font-size:23px;margin:0 0 6px;}
+    p.sub{opacity:.8;font-size:14px;margin:0 0 18px;line-height:1.5;}
+    .card{background:${HEY_TAPP_BRAND.cream};border-radius:16px;padding:22px 20px;box-shadow:0 4px 14px rgba(66,40,27,.08);text-align:center;}
+    label{display:block;font-weight:700;font-size:13px;margin:14px 0 6px;text-align:left;}
+    label:first-child{margin-top:0;}
+    select,textarea{width:100%;padding:12px 14px;border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:12px;font-family:'Quicksand',sans-serif;font-size:15px;background:#fff;color:${HEY_TAPP_BRAND.brown};}
+    textarea{resize:vertical;min-height:90px;}
+    .charcount{font-size:11px;opacity:.6;text-align:right;margin-top:2px;}
+    button{width:100%;padding:15px;border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:14px;background:${HEY_TAPP_BRAND.brown};color:#fff;font-weight:700;font-size:16px;cursor:pointer;margin-top:18px;}
+    button:disabled{opacity:.6;cursor:not-allowed;}
+    .msg{text-align:center;font-size:14px;margin-top:14px;min-height:18px;}
+    .msg.ok{color:#215A34;background:#DFF3E4;border:2px solid #3F7D4F;border-radius:12px;padding:14px 10px;font-weight:800;}
+    .msg.err{color:#B23A3A;background:#FBE4E4;border:2px solid #B23A3A;border-radius:12px;padding:14px 10px;font-weight:700;}
+    .done-icon{font-size:40px;margin-bottom:6px;}
+    .done-title{font-family:'Baloo 2',sans-serif;font-size:19px;margin:0 0 8px;}
+    .done-text{font-size:14px;line-height:1.5;opacity:.85;margin:0;}
+    .footer-brand{text-align:center;margin:22px 0 0;}
+    .footer-brand img{width:24%;min-width:90px;max-width:130px;height:auto;display:block;margin:0 auto;}
+  </style></head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="/staff/${slug}${branchSlug ? '/' + branchSlug : ''}">← Volver al panel</a>
+      <h1>📣 Enviar promoción</h1>
+      <p class="sub">Le llega como notificación en la pantalla de bloqueo, directo en la tarjeta de Wallet de cada cliente.</p>
+      ${canSendPromo ? `
+      <div class="card">
+        <form id="promoForm" style="text-align:left;">
+          <label>¿A quién se la mandas?</label>
+          <select id="target">
+            <option value="all">Todos los clientes con Wallet</option>
+            <option value="inactive7">Inactivos hace 7 días</option>
+            <option value="inactive15">Inactivos hace 15 días</option>
+          </select>
+          <label>Mensaje de la promoción</label>
+          <textarea id="message" maxlength="120" placeholder="Ej. 2x1 en bebidas hoy hasta las 6pm 🎉" required></textarea>
+          <p class="charcount"><span id="charcount">0</span>/120</p>
+          <button type="submit" id="sendBtn">Enviar promoción</button>
+        </form>
+        <p class="msg" id="msg"></p>
+      </div>` : `
+      <div class="card">
+        <div class="done-icon">🎉</div>
+        <p class="done-title">¡Ya mandaste tu promo de este mes!</p>
+        <p class="done-text">Vuelve el ${nextEligibleLabel} para mandar la siguiente.</p>
+      </div>`}
+    </div>
+    <div class="footer-brand">
+      <a href="https://heytapp.com" target="_blank" rel="noopener">
+        <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
+      </a>
+    </div>${canSendPromo ? `
+    <script>
+      const messageEl = document.getElementById('message');
+      const charcountEl = document.getElementById('charcount');
+      messageEl.addEventListener('input', () => { charcountEl.textContent = messageEl.value.length; });
+      document.getElementById('promoForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const sendBtn = document.getElementById('sendBtn');
+        const msg = document.getElementById('msg');
+        const message = messageEl.value.trim();
+        const target = document.getElementById('target').value;
+        if (!message) { msg.textContent = 'Escribe el mensaje de la promoción'; msg.className = 'msg err'; return; }
+        sendBtn.disabled = true;
+        msg.textContent = 'Enviando...'; msg.className = 'msg';
+        try {
+          const res = await fetch('/staff/${slug}${branchSlug ? '/' + branchSlug : ''}/promos', {
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message, target })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            msg.textContent = '✅ Promoción enviada a ' + data.sentCount + ' cliente' + (data.sentCount === 1 ? '' : 's') + '.';
+            msg.className = 'msg ok';
+            messageEl.value = ''; charcountEl.textContent = '0';
+            sendBtn.textContent = 'Ya la mandaste este mes ✓';
+          } else {
+            msg.textContent = data.error || 'No se pudo enviar la promoción';
+            msg.className = 'msg err';
+            sendBtn.disabled = false;
+          }
+        } catch (e) {
+          msg.textContent = 'Error de conexión, intenta de nuevo.'; msg.className = 'msg err';
+          sendBtn.disabled = false;
+        }
+      });
+    </script>` : ''}
+  </body></html>`;
+
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+async function handleSendPromo(request, env, slug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  if (business.is_suspended) {
+    return new Response(JSON.stringify({ error: 'Este negocio está suspendido' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (!business.wallet_enabled) {
+    return new Response(JSON.stringify({ error: 'Las promociones push necesitan el Plan Wallet activo' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
+  const staffCookie = getCookie(request, 'staff_session');
+  const sessionInfo = await getStaffSessionInfo(env, business.id, staffCookie);
+  if (!admin && !sessionInfo.isOwner) {
+    return new Response(JSON.stringify({ error: 'Solo la dueña puede mandar promociones (necesitas el PIN de dueña)' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // 1 promo al mes por negocio, sin excepción — el panel ya ni siquiera
+  // muestra el formulario si esto no se cumple, así que llegar hasta aquí
+  // sin cumplirlo sería alguien mandando la solicitud a mano
+  if (business.last_promo_sent_at) {
+    const daysSinceLastPromo = Math.floor((Date.now() - new Date(business.last_promo_sent_at + 'Z').getTime()) / 86400000);
+    if (daysSinceLastPromo < 30) {
+      return new Response(JSON.stringify({ error: 'Ya mandaste tu promo de este mes. Vuelve el mes que viene para la siguiente 🎉' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+    }
+  }
+
+  const { message, target } = await request.json().catch(() => ({}));
+  const text = String(message || '').trim();
+  if (!text) {
+    return new Response(JSON.stringify({ error: 'Escribe el mensaje de la promoción' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (text.length > 120) {
+    return new Response(JSON.stringify({ error: 'El mensaje es muy largo (máximo 120 caracteres, para que se vea bien en la tarjeta)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // "inactive7"/"inactive15": mismo criterio de inactividad que ya usa el
+  // recordatorio automático de clientes dormidos — solo cambia cuántos días
+  let whereClause = '';
+  let bindArgs = [business.id];
+  if (target === 'inactive7' || target === 'inactive15') {
+    const days = target === 'inactive7' ? 7 : 15;
+    whereClause = `AND c.id IN (
+      SELECT v.customer_id FROM visits v
+      WHERE v.customer_id = c.id AND v.cycle = c.cycle
+      GROUP BY v.customer_id
+      HAVING MAX(v.stamped_at) < datetime('now', '-' || ? || ' days')
+    )`;
+    bindArgs.push(days);
+  }
+
+  let results;
+  try {
+    const query = await env.DB.prepare(`
+      SELECT c.id, c.code, c.reminder_nonce FROM customers c WHERE c.business_id = ? ${whereClause}
+    `).bind(...bindArgs).all();
+    results = query.results;
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'No se pudo buscar a los clientes, intenta de nuevo' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // el mismo campo que usa el recordatorio automático de "cliente dormido"
+  // (reminder_text) — si el cliente nunca guardó su tarjeta en Wallet, esto
+  // simplemente no le manda nada, sin romper nada
+  let sentCount = 0;
+  for (const row of results) {
+    const newNonce = (row.reminder_nonce || 0) + 1;
+    try {
+      await env.DB.prepare("UPDATE customers SET reminder_text = ?, reminder_nonce = ?, last_reminder_sent_at = datetime('now') WHERE id = ?")
+        .bind(text, newNonce, row.id).run();
+    } catch (e) {
+      continue;
+    }
+    await walletNotifyDevices(env, slug, row.code);
+    sentCount++;
+  }
+
+  await env.DB.prepare("UPDATE businesses SET last_promo_sent_at = datetime('now') WHERE id = ?").bind(business.id).run();
+
+  return new Response(JSON.stringify({ ok: true, sentCount }), { headers: { 'Content-Type': 'application/json' } });
+}
 // la sesión — así, si el mismo dispositivo estuvo antes en otra sucursal (o
 // en el link sin sucursal), cada sello queda con la sucursal correcta del
 // link que se está usando ahora mismo, no la de cuando se inició sesión
