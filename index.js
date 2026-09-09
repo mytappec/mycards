@@ -8696,23 +8696,27 @@ function walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor,
     walletCompositeIcon(pixels, width, cx, cy, radius * 2.05, iconData, filled ? 1 : 0.35);
     return;
   }
-  const [fr, fg, fb] = fillColor;
   const [br, bg, bb] = borderColor;
   const [sbr, sbg, sbb] = stampBgColor || bgColor;
   const [rr, rg, rb] = ringColor || borderColor;
   // FIX #5: borde más delgado (antes: Math.max(4, radius * 0.14))
   const borderW = Math.max(2.2, radius * 0.075);
   const AA = 1.0;
-  const highlight = walletLighten(fillColor, 0.22);
+  // el sello lleno usa el MISMO color de fondo que el vacío (stampBgColor),
+  // igual que ya hace la tarjeta web — antes se cambiaba a fillColor
+  // (el café general de la marca), lo que hacía que el círculo cambiara de
+  // color al sellar en vez de mantenerse y solo mostrar el ícono encima
+  const highlight = walletLighten(stampBgColor || bgColor, 0.22);
   for (let y = Math.floor(cy-radius-3); y <= Math.ceil(cy+radius+3); y++) {
     for (let x = Math.floor(cx-radius-3); x <= Math.ceil(cx+radius+3); x++) {
       const d = Math.hypot(x-cx, y-cy);
       if (d > radius + AA) continue;
       const outerAlpha = Math.max(0, Math.min(1, (radius + AA - d) / AA));
       if (filled) {
-        // degradado sutil (más claro arriba-izquierda) en vez de color plano
+        // degradado sutil (más claro arriba-izquierda) en vez de color plano,
+        // sobre el mismo color de fondo del sello vacío
         const t = Math.max(0, Math.min(1, ((y - (cy - radius)) / (2 * radius) + (x - (cx - radius)) / (2 * radius)) / 2));
-        const gr = highlight[0] + (fr - highlight[0]) * t, gg = highlight[1] + (fg - highlight[1]) * t, gb = highlight[2] + (fb - highlight[2]) * t;
+        const gr = highlight[0] + (sbr - highlight[0]) * t, gg = highlight[1] + (sbg - highlight[1]) * t, gb = highlight[2] + (sbb - highlight[2]) * t;
         walletSetPixel(pixels, width, x, y, gr, gg, gb, 255*outerAlpha);
       } else {
         // círculo sólido con el color de fondo de sello + un anillo delgado
