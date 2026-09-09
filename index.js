@@ -6911,7 +6911,8 @@ function baseStaffStyles(b) {
   .staff-menu-item{display:flex;align-items:center;gap:10px;padding:14px 4px;text-decoration:none;color:${b.color_brown};font-size:14px;font-weight:700;border-bottom:1.5px solid ${b.color_brown}22;transition:opacity .15s;font-family:'Quicksand',sans-serif;}
   .staff-menu-item:last-child{border-bottom:none;}
   .staff-menu-item:active{opacity:.55;}
-  .staff-menu-icon{font-size:16px;flex-shrink:0;width:22px;text-align:center;}
+  .staff-menu-icon{flex-shrink:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
+  .staff-menu-icon svg{width:18px;height:18px;display:block;}
   .staff-menu-label{flex:1;}
   .staff-menu-arrow{opacity:.35;font-size:17px;font-weight:400;}
   .staff-menu-item.staff-menu-logout{color:${b.color_brown_soft};font-weight:600;}
@@ -7017,16 +7018,16 @@ function renderStaffPanel(b, platformName, branchSlug, branchName, isOwner) {
 
       <div class="staff-menu">
         ${isOwner ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/clientes">
-          <span class="staff-menu-icon">👥</span><span class="staff-menu-label">Ver todos los clientes</span><span class="staff-menu-arrow">›</span>
+          <span class="staff-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="staff-menu-label">Ver todos los clientes</span><span class="staff-menu-arrow">›</span>
         </a>` : ''}
         ${isOwner && (b.plan || 'wallet') !== 'digital' ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/metricas">
-          <span class="staff-menu-icon">📊</span><span class="staff-menu-label">Ver métricas del negocio</span><span class="staff-menu-arrow">›</span>
+          <span class="staff-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><span class="staff-menu-label">Ver métricas del negocio</span><span class="staff-menu-arrow">›</span>
         </a>` : ''}
         ${isOwner && b.wallet_enabled ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/promos">
-          <span class="staff-menu-icon">📣</span><span class="staff-menu-label">Enviar promoción</span><span class="staff-menu-arrow">›</span>
+          <span class="staff-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span><span class="staff-menu-label">Enviar promoción</span><span class="staff-menu-arrow">›</span>
         </a>` : ''}
         <a class="staff-menu-item staff-menu-logout" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/logout">
-          <span class="staff-menu-icon">🚪</span><span class="staff-menu-label">Cerrar sesión del local</span><span class="staff-menu-arrow">›</span>
+          <span class="staff-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span><span class="staff-menu-label">Cerrar sesión del local</span><span class="staff-menu-arrow">›</span>
         </a>
       </div>
     </div>
