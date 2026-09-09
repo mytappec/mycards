@@ -969,6 +969,27 @@ async function hashPassword(password, existingSaltHex, iterations = 100000) {
   // en el futuro sin romper las contraseñas que ya existen (como pasó esta vez)
   return `${iterations}:${bytesToHex(salt)}:${bytesToHex(new Uint8Array(bits))}`;
 }
+// TODOS los segmentos de URL que ya usa el sistema (raíz, wallet, admin, etc.)
+// tienen que estar aquí — si un negocio se registrara con uno de estos slugs,
+// sus propios links de cliente jamás funcionarían, porque el enrutador
+// siempre los interceptaría primero como si fueran una de estas rutas fijas.
+// Un solo lugar para esta lista, para que nunca quede desactualizada cuando
+// se agregue una ruta nueva (esto ya pasó una vez: "wallet" y "assets" se
+// agregaron como rutas sin agregarlas aquí).
+const RESERVED_SLUGS = [
+  'admin', 'brandpanel', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined',
+  'wallet', 'googlewallet', 'assets', 'contacto', 'solicitud', 'confirmar-plan',
+  'info', 'info-completa-x7k2m', 'bienvenida', 'apple-touch-icon', 'icon-192',
+  'icon-512', 'og-image', 'site-manifest', 'favicon',
+];
+// comparación en tiempo constante para cualquier hash/token (PIN, sesiones,
+// etc.) — reutilizable en vez de repetir el mismo bucle en cada lugar
+function constantTimeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 async function verifyPassword(password, stored) {
   const parts = stored.split(':');
   let iterations, saltHex, expectedHash;
@@ -2112,7 +2133,7 @@ async function handleAdminRecover(request, env) {
     return new Response(JSON.stringify({ error: 'Correo o código incorrectos' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
   const codeHash = await sha256Hex((code || '').trim().toUpperCase());
-  if (codeHash !== admin.recovery_code_hash) {
+  if (!constantTimeEqual(codeHash, admin.recovery_code_hash)) {
     return new Response(JSON.stringify({ error: 'Correo o código incorrectos' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
   const newHash = await hashPassword(password);
@@ -2156,7 +2177,7 @@ async function handleCreateBusiness(request, env) {
   if (!/^\d{4,6}$/.test(String(body.pin))) {
     return new Response(JSON.stringify({ error: 'El PIN debe ser de 4 a 6 dígitos, solo números' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  if (['admin', 'brandpanel', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined'].includes(slug)) {
+  if (RESERVED_SLUGS.includes(slug)) {
     return new Response(JSON.stringify({ error: 'Ese slug está reservado, usa otro' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   const existing = await env.DB.prepare('SELECT id FROM businesses WHERE slug = ?').bind(slug).first();
@@ -4812,7 +4833,7 @@ async function handleUpdateBusiness(request, env, slug) {
     if (!cleanSlug) {
       return new Response(JSON.stringify({ error: 'El slug no puede quedar vacío' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
-    if (['admin', 'brandpanel', 'staff', 'nuevo', 'api', 'www', 'null', 'undefined'].includes(cleanSlug)) {
+    if (RESERVED_SLUGS.includes(cleanSlug)) {
       return new Response(JSON.stringify({ error: 'Ese slug está reservado, usa otro' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     if (cleanSlug !== business.slug) {
@@ -7059,7 +7080,7 @@ async function handleLogin(request, env, slug) {
     }
   }
 
-  if (hash !== expectedHash) {
+  if (!constantTimeEqual(hash, expectedHash)) {
     const fails = (business.staff_login_fails || 0) + 1;
     if (fails >= 4) {
       const lockedUntil = new Date(Date.now() + 15 * 60000).toISOString().slice(0, 19);
