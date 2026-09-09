@@ -6061,6 +6061,7 @@ ${pageHead(
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.scan}</span><span>Si tienes un punto de venta físico, también recibes tu hablador personalizado.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.pin}</span><span>Su tarjeta puede aparecer en la pantalla de bloqueo cuando está cerca de tu local, recordándole que puede utilizarla.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.sparkle}</span><span>Si pasa un tiempo sin visitar el negocio, puede recibir una notificación push en su celular invitándolo a volver.</span></li>
+              <li><span class="deck-check-icon deck-check-icon-extra">${icons.pin}</span><span>Mensaje push anunciando una promoción mensual, directo a la pantalla de bloqueo del celular de tus clientes.</span></li>
             </ul>
             ${metricsBlock(true)}`,
             '$90', '$59',
@@ -6529,6 +6530,7 @@ function renderLandingPage() {
     [icons.chart, 'Panel de métricas', 'Consulta registros, premios canjeados y descarga tu base en CSV. Incluido en los planes Físico y Wallet.'],
     [icons.wallet, 'Tarjeta en Apple Wallet', 'Se actualiza sola con cada sello, sin abrir ninguna app. Solo en el Plan Wallet.'],
     [icons.sparkle, 'Recordatorio automático', 'A los clientes que llevan un tiempo sin visitarte, para que vuelvan. Solo en el Plan Wallet.'],
+    [icons.pin, 'Promoción mensual por push', 'Mensaje push anunciando una promoción mensual, directo a la pantalla de bloqueo de los celulares de tus clientes. Solo en el Plan Wallet.'],
     [icons.cap, 'Capacitación + mejoras incluidas', 'Te enseñamos a usarla y recibes actualizaciones sin costo extra.'],
   ];
 
@@ -6708,6 +6710,7 @@ ${renderSiteNav('')}
                 <li>${icons.wallet}<span>Tarjeta directo en Apple Wallet, actualizada sola con cada sello</span></li>
                 <li>${icons.pin}<span>Aviso en la pantalla de bloqueo cuando el cliente está cerca de tu local</span></li>
                 <li>${icons.sparkle}<span>Recordatorio automático por inactividad</span></li>
+                <li>${icons.pin}<span>Mensaje push anunciando una promoción mensual, directo a la pantalla de bloqueo de tus clientes</span></li>
                 <li>${icons.chart}<span>Métricas completas, incluyendo cuántos clientes lo tienen activo en Wallet</span></li>
               </ul>
               <a href="/solicitud?from=web&plan=wallet" class="btn btn-primary">¡Agrégalo a tu negocio!</a>
