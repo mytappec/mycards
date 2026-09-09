@@ -6841,7 +6841,11 @@ function renderStaffLogin(b, platformName, branchSlug, branchName) {
           body: JSON.stringify({ pin, branch_slug: ${branchSlug ? `'${branchSlug}'` : 'null'} })
         });
         if (res.ok) { location.reload(); }
-        else { msg.textContent = 'PIN incorrecto'; msg.className = 'msg err'; }
+        else {
+          const d = await res.json().catch(() => ({}));
+          msg.textContent = d.error || 'PIN incorrecto';
+          msg.className = 'msg err';
+        }
       });
     </script>
   </body></html>`;
