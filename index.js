@@ -112,6 +112,11 @@ export default {
       if (parts.length === 3 && parts[0] === 'assets' && parts[1] === 'google-logo' && parts[2].endsWith('.png')) {
         return handleServeGoogleWalletLogo(env, parts[2].slice(0, -4));
       }
+      // imagen de sellos (heroImage) para Google Wallet, por cliente —
+      // /assets/google-hero/:slug/:code.png
+      if (parts.length === 4 && parts[0] === 'assets' && parts[1] === 'google-hero' && parts[3].endsWith('.png')) {
+        return handleServeGoogleWalletHero(env, parts[2], parts[3].slice(0, -4));
+      }
 
       // ---- ícono de la app (para "agregar a inicio" en el celular) ----
       if (parts[0] === 'apple-touch-icon.png' || url.pathname === '/apple-touch-icon.png') {
@@ -8836,8 +8841,7 @@ function walletDrawStampRow(pixels, width, height, count, filledCount, cy, margi
     walletDrawCircle(pixels, width, cx, cy, radius, fillColor, borderColor, bgColor, i < filledCount, iconData, stampBgColor, ringColor, stampStyle);
   }
 }
-async function walletBuildStampStripImage(business, filled, total) {
-  const width = 750, height = 246;
+async function walletBuildStampStripImage(business, filled, total, width = 750, height = 246) {
   const pixels = new Uint8Array(width*height*4);
   const [br, bg2, bb] = [
     parseInt((business.color_card_bg || '#42281B').replace('#','').substring(0,2),16) || 0,
@@ -9502,6 +9506,11 @@ async function googleWalletBuildSaveLink(business, customer, env, origin) {
     textModulesData: [
       { header: business.reward_heading || 'Tu premio', body: business.reward_text || '' },
     ],
+    // la misma imagen de sellos que ya se dibuja para Apple Wallet, en el
+    // tamaño que pide Google (1032x336 en vez de 750x246) — el número de
+    // sellos va en la URL solo para que Google note que cambió y la vuelva
+    // a pedir cada vez que se sella (si no, se queda pegada en la primera)
+    heroImage: { sourceUri: { uri: `${origin}/assets/google-hero/${business.slug}/${customer.code}.png?s=${filled}` } },
   };
 
   const jwt = await googleWalletSignJwt({
@@ -9584,6 +9593,25 @@ async function handleServeGoogleWalletLogo(env, slug) {
   return new Response(bytes, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' } });
 }
 
+// GET /assets/google-hero/:slug/:code.png — la imagen de "sellos" para la
+// vista de detalle de Google Wallet, del cliente puntual. Reutiliza la misma
+// función que ya dibuja la tira de sellos para Apple Wallet, solo que en el
+// tamaño que Google recomienda (1032x336 en vez de 750x246).
+async function handleServeGoogleWalletHero(env, slug, code) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(null, { status: 404 });
+  const customer = await env.DB.prepare('SELECT * FROM customers WHERE code = ? AND business_id = ?').bind(code, business.id).first();
+  if (!customer) return new Response(null, { status: 404 });
+  const filled = Math.min(customer.stamps, business.total_stamps);
+  try {
+    const pngBytes = await walletBuildStampStripImage(business, filled, business.total_stamps, 1032, 336);
+    return new Response(pngBytes, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' } });
+  } catch (e) {
+    console.error(`[googlewallet] no se pudo generar la imagen de sellos para ${slug}/${code}:`, e);
+    return new Response(null, { status: 500 });
+  }
+}
+
 // actualiza en Google Wallet el pase ya guardado de este cliente (si nunca lo
 // guardó, Google responde 404 y simplemente no pasa nada, no es un error real)
 async function googleWalletPatchObject(business, customer, env) {
@@ -9599,6 +9627,7 @@ async function googleWalletPatchObject(business, customer, env) {
       headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         loyaltyPoints: { label: 'Sellos', balance: { string: `${filled}/${total}` } },
+        heroImage: { sourceUri: { uri: `https://heytapp.com/assets/google-hero/${business.slug}/${customer.code}.png?s=${filled}` } },
       }),
     });
     if (!res.ok && res.status !== 404) {
