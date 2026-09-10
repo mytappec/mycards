@@ -2252,6 +2252,7 @@ async function handleCreateBusiness(request, env) {
   // columnas con valor fijo/calculado
   const fixedFields = {
     slug, name: body.name, logo_base64: body.logo_base64,
+    google_wallet_logo_base64: await googleWalletSquareLogoBase64(body.logo_base64, '#FFFCF5'),
     sello_1_base64: sello1, sello_2_base64: sello2, sello_3_base64: sello3, sello_4_base64: sello4,
     font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, 10),
     greeting_eyebrow: body.greeting_eyebrow || '¡Hello!', reward_heading: body.reward_heading || 'Tu premio, cada vez más cerca',
@@ -4225,13 +4226,7 @@ async function handleEditBusinessForm(request, env, slug) {
               ${(b.wallet_location_lat != null) ? `<label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="removeWalletLocation" style="width:auto;"> Quitar esta ubicación</label>` : ''}
 
               <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:16px;"><input type="checkbox" id="google_wallet_enabled" ${b.google_wallet_enabled ? 'checked' : ''} style="width:auto;"> Mostrar también el botón de Google Wallet</label>
-              <p class="hint">Aparece junto al de Apple Wallet en la tarjeta del cliente. Si lo dejas sin marcar, solo se muestra Apple Wallet (centrado solo). Actívalo por negocio cuando quieras ofrecer Google Wallet a sus clientes con Android.</p>
-
-              <label>Logo cuadrado para Google Wallet (opcional)</label>
-              ${b.google_wallet_logo_base64 ? `<img class="current-img" src="data:image/png;base64,${b.google_wallet_logo_base64}">` : ''}
-              <input type="file" id="google_wallet_logo" accept="image/*">
-              <p class="hint">Google exige que el logo sea cuadrado (mínimo 660×660px) — si no le das uno cuadrado aparte, la tarjeta de este negocio no se va a poder guardar en Google Wallet. Deja vacío para mantener el actual, o para negocios cuyo logo normal ya sea cuadrado (no hace falta subir nada aparte). No afecta el logo que se usa en la web ni en Apple Wallet.</p>
-              ${b.google_wallet_logo_base64 ? `<label style="display:flex;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" id="removeGoogleWalletLogo" style="width:auto;"> Quitar este logo (usar el logo normal, si es cuadrado)</label>` : ''}
+              <p class="hint">Aparece junto al de Apple Wallet en la tarjeta del cliente. Si lo dejas sin marcar, solo se muestra Apple Wallet (centrado solo). Actívalo por negocio cuando quieras ofrecer Google Wallet a sus clientes con Android. El logo cuadrado que pide Google se genera solo, a partir del logo normal del negocio — no hace falta subir nada aparte.</p>
             </div>
           </div>
 
@@ -4604,8 +4599,6 @@ async function handleEditBusinessForm(request, env, slug) {
           const stripBgFile = document.getElementById('stripBg').files[0];
           const removeStripBgEl = document.getElementById('removeStripBg');
           const removeWalletLocationEl = document.getElementById('removeWalletLocation');
-          const googleWalletLogoFile = document.getElementById('google_wallet_logo').files[0];
-          const removeGoogleWalletLogoEl = document.getElementById('removeGoogleWalletLogo');
           const payload = {
             name: document.getElementById('name').value.trim(),
             slug: document.getElementById('slug').value.trim(),
@@ -4620,8 +4613,6 @@ async function handleEditBusinessForm(request, env, slug) {
             wallet_location_link: document.getElementById('wallet_location_link').value.trim(),
             remove_wallet_location: removeWalletLocationEl ? removeWalletLocationEl.checked : false,
             google_wallet_enabled: document.getElementById('google_wallet_enabled').checked,
-            google_wallet_logo_base64: googleWalletLogoFile ? await fileToBase64(googleWalletLogoFile) : null,
-            remove_google_wallet_logo: removeGoogleWalletLogoEl ? removeGoogleWalletLogoEl.checked : false,
             new_pin: document.getElementById('new_pin').value.trim(),
             new_owner_pin: document.getElementById('new_owner_pin').value.trim(),
             confirm_password: document.getElementById('confirm_password_pin').value,
@@ -5007,7 +4998,7 @@ async function handleUpdateBusiness(request, env, slug) {
   // campos con imagen: si no se subió una nueva, se mantiene la actual (COALESCE en SQL)
   const imageFields = { logo_base64: body.logo_base64 || null, sello_1_base64: body.sello_1_base64 || null,
     sello_2_base64: body.sello_2_base64 || null, sello_3_base64: body.sello_3_base64 || null, sello_4_base64: body.sello_4_base64 || null,
-    strip_bg_base64: body.strip_bg_base64 || null, google_wallet_logo_base64: body.google_wallet_logo_base64 || null,
+    strip_bg_base64: body.strip_bg_base64 || null, google_wallet_logo_base64: null,
     staff_pin_hash: newPinHash, owner_pin_hash: newOwnerPinHash };
 
   const fixedFields = {
@@ -5035,6 +5026,12 @@ async function handleUpdateBusiness(request, env, slug) {
   ];
   for (const key of colorFieldNames) fixedFields[key] = sanitizeColor(body[key], business[key]);
 
+  // si subieron un logo nuevo, se genera solo la versión cuadrada que pide
+  // Google Wallet — nadie tiene que diseñar ni subir una segunda imagen
+  if (body.logo_base64) {
+    imageFields.google_wallet_logo_base64 = await googleWalletSquareLogoBase64(body.logo_base64, fixedFields.color_card_bg || '#FFFFFF');
+  }
+
   // ubicación (opcional): solo se toca si mandaron un link nuevo o pidieron
   // quitarla explícitamente — si no, se queda exactamente como estaba
   let walletLocationClause = null;
@@ -5056,9 +5053,6 @@ async function handleUpdateBusiness(request, env, slug) {
   // se pidió borrarla y volver al color plano
   if (body.remove_strip_bg) {
     setClauses.push('strip_bg_base64 = NULL');
-  }
-  if (body.remove_google_wallet_logo) {
-    setClauses.push('google_wallet_logo_base64 = NULL');
   }
   if (walletLocationClause) {
     setClauses.push(walletLocationClause);
@@ -8608,6 +8602,69 @@ async function walletEncodePNG(width, height, pixels) {
   return walletPngConcat([sig, walletPngChunk('IHDR', ihdr), walletPngChunk('IDAT', compressed), walletPngChunk('IEND', new Uint8Array(0))]);
 }
 
+// Google Wallet exige que el logo sea cuadrado (mínimo 660x660px) — la
+// mayoría de logos reales no lo son (wordmarks horizontales, etc). Esta
+// función arma esa versión sola, automáticamente, cada vez que se sube un
+// logo nuevo: escala el logo para que quepa con un margen del 15% (como
+// recomienda Google) y lo centra sobre un lienzo cuadrado del color de fondo
+// de la tarjeta — así nadie tiene que diseñar una segunda imagen a mano.
+async function googleWalletSquareLogoBase64(logoBase64, bgHex) {
+  try {
+    const binary = atob(logoBase64);
+    const srcBytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) srcBytes[i] = binary.charCodeAt(i);
+    const { width, height, pixels } = walletDecodePng(srcBytes);
+
+    // ya es cuadrado y suficientemente grande: se deja tal cual, no hace falta generar nada
+    if (width === height && width >= 660) return logoBase64;
+
+    const targetSize = 660;
+    const margin = 0.85; // deja ~15% de margen alrededor, como recomienda Google
+    const scale = Math.min((targetSize * margin) / width, (targetSize * margin) / height);
+    const newW = Math.max(1, Math.round(width * scale));
+    const newH = Math.max(1, Math.round(height * scale));
+
+    // reescala el logo (muestreo del vecino más cercano, de sobra para un logo)
+    const scaled = new Uint8Array(newW * newH * 4);
+    for (let y = 0; y < newH; y++) {
+      const srcY = Math.min(height - 1, Math.floor(y / scale));
+      for (let x = 0; x < newW; x++) {
+        const srcX = Math.min(width - 1, Math.floor(x / scale));
+        const srcI = (srcY * width + srcX) * 4;
+        const dstI = (y * newW + x) * 4;
+        scaled[dstI] = pixels[srcI]; scaled[dstI + 1] = pixels[srcI + 1];
+        scaled[dstI + 2] = pixels[srcI + 2]; scaled[dstI + 3] = pixels[srcI + 3];
+      }
+    }
+
+    // lienzo cuadrado del color de fondo de la tarjeta, con el logo centrado encima
+    const hex = (bgHex || '#FFFFFF').replace('#', '');
+    const br = parseInt(hex.substring(0, 2), 16) || 255;
+    const bgc = parseInt(hex.substring(2, 4), 16) || 255;
+    const bb = parseInt(hex.substring(4, 6), 16) || 255;
+    const canvas = new Uint8Array(targetSize * targetSize * 4);
+    for (let i = 0; i < targetSize * targetSize; i++) {
+      canvas[i * 4] = br; canvas[i * 4 + 1] = bgc; canvas[i * 4 + 2] = bb; canvas[i * 4 + 3] = 255;
+    }
+    const offsetX = Math.floor((targetSize - newW) / 2);
+    const offsetY = Math.floor((targetSize - newH) / 2);
+    for (let y = 0; y < newH; y++) {
+      for (let x = 0; x < newW; x++) {
+        const srcI = (y * newW + x) * 4;
+        walletSetPixel(canvas, targetSize, offsetX + x, offsetY + y, scaled[srcI], scaled[srcI + 1], scaled[srcI + 2], scaled[srcI + 3]);
+      }
+    }
+
+    const pngBytes = await walletEncodePNG(targetSize, targetSize, canvas);
+    let bin = '';
+    for (let i = 0; i < pngBytes.length; i++) bin += String.fromCharCode(pngBytes[i]);
+    return btoa(bin);
+  } catch (e) {
+    console.error('[googlewallet] no se pudo generar el logo cuadrado automático:', e);
+    return null; // se cae de vuelta al logo normal — no rompe nada, solo puede que Google lo rechace
+  }
+}
+
 // ---------- dibuja la fila de sellos (círculos llenos/vacíos) sobre un fondo del color de la tarjeta ----------
 function walletSetPixel(pixels, width, x, y, r, g, b, a) {
   if (x < 0 || y < 0 || x >= width) return;
@@ -9507,7 +9564,19 @@ async function handleServeBusinessLogo(env, slug) {
 async function handleServeGoogleWalletLogo(env, slug) {
   const business = await getBusiness(env, slug);
   if (!business) return new Response(null, { status: 404 });
-  const base64 = business.google_wallet_logo_base64 || business.logo_base64;
+  let base64 = business.google_wallet_logo_base64;
+  if (!base64 && business.logo_base64) {
+    // negocio de antes de que existiera esto: se genera aquí mismo, al vuelo,
+    // y de paso se guarda para que la próxima vez no haya que recalcularlo
+    base64 = await googleWalletSquareLogoBase64(business.logo_base64, business.color_card_bg || '#FFFCF5');
+    if (base64) {
+      try {
+        await env.DB.prepare('UPDATE businesses SET google_wallet_logo_base64 = ? WHERE id = ?').bind(base64, business.id).run();
+      } catch (e) { /* no pasa nada si falla el guardado, se recalcula la próxima vez */ }
+    } else {
+      base64 = business.logo_base64; // no se pudo procesar (ej. formato raro) — se cae al logo normal
+    }
+  }
   if (!base64) return new Response(null, { status: 404 });
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
