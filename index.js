@@ -9396,11 +9396,12 @@ async function googleWalletBuildSaveLink(business, customer, env, origin) {
     id: classId,
     issuerName: 'Hey Tapp',
     programName: business.name,
-    // ya Google aprobó el acceso de publicación (8 sept 2026), así que las
-    // clases nuevas se marcan directo como aprobadas — mientras estaba
-    // pendiente, tenían que decir 'UNDER_REVIEW' y solo se veían en modo
-    // demo con la cuenta de administrador
-    reviewStatus: 'APPROVED',
+    // Google exige literalmente este valor aquí, incluso con la cuenta ya
+    // aprobada para publicar — lo confirmó su propio mensaje de error real:
+    // 'Invalid review status "APPROVED". Use "UNDER_REVIEW" instead.'
+    // (8 sept 2026: probamos 'APPROVED' pensando que ya no hacía falta, pero
+    // Google lo rechaza. Este es el valor correcto, no tocar sin evidencia.)
+    reviewStatus: 'UNDER_REVIEW',
     hexBackgroundColor: business.color_card_bg || '#FFFFFF',
     logo: { sourceUri: { uri: `${origin}/assets/logo/${business.slug}.png` } },
   };
@@ -9429,6 +9430,7 @@ async function googleWalletBuildSaveLink(business, customer, env, origin) {
     iss: env.GOOGLE_WALLET_SA_EMAIL,
     aud: 'google',
     typ: 'savetowallet',
+    iat: Math.floor(Date.now() / 1000),
     origins: [origin],
     payload: {
       loyaltyClasses: [loyaltyClass],
