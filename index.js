@@ -7446,8 +7446,19 @@ async function handleBusinessMetrics(request, env, slug, branchSlug) {
 
     ${showWalletExtras ? `<div class="section">
       <h2>Clientes que se están enfriando</h2>
-      <p class="hint">Llevan ${LAPSE_DAYS} días o más sin volver y todavía no completan su tarjeta — son los mismos que reciben el recordatorio automático.</p>
-      ${lapsedCustomers.length ? `<table><thead><tr><th>Nombre</th><th>Código</th><th>Sellos</th><th>Última visita</th></tr></thead><tbody>${lapsedRows}</tbody></table>` : '<p class="empty">Nadie se está enfriando ahorita mismo. 🎉</p>'}
+      <p class="hint">Llevan ${LAPSE_DAYS} días o más sin visitarte y todavía no completan su tarjeta. Son los mismos a los que ya les llega un recordatorio automático para que regresen.</p>
+      ${lapsedCustomers.length ? `<table><thead><tr><th>Nombre</th><th>Código</th><th>Sellos</th><th>Última visita</th></tr></thead><tbody>${lapsedRows}</tbody></table>` : `<p class="empty" style="display:flex;align-items:center;gap:8px;">
+        <svg width="22" height="22" viewBox="0 0 24 24" style="flex-shrink:0;">
+          <rect x="3" y="4" width="3" height="3" rx="0.6" fill="#FFB300" transform="rotate(15 4.5 5.5)"/>
+          <rect x="17" y="3" width="3" height="3" rx="0.6" fill="#42A5F5" transform="rotate(-20 18.5 4.5)"/>
+          <circle cx="12" cy="3" r="1.5" fill="#EF5350"/>
+          <rect x="19" y="14" width="3" height="3" rx="0.6" fill="#66BB6A" transform="rotate(30 20.5 15.5)"/>
+          <circle cx="4" cy="16" r="1.5" fill="#AB47BC"/>
+          <rect x="10" y="18" width="3" height="3" rx="0.6" fill="#FFA726" transform="rotate(-15 11.5 19.5)"/>
+          <circle cx="20" cy="20" r="1.3" fill="#26C6DA"/>
+        </svg>
+        <span>Por ahora no hay clientes que necesiten un recordatorio.</span>
+      </p>`}
     </div>` : ''}
     <a class="btn-download" href="/brandpanel/business/${slug}/metrics-export">⬇️ Descargar todos los clientes (CSV)</a>
   </div>
