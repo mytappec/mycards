@@ -1716,9 +1716,9 @@ async function renderAdminDashboard(env, admin) {
         if (!el) return;
         var plan = document.getElementById('plan').value;
         var texts = {
-          digital: 'Incluye la tarjeta digital, sellos por QR o código manual, panel de staff con modo caja, botón de Instagram y capacitación. <b>No incluye</b> panel de métricas ni Apple Wallet.',
+          digital: 'Incluye la tarjeta digital, sellos por QR o código manual, panel de staff con modo caja, botón de Instagram y capacitación. <b>No incluye</b> panel de métricas ni Apple/Google Wallet.',
           fisico: 'Todo lo del Plan Digital, <b>más</b>: hablador físico personalizado con QR para tu punto de venta, y el panel de métricas (sin el aviso de clientes que se están enfriando).',
-          wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet, aviso automático cuando el cliente está cerca de tu local, notificación push de recordatorio si pasa un tiempo sin visitarte, y el panel de métricas completo.',
+          wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet y Google Wallet, aviso automático cuando el cliente está cerca de tu local (Apple), notificación push de recordatorio si pasa un tiempo sin visitarte, y el panel de métricas completo.',
         };
         el.innerHTML = texts[plan] || texts.wallet;
       }
@@ -4317,9 +4317,9 @@ async function handleEditBusinessForm(request, env, slug) {
             if (!el) return;
             var plan = document.getElementById('plan').value;
             var texts = {
-              digital: 'Incluye la tarjeta digital, sellos por QR o código manual, panel de staff con modo caja, botón de Instagram y capacitación. <b>No incluye</b> panel de métricas ni Apple Wallet.',
+              digital: 'Incluye la tarjeta digital, sellos por QR o código manual, panel de staff con modo caja, botón de Instagram y capacitación. <b>No incluye</b> panel de métricas ni Apple/Google Wallet.',
               fisico: 'Todo lo del Plan Digital, <b>más</b>: hablador físico personalizado con QR para tu punto de venta, y el panel de métricas (sin el aviso de clientes que se están enfriando).',
-              wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet, aviso automático cuando el cliente está cerca de tu local, notificación push de recordatorio si pasa un tiempo sin visitarte, y el panel de métricas completo.',
+              wallet: 'Todo lo del Plan Físico, <b>más</b>: tarjeta en Apple Wallet y Google Wallet, aviso automático cuando el cliente está cerca de tu local (Apple), notificación push de recordatorio si pasa un tiempo sin visitarte, y el panel de métricas completo.',
             };
             el.innerHTML = texts[plan] || texts.wallet;
           }
@@ -6075,9 +6075,9 @@ ${pageHead(
           ${folderPage('wallet', 'var(--terracotta)', 'var(--cream)', icons.wallet,
             'Plan Fideliza Wallet',
             'Para marcas que quieren llevar su fidelización un paso más allá',
-            `<p class="folder-includes-label">Todo lo que incluye el Plan Digital, más Apple Wallet.</p>
+            `<p class="folder-includes-label">Todo lo que incluye el Plan Digital, más Apple y Google Wallet.</p>
             <ul class="folder-extras">
-              <li><span class="deck-check-icon deck-check-icon-extra">${icons.wallet}</span><span>Tus clientes pueden agregar su tarjeta directamente a Apple Wallet. Quienes no utilicen esta opción pueden continuar accediendo desde la web.</span></li>
+              <li><span class="deck-check-icon deck-check-icon-extra">${icons.wallet}</span><span>Tus clientes pueden agregar su tarjeta directamente a Apple Wallet o Google Wallet, según el celular que tengan. Quienes no utilicen ninguna de las dos opciones pueden continuar accediendo desde la web.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.scan}</span><span>Si tienes un punto de venta físico, también recibes tu hablador personalizado.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.pin}</span><span>Su tarjeta puede aparecer en la pantalla de bloqueo cuando está cerca de tu local, recordándole que puede utilizarla.</span></li>
               <li><span class="deck-check-icon deck-check-icon-extra">${icons.sparkle}</span><span>Si pasa un tiempo sin visitar el negocio, puede recibir una notificación push en su celular invitándolo a volver.</span></li>
@@ -6548,7 +6548,7 @@ function renderLandingPage() {
     [icons.chart, 'Historial de sellos y actividad', 'Para identificar quiénes compran y quiénes están regresando.'],
     [icons.instagram, 'Botón directo a tu Instagram', 'Para llevar más clientes a tu perfil y mantenerlos conectados.'],
     [icons.chart, 'Panel de métricas', 'Consulta registros, premios canjeados y descarga tu base en CSV. Incluido en los planes Físico y Wallet.'],
-    [icons.wallet, 'Tarjeta en Apple Wallet', 'Se actualiza sola con cada sello, sin abrir ninguna app. Solo en el Plan Wallet.'],
+    [icons.wallet, 'Tarjeta en Apple y Google Wallet', 'Se actualiza sola con cada sello, sin abrir ninguna app. Solo en el Plan Wallet.'],
     [icons.sparkle, 'Recordatorio automático', 'A los clientes que llevan un tiempo sin visitarte, para que vuelvan. Solo en el Plan Wallet.'],
     [icons.pin, 'Promoción mensual por push', 'Mensaje push anunciando una promoción mensual, directo a la pantalla de bloqueo de los celulares de tus clientes. Solo en el Plan Wallet.'],
     [icons.cap, 'Capacitación + mejoras incluidas', 'Te enseñamos a usarla y recibes actualizaciones sin costo extra.'],
@@ -6621,7 +6621,7 @@ ${renderSiteNav('')}
         <div class="process-step reveal" style="--d:110ms">
           <div class="process-num">02</div>
           <h3>Tus clientes juntan sellos</h3>
-          <p>Escaneas su QR (o escribes su código) en cada compra, desde tu panel. Si quieren, guardan su tarjeta en Apple Wallet, que se actualiza sola con cada sello.</p>
+          <p>Escaneas su QR (o escribes su código) en cada compra, desde tu panel. Si quieren, guardan su tarjeta en Apple Wallet o Google Wallet, que se actualiza sola con cada sello.</p>
           <span class="process-arrow">→</span>
           <div class="mini-card">
             <div class="mini-card-top"><span>¡Hello!</span><span>7/10</span></div>
@@ -6721,13 +6721,13 @@ ${renderSiteNav('')}
             <div class="plan-panel-main">
               <span class="plan-tag">Plan Fideliza Wallet</span>
               <h3>Para marcas que quieren llevar su fidelización un paso más allá</h3>
-              <p>Todo lo del plan Digital, más Apple Wallet: tu marca directo en el bolsillo de tus clientes. Si tienes punto de venta físico, también recibes tu hablador.</p>
+              <p>Todo lo del plan Digital, más Apple y Google Wallet: tu marca directo en el bolsillo de tus clientes. Si tienes punto de venta físico, también recibes tu hablador.</p>
             </div>
             <div class="plan-panel-side">
               <span class="plan-badge">${icons.check} Pago único de implementación</span>
               <ul class="plan-benefits">
                 <li>${icons.layers}<span>Todo lo incluido en el Plan Digital</span></li>
-                <li>${icons.wallet}<span>Tarjeta directo en Apple Wallet, actualizada sola con cada sello</span></li>
+                <li>${icons.wallet}<span>Tarjeta directo en Apple Wallet y Google Wallet, actualizada sola con cada sello</span></li>
                 <li>${icons.pin}<span>Aviso en la pantalla de bloqueo cuando el cliente está cerca de tu local</span></li>
                 <li>${icons.sparkle}<span>Recordatorio automático por inactividad</span></li>
                 <li>${icons.pin}<span>Mensaje push anunciando una promoción mensual, directo a la pantalla de bloqueo de tus clientes</span></li>
