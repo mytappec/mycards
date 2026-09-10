@@ -9396,11 +9396,11 @@ async function googleWalletBuildSaveLink(business, customer, env, origin) {
     id: classId,
     issuerName: 'Hey Tapp',
     programName: business.name,
-    // mientras Google todavía no apruebe el acceso de publicación, las clases
-    // nuevas deben marcarse así; una vez aprobado, se puede cambiar a
-    // 'APPROVED' (no afecta nada mientras tanto, Google la sigue mostrando en
-    // modo demo con la cuenta de administrador)
-    reviewStatus: 'UNDER_REVIEW',
+    // ya Google aprobó el acceso de publicación (8 sept 2026), así que las
+    // clases nuevas se marcan directo como aprobadas — mientras estaba
+    // pendiente, tenían que decir 'UNDER_REVIEW' y solo se veían en modo
+    // demo con la cuenta de administrador
+    reviewStatus: 'APPROVED',
     hexBackgroundColor: business.color_card_bg || '#FFFFFF',
     logo: { sourceUri: { uri: `${origin}/assets/logo/${business.slug}.png` } },
   };
