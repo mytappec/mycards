@@ -9481,7 +9481,7 @@ async function googleWalletBuildSaveLink(business, customer, env, origin) {
     // Google lo rechaza. Este es el valor correcto, no tocar sin evidencia.)
     reviewStatus: 'UNDER_REVIEW',
     hexBackgroundColor: business.color_card_bg || '#FFFFFF',
-    logo: { sourceUri: { uri: `${origin}/assets/google-logo/${business.slug}.png` } },
+    programLogo: { sourceUri: { uri: `${origin}/assets/google-logo/${business.slug}.png` } },
   };
 
   const loyaltyObject = {
