@@ -2238,7 +2238,7 @@ async function handleCreateBusiness(request, env) {
   const ownerPinHash = await sha256Hex(body.owner_pin);
 
   // los sellos 2, 3 y 4 son opcionales: si faltan, se repite el anterior disponible
-  const sello1 = body.sello_1_base64;
+  const sello1 = body.sello_1_base64 || null;
   const sello2 = body.sello_2_base64 || sello1;
   const sello3 = body.sello_3_base64 || sello2;
   const sello4 = body.sello_4_base64 || sello3;
@@ -2261,7 +2261,7 @@ async function handleCreateBusiness(request, env) {
     sello_1_base64: sello1, sello_2_base64: sello2, sello_3_base64: sello3, sello_4_base64: sello4,
     font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, 10),
     greeting_eyebrow: body.greeting_eyebrow || '¡Hello!', reward_heading: body.reward_heading || 'Tu premio, cada vez más cerca',
-    reward_text: body.reward_text, reward_emoji: '⭐',
+    reward_text: body.reward_text || '', reward_emoji: '⭐',
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url), staff_pin_hash: pinHash,
     staff_pin_note: body.pin_note || null,
     owner_pin_hash: ownerPinHash,
@@ -5007,8 +5007,8 @@ async function handleUpdateBusiness(request, env, slug) {
     staff_pin_hash: newPinHash, owner_pin_hash: newOwnerPinHash };
 
   const fixedFields = {
-    slug: newSlug, name: body.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
-    greeting_eyebrow: body.greeting_eyebrow, reward_heading: body.reward_heading, reward_text: body.reward_text,
+    slug: newSlug, name: body.name || business.name, font_family: fontFamily, total_stamps: sanitizeTotalStamps(body.total_stamps, business.total_stamps),
+    greeting_eyebrow: body.greeting_eyebrow || business.greeting_eyebrow, reward_heading: body.reward_heading || business.reward_heading, reward_text: body.reward_text || business.reward_text || '',
     instagram_handle: body.instagram_handle || null, instagram_url: normalizeExternalUrl(body.instagram_url),
     instruction_text: body.instruction_text || business.instruction_text,
     plan: ['digital', 'fisico', 'wallet'].includes(body.plan) ? body.plan : (business.plan || 'wallet'),
