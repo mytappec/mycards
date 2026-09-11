@@ -8146,8 +8146,6 @@ async function handlePremioPage(request, env, slug, branchSlug) {
       ${canEditPremio ? `
       <div class="card">
         <form id="premioForm" style="text-align:left;">
-          <label>Título</label>
-          <input type="text" id="reward_heading" maxlength="40" value="${escapeHtml(business.reward_heading || 'Tu premio, cada vez más cerca')}">
           <label>Descripción del premio</label>
           <textarea id="reward_text" maxlength="90" required placeholder="Ej. 2x1 en bebidas este mes">${escapeHtml(business.reward_text || '')}</textarea>
           <p class="charcount"><span id="charcount">0</span>/90</p>
@@ -8176,14 +8174,13 @@ async function handlePremioPage(request, env, slug, branchSlug) {
         e.preventDefault();
         const saveBtn = document.getElementById('saveBtn');
         const msg = document.getElementById('msg');
-        const reward_heading = document.getElementById('reward_heading').value.trim();
         const reward_text = textEl.value.trim();
         if (!reward_text) { msg.textContent = 'Escribe la descripción del premio'; msg.className = 'msg err'; return; }
         saveBtn.disabled = true;
         msg.textContent = 'Guardando y actualizando tarjetas...'; msg.className = 'msg';
         try {
           const res = await fetch('/staff/${slug}${branchSlug ? '/' + branchSlug : ''}/premio', {
-            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ reward_heading, reward_text })
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ reward_text })
           });
           const data = await res.json();
           if (res.ok) {
@@ -8231,15 +8228,14 @@ async function handleUpdatePremio(request, env, slug, branchSlug) {
     }
   }
 
-  const { reward_heading, reward_text } = await request.json().catch(() => ({}));
-  const heading = String(reward_heading || '').trim().slice(0, 40) || 'Tu premio, cada vez más cerca';
+  const { reward_text } = await request.json().catch(() => ({}));
   const text = String(reward_text || '').trim().slice(0, 90);
   if (!text) {
     return new Response(JSON.stringify({ error: 'Escribe la descripción del premio' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
-  await env.DB.prepare("UPDATE businesses SET reward_heading = ?, reward_text = ?, last_premio_updated_at = datetime('now') WHERE id = ?")
-    .bind(heading, text, business.id).run();
+  await env.DB.prepare("UPDATE businesses SET reward_text = ?, last_premio_updated_at = datetime('now') WHERE id = ?")
+    .bind(text, business.id).run();
 
   // la tarjeta web ya queda al día sola (lee reward_heading/reward_text del
   // negocio en cada visita). Apple y Google Wallet, en cambio, guardan una
