@@ -176,7 +176,7 @@ export default {
       // ---- panel del staff ----
       if (parts[0] === 'staff' && parts[1]) {
         const slug = parts[1];
-        const staffActionWords = ['login', 'stamp', 'unstamp', 'register', 'clientes', 'metricas', 'metricas-export', 'cliente', 'historial', 'logout', 'promos'];
+        const staffActionWords = ['login', 'stamp', 'unstamp', 'register', 'clientes', 'metricas', 'metricas-export', 'cliente', 'historial', 'logout', 'promos', 'premio'];
         // si el siguiente segmento del link NO es ninguna de las acciones de
         // arriba, es el slug de una sucursal (ej. /staff/negocio/norte). Se
         // lee del link en CADA visita —nunca se guarda en la sesión— para
@@ -204,6 +204,8 @@ export default {
         if (action === 'historial' && a[1]) return handleHistorial(request, env, slug, a[1], branchSlug);
         if (action === 'promos' && request.method === 'POST') return handleSendPromo(request, env, slug);
         if (action === 'promos') return handlePromosPage(request, env, slug, branchSlug);
+        if (action === 'premio' && request.method === 'POST') return handleUpdatePremio(request, env, slug, branchSlug);
+        if (action === 'premio') return handlePremioPage(request, env, slug, branchSlug);
         if (action === 'logout') return handleLogout(request, env, slug, branchSlug);
         // sin ninguna acción reconocida: es el panel principal, con o sin sucursal
         return handleStaffPage(request, env, slug, branchSlug);
@@ -7049,6 +7051,9 @@ function renderStaffPanel(b, platformName, branchSlug, branchName, isOwner) {
         ${isOwner && b.wallet_enabled ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/promos">
           <span class="staff-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span><span class="staff-menu-label">Enviar promoción</span><span class="staff-menu-arrow">›</span>
         </a>` : ''}
+        ${isOwner ? `<a class="staff-menu-item" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/premio">
+          <span class="staff-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9M14 17H5M17 4l3 3-3 3M7 14l-3 3 3 3"/></svg></span><span class="staff-menu-label">Cambiar el premio del mes</span><span class="staff-menu-arrow">›</span>
+        </a>` : ''}
         <a class="staff-menu-item staff-menu-logout" href="/staff/${b.slug}${branchSlug ? '/' + branchSlug : ''}/logout">
           <span class="staff-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span><span class="staff-menu-label">Cerrar sesión del local</span><span class="staff-menu-arrow">›</span>
         </a>
@@ -8069,6 +8074,189 @@ async function handleSendPromo(request, env, slug) {
   await env.DB.prepare("UPDATE businesses SET last_promo_sent_at = datetime('now') WHERE id = ?").bind(business.id).run();
 
   return new Response(JSON.stringify({ ok: true, sentCount }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// pantalla para que la dueña misma cambie el premio del mes (el título y la
+// descripción que ven sus clientes en la tarjeta), sin depender de que
+// alguien más edite el negocio desde el admin cada vez que cambia la promo.
+async function handlePremioPage(request, env, slug, branchSlug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response('Negocio no encontrado', { status: 404 });
+  if (business.is_suspended) {
+    const platformName = await getPlatformName(env);
+    return new Response(renderSuspendedPage(business, platformName), { status: 402, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
+  const cookieVal = getCookie(request, 'staff_session');
+  const sessionInfo = await getStaffSessionInfo(env, business.id, cookieVal);
+  if (!admin && !sessionInfo.isOwner) {
+    return new Response(renderStaffLogin(business), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+  }
+
+  // 1 cambio de premio al mes por negocio, igual que la promoción push —
+  // aplica sin importar el plan
+  const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  let canEditPremio = true;
+  let nextEligibleLabel = '';
+  if (business.last_premio_updated_at) {
+    const lastUpdated = new Date(business.last_premio_updated_at + 'Z');
+    const daysAgo = Math.floor((Date.now() - lastUpdated.getTime()) / 86400000);
+    if (daysAgo < 30) {
+      canEditPremio = false;
+      const nextDate = new Date(lastUpdated.getTime() + 30 * 86400000);
+      nextEligibleLabel = `${nextDate.getDate()} de ${MESES_ES[nextDate.getMonth()]}`;
+    }
+  }
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only">
+  <title>Premio del mes · ${escapeHtml(business.name)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:light;}
+    *{box-sizing:border-box;color-scheme:light;}
+    body{margin:0;padding:24px;font-family:'Quicksand',sans-serif;background:${HEY_TAPP_BRAND.paleBlue};color:${HEY_TAPP_BRAND.brown};}
+    .wrap{max-width:520px;margin:0 auto;}
+    a.back{display:inline-block;margin-bottom:16px;color:${HEY_TAPP_BRAND.brown};font-weight:700;text-decoration:none;font-size:15px;}
+    h1{font-family:'Baloo 2',sans-serif;font-size:23px;margin:0 0 6px;}
+    p.sub{opacity:.8;font-size:14px;margin:0 0 18px;line-height:1.5;}
+    .card{background:${HEY_TAPP_BRAND.cream};border-radius:16px;padding:22px 20px;box-shadow:0 4px 14px rgba(66,40,27,.08);text-align:center;}
+    label{display:block;font-weight:700;font-size:13px;margin:14px 0 6px;text-align:left;}
+    label:first-child{margin-top:0;}
+    input,textarea{width:100%;padding:12px 14px;border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:12px;font-family:'Quicksand',sans-serif;font-size:15px;background:#fff;color:${HEY_TAPP_BRAND.brown};}
+    textarea{resize:vertical;min-height:80px;}
+    .charcount{font-size:11px;opacity:.6;text-align:right;margin-top:2px;}
+    button{width:100%;padding:15px;border:2px solid ${HEY_TAPP_BRAND.brown};border-radius:14px;background:${HEY_TAPP_BRAND.brown};color:#fff;font-weight:700;font-size:16px;cursor:pointer;margin-top:18px;}
+    button:disabled{opacity:.6;cursor:not-allowed;}
+    .msg{text-align:center;font-size:14px;margin-top:14px;min-height:18px;}
+    .msg.ok{color:#215A34;background:#DFF3E4;border:2px solid #3F7D4F;border-radius:12px;padding:14px 10px;font-weight:800;}
+    .msg.err{color:#B23A3A;background:#FBE4E4;border:2px solid #B23A3A;border-radius:12px;padding:14px 10px;font-weight:700;}
+    .done-icon{font-size:40px;margin-bottom:6px;}
+    .done-title{font-family:'Baloo 2',sans-serif;font-size:19px;margin:0 0 8px;}
+    .done-text{font-size:14px;line-height:1.5;opacity:.85;margin:0;}
+    .footer-brand{text-align:center;margin:22px 0 0;}
+    .footer-brand img{width:24%;min-width:90px;max-width:130px;height:auto;display:block;margin:0 auto;}
+  </style></head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="/staff/${slug}${branchSlug ? '/' + branchSlug : ''}">← Volver al panel</a>
+      <h1>🏆 Premio del mes</h1>
+      <p class="sub">Esto es lo que ve cada cliente en su tarjeta. Se puede cambiar una vez al mes, y se actualiza solo en la tarjeta web, en Apple Wallet y en Google Wallet de todos tus clientes.</p>
+      ${canEditPremio ? `
+      <div class="card">
+        <form id="premioForm" style="text-align:left;">
+          <label>Título</label>
+          <input type="text" id="reward_heading" maxlength="40" value="${escapeHtml(business.reward_heading || 'Tu premio, cada vez más cerca')}">
+          <label>Descripción del premio</label>
+          <textarea id="reward_text" maxlength="90" required placeholder="Ej. 2x1 en bebidas este mes">${escapeHtml(business.reward_text || '')}</textarea>
+          <p class="charcount"><span id="charcount">0</span>/90</p>
+          <button type="submit" id="saveBtn">Guardar y actualizar tarjetas</button>
+        </form>
+        <p class="msg" id="msg"></p>
+      </div>` : `
+      <div class="card">
+        <div class="done-icon">🏆</div>
+        <p class="done-title">¡Ya cambiaste tu premio este mes!</p>
+        <p class="done-text">Vuelve el ${nextEligibleLabel} para cambiarlo de nuevo.</p>
+      </div>`}
+    </div>
+    <div class="footer-brand">
+      <a href="https://heytapp.com" target="_blank" rel="noopener">
+        <img src="data:image/png;base64,${HEY_TAPP_LOGO_BASE64}" alt="Hey Tapp">
+      </a>
+    </div>${canEditPremio ? `
+    <script>
+      const textEl = document.getElementById('reward_text');
+      const charcountEl = document.getElementById('charcount');
+      const updateCount = () => { charcountEl.textContent = textEl.value.length; };
+      updateCount();
+      textEl.addEventListener('input', updateCount);
+      document.getElementById('premioForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const saveBtn = document.getElementById('saveBtn');
+        const msg = document.getElementById('msg');
+        const reward_heading = document.getElementById('reward_heading').value.trim();
+        const reward_text = textEl.value.trim();
+        if (!reward_text) { msg.textContent = 'Escribe la descripción del premio'; msg.className = 'msg err'; return; }
+        saveBtn.disabled = true;
+        msg.textContent = 'Guardando y actualizando tarjetas...'; msg.className = 'msg';
+        try {
+          const res = await fetch('/staff/${slug}${branchSlug ? '/' + branchSlug : ''}/premio', {
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ reward_heading, reward_text })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            msg.textContent = '✅ Premio actualizado en ' + data.updatedCount + ' tarjeta' + (data.updatedCount === 1 ? '' : 's') + '.';
+            msg.className = 'msg ok';
+            saveBtn.textContent = 'Ya lo cambiaste este mes ✓';
+          } else {
+            msg.textContent = data.error || 'No se pudo guardar el premio';
+            msg.className = 'msg err';
+            saveBtn.disabled = false;
+          }
+        } catch (e) {
+          msg.textContent = 'Error de conexión, intenta de nuevo.'; msg.className = 'msg err';
+          saveBtn.disabled = false;
+        }
+      });
+    </script>` : ''}
+  </body></html>`;
+
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
+
+async function handleUpdatePremio(request, env, slug, branchSlug) {
+  const business = await getBusiness(env, slug);
+  if (!business) return new Response(JSON.stringify({ error: 'Negocio no encontrado' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  if (business.is_suspended) {
+    return new Response(JSON.stringify({ error: 'Este negocio está suspendido' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const adminCookie = getCookie(request, 'admin_session');
+  const admin = await getAdminFromSession(env, adminCookie);
+  const staffCookie = getCookie(request, 'staff_session');
+  const sessionInfo = await getStaffSessionInfo(env, business.id, staffCookie);
+  if (!admin && !sessionInfo.isOwner) {
+    return new Response(JSON.stringify({ error: 'Solo la dueña puede cambiar el premio (necesitas el PIN de dueña)' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // 1 cambio de premio al mes por negocio, sin excepción — el panel ya ni
+  // siquiera muestra el formulario si esto no se cumple, así que llegar
+  // hasta aquí sin cumplirlo sería alguien mandando la solicitud a mano
+  if (business.last_premio_updated_at) {
+    const daysSinceLastUpdate = Math.floor((Date.now() - new Date(business.last_premio_updated_at + 'Z').getTime()) / 86400000);
+    if (daysSinceLastUpdate < 30) {
+      return new Response(JSON.stringify({ error: 'Ya cambiaste el premio de este mes. Vuelve el mes que viene para el siguiente 🏆' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+    }
+  }
+
+  const { reward_heading, reward_text } = await request.json().catch(() => ({}));
+  const heading = String(reward_heading || '').trim().slice(0, 40) || 'Tu premio, cada vez más cerca';
+  const text = String(reward_text || '').trim().slice(0, 90);
+  if (!text) {
+    return new Response(JSON.stringify({ error: 'Escribe la descripción del premio' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  await env.DB.prepare("UPDATE businesses SET reward_heading = ?, reward_text = ?, last_premio_updated_at = datetime('now') WHERE id = ?")
+    .bind(heading, text, business.id).run();
+
+  // la tarjeta web ya queda al día sola (lee reward_heading/reward_text del
+  // negocio en cada visita). Apple y Google Wallet, en cambio, guardan una
+  // copia propia por cliente, así que hay que avisarle a cada tarjeta ya
+  // guardada que se actualice — el mismo mecanismo que ya usa el sellado.
+  let updatedCount = 0;
+  try {
+    const { results } = await env.DB.prepare('SELECT code FROM customers WHERE business_id = ?').bind(business.id).all();
+    for (const row of results) {
+      await walletNotifyDevices(env, slug, row.code);
+      updatedCount++;
+    }
+  } catch (e) {
+    console.error('[premio] error actualizando las tarjetas ya guardadas:', e && e.message ? e.message : e);
+  }
+
+  return new Response(JSON.stringify({ ok: true, updatedCount }), { headers: { 'Content-Type': 'application/json' } });
 }
 // la sesión — así, si el mismo dispositivo estuvo antes en otra sucursal (o
 // en el link sin sucursal), cada sello queda con la sucursal correcta del
