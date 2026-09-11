@@ -8157,6 +8157,8 @@ async function handlePremioPage(request, env, slug, branchSlug) {
     .done-icon{font-size:40px;margin-bottom:6px;}
     .done-title{font-family:'Baloo 2',sans-serif;font-size:19px;margin:0 0 8px;}
     .done-text{font-size:14px;line-height:1.5;opacity:.85;margin:0;}
+    .contact-hint{text-align:center;font-size:11.5px;opacity:.65;margin:16px 0 0;line-height:1.4;}
+    .contact-hint a{color:${HEY_TAPP_BRAND.brown};font-weight:700;}
     .footer-brand{text-align:center;margin:22px 0 0;}
     .footer-brand img{width:24%;min-width:90px;max-width:130px;height:auto;display:block;margin:0 auto;}
   </style></head>
@@ -8174,6 +8176,7 @@ async function handlePremioPage(request, env, slug, branchSlug) {
           <button type="submit" id="saveBtn">Guardar y actualizar tarjetas</button>
         </form>
         <p class="msg" id="msg"></p>
+        <p class="contact-hint">¿Necesitas cambiar alguna promoción especial? Escríbenos a <a href="mailto:hola@heytapp.com">hola@heytapp.com</a></p>
       </div>` : `
       <div class="card">
         <div class="done-icon">🏆</div>
